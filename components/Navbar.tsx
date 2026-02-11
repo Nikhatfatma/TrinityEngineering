@@ -3,7 +3,19 @@
 import { useState } from "react";
 
 export default function Navbar() {
+  const [isServicesOpen, setIsServicesOpen] = useState(false);
   const [isEducationOpen, setIsEducationOpen] = useState(false);
+
+  const services = [
+    { name: "Storm Damage", icon: "cyclone", href: "/services/storm-damage" },
+    { name: "Water Loss", icon: "opacity", href: "/services/water-loss" },
+    { name: "Structural", icon: "architecture", href: "/services/structural" },
+    { name: "Fortified", icon: "shield", href: "/services/fortified" },
+    { name: "Chimney Collapse", icon: "report_problem", href: "/services/chimney-collapse" },
+    { name: "Large Loss", icon: "domain_disabled", href: "/services/large-loss" },
+    { name: "Component Failure", icon: "construction", href: "/services/component-failure" },
+    { name: "HVAC/Electrical", icon: "electrical_services", href: "/services/hvac-electrical" },
+  ];
 
   return (
     <nav className="fixed top-0 w-full z-50 glass-nav">
@@ -18,15 +30,48 @@ export default function Navbar() {
         </div>
 
         <div className="hidden lg:flex items-center gap-8">
-          <a
-            className="text-sm font-semibold text-gray-300 hover:text-primary transition-colors"
-            href="#services"
+          <div 
+            className="relative group"
+            onMouseEnter={() => setIsServicesOpen(true)}
+            onMouseLeave={() => setIsServicesOpen(false)}
           >
-            Our Services
-          </a>
+            <button className="flex items-center gap-1 text-sm font-semibold text-gray-300 hover:text-primary transition-colors focus:outline-none">
+              Our Services
+              <span className="material-icons text-sm">expand_more</span>
+            </button>
+            <div
+              className={`absolute top-full left-0 mt-2 w-64 bg-section-dark shadow-2xl rounded-lg border border-white/5 transition-all duration-200 max-h-[500px] overflow-y-auto scrollbar-hide ${
+                isServicesOpen ? "opacity-100 visible" : "opacity-0 invisible"
+              }`}
+            >
+              <div className="p-2">
+                {services.map((service) => (
+                  <a
+                    key={service.name}
+                    className="flex items-center gap-3 px-4 py-3 text-sm text-gray-300 hover:bg-primary/10 hover:text-primary transition-colors rounded-lg group/item"
+                    href={service.href}
+                  >
+                    <span className="material-symbols-outlined text-lg text-primary group-hover/item:scale-110 transition-transform">
+                      {service.icon}
+                    </span>
+                    <span>{service.name}</span>
+                  </a>
+                ))}
+              </div>
+              <div className="border-t border-white/5 p-2">
+                <a
+                  className="flex items-center justify-center gap-2 px-4 py-3 text-sm text-primary hover:bg-primary/10 transition-colors rounded-lg font-bold"
+                  href="#services"
+                >
+                  View All Services
+                  <span className="material-icons text-sm">arrow_forward</span>
+                </a>
+              </div>
+            </div>
+          </div>
           <a
             className="text-sm font-semibold text-gray-300 hover:text-primary transition-colors"
-            href="#"
+            href="/fortified"
           >
             Fortified
           </a>
@@ -45,20 +90,20 @@ export default function Navbar() {
               }`}
             >
               <a
-                className="block px-4 py-3 text-sm text-gray-300 hover:bg-primary/10 hover:text-primary transition-colors"
+                className="block px-4 py-3 text-sm text-gray-300 hover:bg-primary/10 hover:text-primary transition-colors rounded-t-lg"
                 href="#blog"
               >
                 Forensic Blog
               </a>
               <a
                 className="block px-4 py-3 text-sm text-gray-300 hover:bg-primary/10 hover:text-primary transition-colors"
-                href="#"
+                href="/case-studies"
               >
                 Case Studies
               </a>
               <a
-                className="block px-4 py-3 text-sm text-gray-300 hover:bg-primary/10 hover:text-primary transition-colors"
-                href="#"
+                className="block px-4 py-3 text-sm text-gray-300 hover:bg-primary/10 hover:text-primary transition-colors rounded-b-lg"
+                href="/white-papers"
               >
                 White Papers
               </a>
@@ -81,7 +126,7 @@ export default function Navbar() {
         <div className="flex items-center gap-4">
           <a
             className="text-sm font-semibold text-gray-500 hover:text-primary transition-colors px-4"
-            href="#"
+            href="/client-login"
           >
             Client Login
           </a>
