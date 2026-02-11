@@ -1,10 +1,12 @@
 "use client";
 
 import { useState } from "react";
+import { useTheme } from "@/contexts/ThemeContext";
 
 export default function Navbar() {
   const [isServicesOpen, setIsServicesOpen] = useState(false);
   const [isEducationOpen, setIsEducationOpen] = useState(false);
+  const { theme, toggleTheme } = useTheme();
 
   const services = [
     { name: "Storm Damage", icon: "cyclone", href: "/services/storm-damage" },
@@ -18,13 +20,13 @@ export default function Navbar() {
   ];
 
   return (
-    <nav className="fixed top-0 w-full z-50 glass-nav">
+    <nav className="fixed top-0 w-full z-50 glass-nav bg-white/90 dark:bg-background-dark/85 backdrop-blur-xl border-b border-gray-200 dark:border-white/5 shadow-sm">
       <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <div className="w-10 h-10 bg-primary rounded flex items-center justify-center shadow-[0_0_15px_rgba(0,242,255,0.4)]">
             <span className="text-background-dark font-extrabold text-xl italic">T</span>
           </div>
-          <span className="text-2xl font-bold tracking-tight text-white">
+          <span className="text-2xl font-bold tracking-tight text-gray-900 dark:text-white">
             TRINITY<span className="text-primary">ENGINEERING</span>
           </span>
         </div>
@@ -35,12 +37,12 @@ export default function Navbar() {
             onMouseEnter={() => setIsServicesOpen(true)}
             onMouseLeave={() => setIsServicesOpen(false)}
           >
-            <button className="flex items-center gap-1 text-sm font-semibold text-gray-300 hover:text-primary transition-colors focus:outline-none">
+            <button className="flex items-center gap-1 text-sm font-semibold text-gray-700 dark:text-gray-300 hover:text-primary dark:hover:text-primary transition-colors focus:outline-none">
               Our Services
               <span className="material-icons text-sm">expand_more</span>
             </button>
             <div
-              className={`absolute top-full left-0 mt-2 w-64 bg-section-dark shadow-2xl rounded-lg border border-white/5 transition-all duration-200 max-h-[500px] overflow-y-auto scrollbar-hide ${
+              className={`absolute top-full left-0 mt-2 w-64 bg-white dark:bg-section-dark shadow-2xl rounded-lg border border-gray-200 dark:border-white/5 transition-all duration-200 max-h-[500px] overflow-y-auto scrollbar-hide ${
                 isServicesOpen ? "opacity-100 visible" : "opacity-0 invisible"
               }`}
             >
@@ -48,7 +50,7 @@ export default function Navbar() {
                 {services.map((service) => (
                   <a
                     key={service.name}
-                    className="flex items-center gap-3 px-4 py-3 text-sm text-gray-300 hover:bg-primary/10 hover:text-primary transition-colors rounded-lg group/item"
+                    className="flex items-center gap-3 px-4 py-3 text-sm text-gray-700 dark:text-gray-300 hover:bg-primary/10 hover:text-primary transition-colors rounded-lg group/item"
                     href={service.href}
                   >
                     <span className="material-symbols-outlined text-lg text-primary group-hover/item:scale-110 transition-transform">
@@ -58,7 +60,7 @@ export default function Navbar() {
                   </a>
                 ))}
               </div>
-              <div className="border-t border-white/5 p-2">
+              <div className="border-t border-gray-200 dark:border-white/5 p-2">
                 <a
                   className="flex items-center justify-center gap-2 px-4 py-3 text-sm text-primary hover:bg-primary/10 transition-colors rounded-lg font-bold"
                   href="#services"
@@ -70,7 +72,7 @@ export default function Navbar() {
             </div>
           </div>
           <a
-            className="text-sm font-semibold text-gray-300 hover:text-primary transition-colors"
+            className="text-sm font-semibold text-gray-700 dark:text-gray-300 hover:text-primary dark:hover:text-primary transition-colors"
             href="/fortified"
           >
             Fortified
@@ -80,29 +82,29 @@ export default function Navbar() {
             onMouseEnter={() => setIsEducationOpen(true)}
             onMouseLeave={() => setIsEducationOpen(false)}
           >
-            <button className="flex items-center gap-1 text-sm font-semibold text-gray-300 hover:text-primary transition-colors focus:outline-none">
+            <button className="flex items-center gap-1 text-sm font-semibold text-gray-700 dark:text-gray-300 hover:text-primary dark:hover:text-primary transition-colors focus:outline-none">
               Education
               <span className="material-icons text-sm">expand_more</span>
             </button>
             <div
-              className={`absolute top-full left-0 mt-2 w-48 bg-section-dark shadow-2xl rounded-lg border border-white/5 transition-all duration-200 ${
+              className={`absolute top-full left-0 mt-2 w-48 bg-white dark:bg-section-dark shadow-2xl rounded-lg border border-gray-200 dark:border-white/5 transition-all duration-200 ${
                 isEducationOpen ? "opacity-100 visible" : "opacity-0 invisible"
               }`}
             >
               <a
-                className="block px-4 py-3 text-sm text-gray-300 hover:bg-primary/10 hover:text-primary transition-colors rounded-t-lg"
+                className="block px-4 py-3 text-sm text-gray-700 dark:text-gray-300 hover:bg-primary/10 hover:text-primary transition-colors rounded-t-lg"
                 href="#blog"
               >
                 Forensic Blog
               </a>
               <a
-                className="block px-4 py-3 text-sm text-gray-300 hover:bg-primary/10 hover:text-primary transition-colors"
+                className="block px-4 py-3 text-sm text-gray-700 dark:text-gray-300 hover:bg-primary/10 hover:text-primary transition-colors"
                 href="/case-studies"
               >
                 Case Studies
               </a>
               <a
-                className="block px-4 py-3 text-sm text-gray-300 hover:bg-primary/10 hover:text-primary transition-colors rounded-b-lg"
+                className="block px-4 py-3 text-sm text-gray-700 dark:text-gray-300 hover:bg-primary/10 hover:text-primary transition-colors rounded-b-lg"
                 href="/white-papers"
               >
                 White Papers
@@ -110,13 +112,13 @@ export default function Navbar() {
             </div>
           </div>
           <a
-            className="text-sm font-semibold text-gray-300 hover:text-primary transition-colors"
+            className="text-sm font-semibold text-gray-700 dark:text-gray-300 hover:text-primary dark:hover:text-primary transition-colors"
             href="#about"
           >
             About Us
           </a>
           <a
-            className="text-sm font-semibold text-gray-300 hover:text-primary transition-colors"
+            className="text-sm font-semibold text-gray-700 dark:text-gray-300 hover:text-primary dark:hover:text-primary transition-colors"
             href="#careers"
           >
             Careers
@@ -124,14 +126,31 @@ export default function Navbar() {
         </div>
 
         <div className="flex items-center gap-4">
+          {/* Theme Toggle */}
+          <button
+            onClick={toggleTheme}
+            className="w-10 h-10 rounded-full bg-gradient-to-br from-gray-100 to-gray-200 dark:from-white/5 dark:to-white/5 border-2 border-gray-200 dark:border-white/10 flex items-center justify-center hover:from-primary/20 hover:to-cyan-400/20 dark:hover:bg-primary/10 hover:border-primary/50 dark:hover:border-primary/30 transition-all group shadow-sm hover:shadow-md"
+            aria-label="Toggle theme"
+          >
+            {theme === "dark" ? (
+              <span className="material-symbols-outlined text-primary group-hover:rotate-180 transition-transform duration-500">
+                light_mode
+              </span>
+            ) : (
+              <span className="material-symbols-outlined text-primary group-hover:-rotate-180 transition-transform duration-500">
+                dark_mode
+              </span>
+            )}
+          </button>
+          
           <a
-            className="text-sm font-semibold text-gray-500 hover:text-primary transition-colors px-4"
+            className="text-sm font-semibold text-gray-600 dark:text-gray-500 hover:text-primary dark:hover:text-primary transition-colors px-4"
             href="/client-login"
           >
             Client Login
           </a>
           <a
-            className="bg-primary hover:bg-primary-dark text-background-dark px-6 py-2.5 rounded font-bold text-sm transition-all shadow-[0_0_20px_rgba(0,242,255,0.3)]"
+            className="bg-gradient-to-r from-primary to-cyan-400 hover:from-cyan-400 hover:to-primary dark:from-primary dark:to-primary-dark dark:hover:from-primary-dark dark:hover:to-primary text-white dark:text-background-dark px-6 py-2.5 rounded-lg font-bold text-sm transition-all shadow-md hover:shadow-lg hover:shadow-primary/30"
             href="#request"
           >
             Submit Request

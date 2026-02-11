@@ -5,6 +5,7 @@ export default {
     "./pages/**/*.{js,ts,jsx,tsx,mdx}",
     "./components/**/*.{js,ts,jsx,tsx,mdx}",
     "./app/**/*.{js,ts,jsx,tsx,mdx}",
+    "./contexts/**/*.{js,ts,jsx,tsx}",
   ],
   darkMode: "class",
   theme: {
@@ -14,6 +15,8 @@ export default {
         "primary-dark": "#00d1db",
         "background-dark": "#0a0a0a",
         "section-dark": "#121212",
+        "background-light": "#ffffff",
+        "section-light": "#f8f9fa",
         "accent-glow": "rgba(0, 242, 255, 0.15)",
       },
       fontFamily: {

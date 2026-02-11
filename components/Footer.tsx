@@ -1,27 +1,27 @@
 export default function Footer() {
   return (
-    <footer className="bg-background-dark text-gray-500 py-32 border-t border-white/5">
+    <footer className="bg-gradient-to-b from-gray-50 to-gray-100 dark:from-background-dark dark:to-background-dark text-gray-600 dark:text-gray-500 py-32 border-t-2 border-gray-200 dark:border-white/5">
       <div className="max-w-7xl mx-auto px-6">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-20 mb-24">
           <div className="space-y-10">
             <div className="flex items-center gap-2">
-              <div className="w-10 h-10 bg-primary rounded flex items-center justify-center">
+              <div className="w-10 h-10 bg-gradient-to-br from-primary to-cyan-400 dark:bg-primary rounded flex items-center justify-center shadow-md">
                 <span className="text-background-dark font-extrabold text-xl italic">
                   T
                 </span>
               </div>
-              <span className="text-2xl font-bold tracking-tight text-white">
+              <span className="text-2xl font-bold tracking-tight text-gray-900 dark:text-white">
                 TRINITY<span className="text-primary">ENGINEERING</span>
               </span>
             </div>
-            <p className="text-base leading-relaxed text-gray-400 font-light">
+            <p className="text-base leading-relaxed text-gray-700 dark:text-gray-400 font-medium">
               The global standard for forensic engineering. Meticulous
               investigation, evidence-based analysis, and absolute structural
               clarity.
             </p>
             <div className="flex gap-6">
               <a
-                className="w-12 h-12 rounded-full bg-white/5 border border-white/5 flex items-center justify-center hover:bg-primary hover:text-background-dark transition-all text-gray-400"
+                className="w-12 h-12 rounded-full bg-white dark:bg-white/5 border-2 border-gray-200 dark:border-white/5 flex items-center justify-center hover:bg-gradient-to-br hover:from-primary hover:to-cyan-400 hover:border-primary dark:hover:bg-primary hover:text-white dark:hover:text-background-dark transition-all text-gray-600 dark:text-gray-400 shadow-sm hover:shadow-lg"
                 href="#"
               >
                 <svg
@@ -33,7 +33,7 @@ export default function Footer() {
                 </svg>
               </a>
               <a
-                className="w-12 h-12 rounded-full bg-white/5 border border-white/5 flex items-center justify-center hover:bg-primary hover:text-background-dark transition-all text-gray-400"
+                className="w-12 h-12 rounded-full bg-white dark:bg-white/5 border-2 border-gray-200 dark:border-white/5 flex items-center justify-center hover:bg-gradient-to-br hover:from-primary hover:to-cyan-400 hover:border-primary dark:hover:bg-primary hover:text-white dark:hover:text-background-dark transition-all text-gray-600 dark:text-gray-400 shadow-sm hover:shadow-lg"
                 href="#"
               >
                 <svg
@@ -48,12 +48,12 @@ export default function Footer() {
           </div>
 
           <div>
-            <h5 className="text-white font-bold mb-10 uppercase tracking-[0.2em] text-xs">
+            <h5 className="text-gray-900 dark:text-white font-bold mb-10 uppercase tracking-[0.2em] text-xs">
               Capabilities
             </h5>
-            <ul className="space-y-6 text-sm font-medium">
+            <ul className="space-y-6 text-sm font-semibold">
               <li>
-                <a className="hover:text-primary transition-colors" href="#">
+                <a className="text-gray-700 dark:text-gray-500 hover:text-primary dark:hover:text-primary transition-colors" href="#">
                   Residential Forensics
                 </a>
               </li>
@@ -124,16 +124,16 @@ export default function Footer() {
           </div>
         </div>
 
-        <div className="pt-12 border-t border-white/5 flex flex-col md:flex-row items-center justify-between gap-10 text-[11px] uppercase tracking-[0.3em] font-black text-white/30">
+        <div className="pt-12 border-t-2 border-gray-200 dark:border-white/5 flex flex-col md:flex-row items-center justify-between gap-10 text-[11px] uppercase tracking-[0.3em] font-black text-gray-500 dark:text-white/30">
           <p>
             ©️ 2024 Trinity Engineering Group, LLC. Professional Excellence
             Guaranteed.
           </p>
           <div className="flex gap-12">
-            <a className="hover:text-white transition-colors" href="#">
+            <a className="hover:text-gray-900 dark:hover:text-white transition-colors" href="#">
               Privacy Protocol
             </a>
-            <a className="hover:text-white transition-colors" href="#">
+            <a className="hover:text-gray-900 dark:hover:text-white transition-colors" href="#">
               Service Terms
             </a>
           </div>

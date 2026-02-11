@@ -83,20 +83,20 @@ export default function Services() {
   ];
 
   return (
-    <section className="py-32 bg-background-dark overflow-hidden" id="services">
+    <section className="py-32 bg-gradient-to-b from-gray-50 to-white dark:from-background-dark dark:to-background-dark overflow-hidden transition-colors duration-300" id="services">
       <div className="max-w-7xl mx-auto px-6">
         <div className="flex flex-col md:flex-row md:items-end justify-between mb-16 gap-8">
           <div className="max-w-2xl">
-            <h2 className="text-sm font-bold text-primary uppercase tracking-[0.4em] mb-6">
+            <h2 className="text-sm font-bold bg-gradient-to-r from-primary to-cyan-500 bg-clip-text text-transparent uppercase tracking-[0.4em] mb-6">
               Service Portfolio
             </h2>
-            <h3 className="text-5xl md:text-6xl font-extrabold text-white leading-tight tracking-tight">
+            <h3 className="text-5xl md:text-6xl font-extrabold bg-gradient-to-br from-gray-900 to-gray-700 dark:from-white dark:to-white bg-clip-text text-transparent leading-tight tracking-tight">
               Deep analysis of <br />
               structural failure.
             </h3>
           </div>
           <div className="max-w-md pb-2">
-            <p className="text-gray-400 text-lg leading-relaxed magazine-border pl-8">
+            <p className="text-gray-700 dark:text-gray-400 text-lg leading-relaxed border-l-4 border-primary/30 pl-8 font-medium">
               Our engineers use elite diagnostic tools and forensic methodologies
               to deliver definitive results in the most challenging environments.
             </p>
@@ -107,14 +107,14 @@ export default function Services() {
           {/* Navigation Buttons */}
           <button
             onClick={() => scroll("left")}
-            className="hidden md:flex absolute left-0 top-1/2 -translate-y-1/2 -translate-x-4 z-10 w-12 h-12 bg-section-dark border border-white/10 rounded-full items-center justify-center text-primary hover:bg-primary hover:text-background-dark transition-all shadow-xl"
+            className="hidden md:flex absolute left-0 top-1/2 -translate-y-1/2 -translate-x-4 z-10 w-14 h-14 bg-white dark:bg-section-dark border-2 border-gray-200 dark:border-white/10 rounded-full items-center justify-center text-primary hover:bg-gradient-to-br hover:from-primary hover:to-cyan-400 hover:text-white dark:hover:bg-primary dark:hover:text-background-dark transition-all shadow-lg hover:shadow-xl hover:shadow-primary/30"
             aria-label="Scroll left"
           >
             <span className="material-icons">chevron_left</span>
           </button>
           <button
             onClick={() => scroll("right")}
-            className="hidden md:flex absolute right-0 top-1/2 -translate-y-1/2 translate-x-4 z-10 w-12 h-12 bg-section-dark border border-white/10 rounded-full items-center justify-center text-primary hover:bg-primary hover:text-background-dark transition-all shadow-xl"
+            className="hidden md:flex absolute right-0 top-1/2 -translate-y-1/2 translate-x-4 z-10 w-14 h-14 bg-white dark:bg-section-dark border-2 border-gray-200 dark:border-white/10 rounded-full items-center justify-center text-primary hover:bg-gradient-to-br hover:from-primary hover:to-cyan-400 hover:text-white dark:hover:bg-primary dark:hover:text-background-dark transition-all shadow-lg hover:shadow-xl hover:shadow-primary/30"
             aria-label="Scroll right"
           >
             <span className="material-icons">chevron_right</span>
@@ -123,9 +123,9 @@ export default function Services() {
           {/* Services Container */}
           <div className="relative">
             {/* Left Fade */}
-            <div className="absolute left-0 top-0 bottom-0 w-20 bg-gradient-to-r from-background-dark to-transparent z-[5] pointer-events-none hidden md:block"></div>
+            <div className="absolute left-0 top-0 bottom-0 w-32 bg-gradient-to-r from-gray-50 via-gray-50 dark:from-background-dark dark:via-background-dark to-transparent z-[5] pointer-events-none hidden md:block"></div>
             {/* Right Fade */}
-            <div className="absolute right-0 top-0 bottom-0 w-20 bg-gradient-to-l from-background-dark to-transparent z-[5] pointer-events-none hidden md:block"></div>
+            <div className="absolute right-0 top-0 bottom-0 w-32 bg-gradient-to-l from-gray-50 via-gray-50 dark:from-background-dark dark:via-background-dark to-transparent z-[5] pointer-events-none hidden md:block"></div>
 
             <div
               ref={scrollRef}
@@ -134,7 +134,7 @@ export default function Services() {
               {services.map((service, index) => (
                 <div
                   key={index}
-                  className="relative group overflow-hidden rounded-2xl h-[500px] min-w-[320px] md:min-w-[380px] border border-white/5 snap-center flex-shrink-0 hover:border-primary/30 transition-all"
+                  className="relative group overflow-hidden rounded-2xl h-[500px] min-w-[320px] md:min-w-[380px] border-2 border-gray-200 dark:border-white/5 snap-center flex-shrink-0 hover:border-primary/50 dark:hover:border-primary/30 transition-all shadow-lg hover:shadow-2xl hover:shadow-primary/20"
                 >
                   <img
                     alt={service.title}
