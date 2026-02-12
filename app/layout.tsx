@@ -3,8 +3,8 @@ import "./globals.css";
 import { ThemeProvider } from "@/contexts/ThemeContext";
 
 export const metadata: Metadata = {
-  title: "Trinity Engineering | Forensic Engineering Detectives",
-  description: "The global standard for forensic engineering. Meticulous investigation, evidence-based analysis, and absolute structural clarity.",
+  title: "Trinity Engineering | Forensic Engineering Investigations & Expert Analysis",
+  description: "Engineering detectives using science to determine root causes of property damage. Licensed PE engineers providing forensic investigations for structural failures, storm damage, water loss, and more. Serving insurance carriers and legal professionals nationwide.",
 };
 
 export default function RootLayout({
@@ -13,8 +13,20 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className="scroll-smooth">
-      <body className="bg-white dark:bg-background-dark font-display text-gray-900 dark:text-gray-300 antialiased transition-colors duration-300">
+    <html lang="en" className="scroll-smooth" suppressHydrationWarning>
+      <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              try {
+                const theme = localStorage.getItem('theme') || 'light';
+                document.documentElement.classList.add(theme);
+              } catch (e) {}
+            `,
+          }}
+        />
+      </head>
+      <body className="bg-white dark:bg-background-dark font-display text-gray-900 dark:text-gray-300 antialiased">
         <ThemeProvider>
           {children}
         </ThemeProvider>

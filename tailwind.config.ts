@@ -11,13 +11,17 @@ export default {
   theme: {
     extend: {
       colors: {
-        primary: "#00f2ff",
-        "primary-dark": "#00d1db",
-        "background-dark": "#0a0a0a",
-        "section-dark": "#121212",
-        "background-light": "#ffffff",
-        "section-light": "#f8f9fa",
-        "accent-glow": "rgba(0, 242, 255, 0.15)",
+        primary: "#1E3A8A", // Trinity Blue from logo
+        "primary-dark": "#1E40AF",
+        "primary-light": "#3B82F6",
+        navy: "#000B29", // Dark navy from logo
+        steel: "#64748B", // Steel grey
+        "background-dark": "#0F172A",
+        "section-dark": "#1E293B",
+        "background-light": "#F8FAFC",
+        "section-light": "#F1F5F9",
+        accent: "#3B82F6",
+        "accent-light": "#60A5FA",
       },
       fontFamily: {
         display: ["Manrope", "sans-serif"],

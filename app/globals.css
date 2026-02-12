@@ -1,6 +1,7 @@
 @import url('https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700;800&display=swap');
 @import url('https://fonts.googleapis.com/icon?family=Material+Icons');
 @import url('https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap');
+@import "maplibre-gl/dist/maplibre-gl.css";
 
 @tailwind base;
 @tailwind components;
@@ -10,34 +11,6 @@
   body {
     font-family: 'Manrope', sans-serif;
   }
-}
-
-/* Light theme colors */
-:root {
-  --background-light: #ffffff;
-  --section-light: #f8f9fa;
-  --text-light: #1a1a1a;
-}
-
-.glass-nav {
-  backdrop-filter: blur(20px);
-}
-
-.neon-icon {
-  text-shadow: 0 0 10px rgba(0, 242, 255, 0.8), 0 0 20px rgba(0, 242, 255, 0.4);
-}
-
-.hero-overlay {
-  background: linear-gradient(to right, #0a0a0a 20%, transparent 80%),
-              linear-gradient(to top, #0a0a0a 10%, transparent 40%);
-}
-
-.service-card-overlay {
-  background: linear-gradient(to bottom, rgba(18, 18, 18, 0.6) 0%, rgba(10, 10, 10, 0.95) 100%);
-}
-
-.magazine-border {
-  border-left: 1px solid rgba(0, 242, 255, 0.3);
 }
 
 @layer utilities {
@@ -57,7 +30,7 @@
   }
 }
 
-/* Custom Mapbox Popup Styles */
+/* Map Popup Styles */
 .mapboxgl-popup-content {
   background: transparent !important;
   padding: 0 !important;
@@ -68,6 +41,12 @@
   border-top-color: rgba(18, 18, 18, 0.95) !important;
 }
 
-.custom-popup .mapboxgl-popup-content {
-  border-radius: 1rem;
+.maplibregl-popup-content {
+  background: transparent !important;
+  padding: 0 !important;
+  box-shadow: none !important;
+}
+
+.maplibregl-popup-tip {
+  border-top-color: rgba(18, 18, 18, 0.95) !important;
 }

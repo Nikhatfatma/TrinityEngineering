@@ -5,15 +5,15 @@ import { FormEvent, useState } from "react";
 export default function ContactForm() {
   const [formData, setFormData] = useState({
     name: "",
+    company: "",
     email: "",
-    classification: "",
     phone: "",
+    investigationType: "",
     details: "",
   });
 
   const handleSubmit = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    // Handle form submission logic here
     console.log("Form submitted", formData);
   };
 
@@ -24,270 +24,311 @@ export default function ContactForm() {
     });
   };
 
-  const serviceOptions = [
-    { value: "", label: "Select Investigation Type" },
-    { value: "storm-damage", label: "Storm Damage Assessment" },
-    { value: "water-loss", label: "Water Loss Investigation" },
-    { value: "structural", label: "Structural Failure Analysis" },
-    { value: "fortified", label: "Fortified Certification" },
-    { value: "chimney", label: "Chimney Collapse Investigation" },
-    { value: "large-loss", label: "Large Loss Assessment" },
-    { value: "component", label: "Component Failure Analysis" },
-    { value: "hvac", label: "HVAC/Electrical Systems" },
+  const investigationTypes = [
+    { name: "Structural Failure", icon: "architecture", image: "https://images.unsplash.com/photo-1503387762-592deb58ef4e?w=400&q=80" },
+    { name: "Storm Damage", icon: "cyclone", image: "https://images.unsplash.com/photo-1527482797697-8795b05a13fe?w=400&q=80" },
+    { name: "FORTIFIED Roof Evaluation", icon: "roofing", image: "https://images.unsplash.com/photo-1632778149955-e80f8ceca2e8?w=400&q=80" },
+    { name: "Large Loss", icon: "warning", image: "https://images.unsplash.com/photo-1541888946425-d81bb19240f5?w=400&q=80" },
+    { name: "Water Loss", icon: "opacity", image: "https://images.unsplash.com/photo-1584622650111-993a426fbf0a?w=400&q=80" },
+    { name: "Lightning Damage", icon: "bolt", image: "https://images.unsplash.com/photo-1605727216801-e27ce1d0cc28?w=400&q=80" },
+    { name: "Vandalism/Fraud", icon: "gavel", image: "https://images.unsplash.com/photo-1589829545856-d10d557cf95f?w=400&q=80" },
+    { name: "Chimney Collapse", icon: "home", image: "https://images.unsplash.com/photo-1582268611958-ebfd161ef9cf?w=400&q=80" },
+    { name: "Component Failure", icon: "build", image: "https://images.unsplash.com/photo-1621905251918-48416bd8575a?w=400&q=80" },
+    { name: "HVAC/Electrical", icon: "electrical_services", image: "https://images.unsplash.com/photo-1581094794329-c8112a89af12?w=400&q=80" },
+    { name: "Small Fire", icon: "local_fire_department", image: "https://images.unsplash.com/photo-1583508915901-b5f84c1dcde1?w=400&q=80" },
+    { name: "Plumbing Failure", icon: "plumbing", image: "https://images.unsplash.com/photo-1607472586893-edb57bdc0e39?w=400&q=80" },
   ];
 
+  const selectedType = investigationTypes.find(type => type.name === formData.investigationType);
+
   return (
-    <section className="relative py-24 md:py-32 bg-gradient-to-br dark:bg-background-dark overflow-hidden transition-colors duration-300" id="request">
-      {/* Animated Background Elements */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-20 left-10 w-72 h-72 bg-gradient-to-br from-primary/20 to-blue-400/10 dark:bg-primary/10 rounded-full blur-[120px] animate-pulse"></div>
-        <div className="absolute bottom-20 right-10 w-96 h-96 bg-gradient-to-tl from-cyan-400/10 to-primary/10 dark:bg-primary/5 rounded-full blur-[150px] animate-pulse"></div>
+    <section className="py-24 bg-gradient-to-br from-gray-50 via-white to-gray-100 dark:from-background-dark dark:via-section-dark dark:to-background-dark relative overflow-hidden" id="contact">
+      
+      {/* Background Decorative Elements */}
+      <div className="absolute inset-0 opacity-30 dark:opacity-20">
+        <div className="absolute top-0 right-0 w-96 h-96 bg-primary/10 rounded-full blur-3xl"></div>
+        <div className="absolute bottom-0 left-0 w-96 h-96 bg-accent/10 rounded-full blur-3xl"></div>
       </div>
 
       <div className="max-w-7xl mx-auto px-6 relative z-10">
         {/* Header */}
         <div className="text-center mb-16">
-          <div className="inline-flex items-center gap-3 bg-gradient-to-r from-primary/10 to-blue-500/10 dark:bg-primary/10 border border-primary/30 rounded-full px-6 py-3 mb-8 shadow-sm">
-            <span className="material-symbols-outlined text-primary text-xl animate-pulse">
-              bolt
-            </span>
-            <span className="text-sm font-bold text-primary uppercase tracking-[0.3em]">
-              24-Hour Rapid Response
+          <div className="inline-flex items-center gap-2 bg-primary/10 dark:bg-primary/20 text-primary dark:text-accent px-5 py-3 rounded-full mb-6 border border-primary/20">
+            <span className="material-symbols-outlined text-base">send</span>
+            <span className="font-bold text-sm uppercase tracking-wider">
+              Request Investigation
             </span>
           </div>
-          <h2 className="text-5xl md:text-7xl font-extrabold bg-gradient-to-br from-gray-900 to-gray-700 dark:from-white dark:to-white bg-clip-text text-transparent mb-6 tracking-tight">
-            Begin Your <span className="bg-gradient-to-r from-primary via-cyan-500 to-blue-500 dark:from-primary dark:to-primary bg-clip-text text-transparent">Investigation</span>
+          <h2 className="text-4xl md:text-5xl font-black text-gray-900 dark:text-white mb-6">
+            Submit Service Request
           </h2>
-          <p className="text-gray-700 dark:text-gray-400 text-xl max-w-2xl mx-auto font-medium leading-relaxed">
-            Submit your case details and receive priority assignment to our elite forensic engineering team.
+          <p className="text-lg text-gray-600 dark:text-gray-400 max-w-3xl mx-auto leading-relaxed">
+            Get started with a forensic engineering investigation. Our licensed PE engineers will respond within 24 hours.
           </p>
         </div>
 
-        {/* Split Screen Form Container */}
-        <div className="grid lg:grid-cols-2 gap-0 max-w-6xl mx-auto rounded-[2.5rem] overflow-hidden border-2 border-gray-200 dark:border-white/10 shadow-2xl hover:shadow-3xl transition-shadow bg-white dark:bg-section-dark">
-          {/* Left Side - Visual Content */}
-          <div className="relative hidden lg:block overflow-hidden bg-gray-900 dark:bg-background-dark">
-            <img
-              src="https://images.unsplash.com/photo-1581092918056-0c4c3acd3789?w=800&q=80"
-              alt="Forensic Engineering Investigation"
-              className="absolute inset-0 w-full h-full object-cover opacity-50 dark:opacity-100"
-            />
-            <div className="absolute inset-0 bg-gradient-to-br from-gray-900 via-gray-900/95 to-primary/30 dark:from-background-dark dark:via-background-dark/90 dark:to-primary/20"></div>
-            
-            <div className="relative z-10 p-12 h-full flex flex-col justify-between">
-              {/* Top Content */}
-              <div>
-                <div className="inline-flex items-center gap-3 bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl px-5 py-3 mb-8">
-                  <div className="w-3 h-3 bg-primary rounded-full animate-pulse"></div>
-                  <span className="text-white font-bold text-sm">Live Support Available</span>
-                </div>
-
-                <h3 className="text-4xl font-extrabold text-white mb-6 leading-tight">
-                  Elite Engineering <br />
-                  <span className="text-primary">Expertise</span>
-                </h3>
-                <p className="text-gray-300 text-lg leading-relaxed mb-10">
-                  Join hundreds of satisfied clients who trust Trinity Engineering for accurate, defensible forensic analysis.
-                </p>
-
-                {/* Stats */}
-                <div className="grid grid-cols-2 gap-6 mb-10">
-                  <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl p-6">
-                    <div className="text-4xl font-black text-primary mb-2">98%</div>
-                    <div className="text-xs text-gray-400 uppercase tracking-wider font-bold">
-                      Success Rate
+        <div className="grid lg:grid-cols-5 gap-8 items-start">
+          
+          {/* LEFT: Form Section (3 columns) */}
+          <div className="lg:col-span-3">
+            <div className="bg-white dark:bg-section-dark rounded-3xl border-2 border-gray-200 dark:border-gray-800 p-8 md:p-10 shadow-2xl">
+              <form onSubmit={handleSubmit} className="space-y-8">
+                
+                {/* Contact Information */}
+                <div>
+                  <div className="flex items-center gap-3 mb-6">
+                    <div className="w-10 h-10 bg-primary/10 dark:bg-primary/20 rounded-xl flex items-center justify-center">
+                      <span className="material-symbols-outlined text-primary dark:text-accent text-xl">
+                        person
+                      </span>
+                    </div>
+                    <h3 className="text-2xl font-bold text-gray-900 dark:text-white">
+                      Contact Information
+                    </h3>
+                  </div>
+                  <div className="grid md:grid-cols-2 gap-5">
+                    <div className="space-y-2">
+                      <label className="text-sm font-bold text-gray-700 dark:text-gray-300 flex items-center gap-2">
+                        <span className="material-symbols-outlined text-primary dark:text-accent text-sm">badge</span>
+                        Full Name *
+                      </label>
+                      <input
+                        name="name"
+                        value={formData.name}
+                        onChange={handleChange}
+                        className="w-full bg-gray-50 dark:bg-background-dark border-2 border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3.5 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary dark:focus:ring-accent focus:border-transparent transition-all"
+                        placeholder="John Smith"
+                        type="text"
+                        required
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-bold text-gray-700 dark:text-gray-300 flex items-center gap-2">
+                        <span className="material-symbols-outlined text-primary dark:text-accent text-sm">business</span>
+                        Company/Organization
+                      </label>
+                      <input
+                        name="company"
+                        value={formData.company}
+                        onChange={handleChange}
+                        className="w-full bg-gray-50 dark:bg-background-dark border-2 border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3.5 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary dark:focus:ring-accent focus:border-transparent transition-all"
+                        placeholder="ABC Insurance Company"
+                        type="text"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-bold text-gray-700 dark:text-gray-300 flex items-center gap-2">
+                        <span className="material-symbols-outlined text-primary dark:text-accent text-sm">email</span>
+                        Email Address *
+                      </label>
+                      <input
+                        name="email"
+                        value={formData.email}
+                        onChange={handleChange}
+                        className="w-full bg-gray-50 dark:bg-background-dark border-2 border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3.5 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary dark:focus:ring-accent focus:border-transparent transition-all"
+                        placeholder="john@company.com"
+                        type="email"
+                        required
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-bold text-gray-700 dark:text-gray-300 flex items-center gap-2">
+                        <span className="material-symbols-outlined text-primary dark:text-accent text-sm">phone</span>
+                        Phone Number *
+                      </label>
+                      <input
+                        name="phone"
+                        value={formData.phone}
+                        onChange={handleChange}
+                        className="w-full bg-gray-50 dark:bg-background-dark border-2 border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3.5 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary dark:focus:ring-accent focus:border-transparent transition-all"
+                        placeholder="+1 (555) 000-0000"
+                        type="tel"
+                        required
+                      />
                     </div>
                   </div>
-                  <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl p-6">
-                    <div className="text-4xl font-black text-primary mb-2">24h</div>
-                    <div className="text-xs text-gray-400 uppercase tracking-wider font-bold">
-                      Response Time
+                </div>
+
+                {/* Investigation Details */}
+                <div className="pt-6 border-t border-gray-200 dark:border-gray-800">
+                  <div className="flex items-center gap-3 mb-6">
+                    <div className="w-10 h-10 bg-primary/10 dark:bg-primary/20 rounded-xl flex items-center justify-center">
+                      <span className="material-symbols-outlined text-primary dark:text-accent text-xl">
+                        search
+                      </span>
+                    </div>
+                    <h3 className="text-2xl font-bold text-gray-900 dark:text-white">
+                      Investigation Details
+                    </h3>
+                  </div>
+                  <div className="space-y-5">
+                    <div className="space-y-2">
+                      <label className="text-sm font-bold text-gray-700 dark:text-gray-300 flex items-center gap-2">
+                        <span className="material-symbols-outlined text-primary dark:text-accent text-sm">category</span>
+                        Investigation Type *
+                      </label>
+                      <select
+                        name="investigationType"
+                        value={formData.investigationType}
+                        onChange={handleChange}
+                        className="w-full bg-gray-50 dark:bg-background-dark border-2 border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3.5 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary dark:focus:ring-accent focus:border-transparent transition-all cursor-pointer"
+                        required
+                      >
+                        <option value="">Select Investigation Type</option>
+                        {investigationTypes.map((type) => (
+                          <option key={type.name} value={type.name}>
+                            {type.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-bold text-gray-700 dark:text-gray-300 flex items-center gap-2">
+                        <span className="material-symbols-outlined text-primary dark:text-accent text-sm">description</span>
+                        Case Description *
+                      </label>
+                      <textarea
+                        name="details"
+                        value={formData.details}
+                        onChange={handleChange}
+                        className="w-full bg-gray-50 dark:bg-background-dark border-2 border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3.5 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary dark:focus:ring-accent focus:border-transparent resize-none transition-all"
+                        placeholder="Please provide details about the incident, damage, or failure requiring investigation..."
+                        rows={6}
+                        required
+                      ></textarea>
                     </div>
                   </div>
                 </div>
-              </div>
 
-              {/* Bottom Features */}
-              <div className="space-y-4">
-                <div className="flex items-center gap-4 text-white">
-                  <div className="w-10 h-10 bg-primary/20 rounded-xl flex items-center justify-center flex-shrink-0">
-                    <span className="material-symbols-outlined text-primary text-xl">verified</span>
-                  </div>
-                  <span className="text-sm font-semibold">Licensed PE Engineers</span>
+                {/* Submit Button */}
+                <div className="pt-6">
+                  <button
+                    type="submit"
+                    className="group w-full bg-primary hover:bg-primary-dark dark:bg-accent dark:hover:bg-accent-light text-white px-8 py-5 rounded-xl font-bold text-lg transition-all shadow-lg hover:shadow-2xl flex items-center justify-center gap-3"
+                  >
+                    <span className="material-symbols-outlined text-2xl">send</span>
+                    Submit Investigation Request
+                    <span className="material-symbols-outlined group-hover:translate-x-1 transition-transform">
+                      arrow_forward
+                    </span>
+                  </button>
                 </div>
-                <div className="flex items-center gap-4 text-white">
-                  <div className="w-10 h-10 bg-primary/20 rounded-xl flex items-center justify-center flex-shrink-0">
-                    <span className="material-symbols-outlined text-primary text-xl">shield_check</span>
-                  </div>
-                  <span className="text-sm font-semibold">Litigation Support Ready</span>
-                </div>
-                <div className="flex items-center gap-4 text-white">
-                  <div className="w-10 h-10 bg-primary/20 rounded-xl flex items-center justify-center flex-shrink-0">
-                    <span className="material-symbols-outlined text-primary text-xl">public</span>
-                  </div>
-                  <span className="text-sm font-semibold">Nationwide Coverage</span>
-                </div>
-              </div>
+              </form>
             </div>
           </div>
 
-          {/* Right Side - Form */}
-          <div className="p-8 md:p-12 bg-white dark:bg-section-dark">
-            <form onSubmit={handleSubmit} className="space-y-6">
-              {/* Name Field */}
-              <div className="space-y-3">
-                <label className="flex items-center gap-2 text-xs font-bold text-primary uppercase tracking-[0.2em]">
-                  <span className="material-symbols-outlined text-sm">person</span>
-                  Principal Name
-                </label>
-                <input
-                  name="name"
-                  value={formData.name}
-                  onChange={handleChange}
-                  className="w-full bg-gray-50 dark:bg-white/[0.03] border border-gray-300 dark:border-white/10 rounded-xl px-6 py-4 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary transition-all placeholder:text-gray-500 dark:placeholder:text-gray-600 hover:border-gray-400 dark:hover:border-white/20"
-                  placeholder="Enter your full legal name"
-                  type="text"
-                  required
-                />
-              </div>
-
-              {/* Email Field */}
-              <div className="space-y-3">
-                <label className="flex items-center gap-2 text-xs font-bold text-primary uppercase tracking-[0.2em]">
-                  <span className="material-symbols-outlined text-sm">mail</span>
-                  Email Address
-                </label>
-                <input
-                  name="email"
-                  value={formData.email}
-                  onChange={handleChange}
-                  className="w-full bg-gray-50 dark:bg-white/[0.03] border border-gray-300 dark:border-white/10 rounded-xl px-6 py-4 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary transition-all placeholder:text-gray-500 dark:placeholder:text-gray-600 hover:border-gray-400 dark:hover:border-white/20"
-                  placeholder="name@organization.com"
-                  type="email"
-                  required
-                />
-              </div>
-
-              {/* Phone Field */}
-              <div className="space-y-3">
-                <label className="flex items-center gap-2 text-xs font-bold text-primary uppercase tracking-[0.2em]">
-                  <span className="material-symbols-outlined text-sm">phone</span>
-                  Priority Contact
-                </label>
-                <input
-                  name="phone"
-                  value={formData.phone}
-                  onChange={handleChange}
-                  className="w-full bg-gray-50 dark:bg-white/[0.03] border border-gray-300 dark:border-white/10 rounded-xl px-6 py-4 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary transition-all placeholder:text-gray-500 dark:placeholder:text-gray-600 hover:border-gray-400 dark:hover:border-white/20"
-                  placeholder="+1 (555) 000-0000"
-                  type="tel"
-                  required
-                />
-              </div>
-
-              {/* Investigation Type */}
-              <div className="space-y-3">
-                <label className="flex items-center gap-2 text-xs font-bold text-primary uppercase tracking-[0.2em]">
-                  <span className="material-symbols-outlined text-sm">category</span>
-                  Investigation Type
-                </label>
-                <div className="relative">
-                  <select
-                    name="classification"
-                    value={formData.classification}
-                    onChange={handleChange}
-                    className="w-full bg-gray-50 dark:bg-white/[0.03] border border-gray-300 dark:border-white/10 rounded-xl px-6 py-4 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary transition-all appearance-none hover:border-gray-400 dark:hover:border-white/20 cursor-pointer"
-                    required
-                  >
-                    {serviceOptions.map((option) => (
-                      <option key={option.value} value={option.value} className="bg-background-dark">
-                        {option.label}
-                      </option>
-                    ))}
-                  </select>
-                  <span className="material-icons absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-primary">
-                    expand_more
-                  </span>
-                </div>
-              </div>
-
-              {/* Case Details */}
-              <div className="space-y-3">
-                <label className="flex items-center gap-2 text-xs font-bold text-primary uppercase tracking-[0.2em]">
-                  <span className="material-symbols-outlined text-sm">description</span>
-                  Case Details
-                </label>
-                <textarea
-                  name="details"
-                  value={formData.details}
-                  onChange={handleChange}
-                  className="w-full bg-gray-50 dark:bg-white/[0.03] border border-gray-300 dark:border-white/10 rounded-xl px-6 py-4 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary transition-all placeholder:text-gray-500 dark:placeholder:text-gray-600 hover:border-gray-400 dark:hover:border-white/20 resize-none"
-                  placeholder="Provide a detailed description of the failure event, damage observed, and any relevant background information..."
-                  rows={5}
-                  required
-                ></textarea>
-                <p className="text-xs text-gray-500 flex items-center gap-1">
-                  <span className="material-symbols-outlined text-xs">info</span>
-                  Include location, date of incident, and preliminary observations
-                </p>
-              </div>
-
-              {/* File Upload Placeholder */}
-              <div className="space-y-3">
-                <label className="flex items-center gap-2 text-xs font-bold text-gray-400 uppercase tracking-[0.2em]">
-                  <span className="material-symbols-outlined text-sm">attach_file</span>
-                  Attachments (Optional)
-                </label>
-                <div className="border-2 border-dashed border-gray-300 dark:border-white/10 rounded-xl p-8 text-center hover:border-primary/30 transition-all cursor-pointer group bg-gray-50 dark:bg-transparent">
-                  <span className="material-symbols-outlined text-4xl text-gray-400 dark:text-gray-600 group-hover:text-primary transition-colors mb-2 block">
-                    cloud_upload
-                  </span>
-                  <p className="text-gray-600 dark:text-gray-500 text-sm mb-1">
-                    Drag & drop files or <span className="text-primary font-semibold">browse</span>
-                  </p>
-                  <p className="text-gray-500 dark:text-gray-600 text-xs">Photos, documents, or reports (Max 10MB)</p>
-                </div>
-              </div>
-
-              {/* Submit Button */}
-              <button
-                type="submit"
-                className="w-full bg-gradient-to-r from-primary via-cyan-400 to-blue-500 hover:from-blue-500 hover:via-cyan-400 hover:to-primary dark:from-primary dark:to-primary-dark dark:hover:from-primary-dark dark:hover:to-primary text-white dark:text-background-dark font-black py-5 rounded-xl shadow-lg hover:shadow-2xl hover:shadow-primary/40 transition-all text-lg tracking-widest group relative overflow-hidden"
-              >
-                <span className="relative z-10 flex items-center justify-center gap-3">
-                  SUBMIT INVESTIGATION REQUEST
-                  <span className="material-symbols-outlined group-hover:translate-x-1 transition-transform">
-                    arrow_forward
-                  </span>
-                </span>
-                <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300"></div>
-              </button>
-
-              {/* Trust Indicators */}
-              <div className="pt-6 border-t border-gray-200 dark:border-white/10">
-                <div className="flex items-center justify-center gap-8 text-gray-600 dark:text-gray-500 text-xs">
-                  <div className="flex items-center gap-2">
-                    <span className="material-symbols-outlined text-sm text-primary">lock</span>
-                    <span>Secure & Confidential</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="material-symbols-outlined text-sm text-primary">schedule</span>
-                    <span>24h Response</span>
+          {/* RIGHT: Visual Section (2 columns) */}
+          <div className="lg:col-span-2 space-y-6">
+            
+            {/* Selected Investigation Type Card */}
+            {selectedType && (
+              <div className="bg-white dark:bg-section-dark rounded-3xl border-2 border-gray-200 dark:border-gray-800 overflow-hidden shadow-2xl">
+                <div className="relative h-48">
+                  <img
+                    src={selectedType.image}
+                    alt={selectedType.name}
+                    className="w-full h-full object-cover"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent"></div>
+                  <div className="absolute bottom-4 left-4 right-4">
+                    <div className="flex items-center gap-3">
+                      <div className="w-12 h-12 bg-white/90 rounded-xl flex items-center justify-center">
+                        <span className="material-symbols-outlined text-primary text-2xl">
+                          {selectedType.icon}
+                        </span>
+                      </div>
+                      <div>
+                        <p className="text-sm text-white/80 font-semibold">Selected Service</p>
+                        <h4 className="text-lg font-black text-white">{selectedType.name}</h4>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
-            </form>
-          </div>
-        </div>
+            )}
 
-        {/* Bottom Trust Bar */}
-        <div className="mt-12 text-center">
-          <p className="text-gray-600 dark:text-gray-500 text-sm mb-6">Trusted by leading insurance carriers and law firms nationwide</p>
-          <div className="flex justify-center items-center gap-8 flex-wrap opacity-30 grayscale">
-            <div className="w-20 h-8 bg-white/10 rounded"></div>
-            <div className="w-20 h-8 bg-white/10 rounded"></div>
-            <div className="w-20 h-8 bg-white/10 rounded"></div>
-            <div className="w-20 h-8 bg-white/10 rounded"></div>
+            {/* Why Choose Us Card */}
+            <div className="bg-white dark:bg-section-dark rounded-3xl border-2 border-gray-200 dark:border-gray-800 p-8 shadow-2xl">
+              <h3 className="text-2xl font-black text-gray-900 dark:text-white mb-6">
+                Why Choose Trinity
+              </h3>
+              <div className="space-y-5">
+                <div className="flex items-start gap-4">
+                  <div className="w-12 h-12 bg-primary/10 dark:bg-primary/20 rounded-xl flex items-center justify-center flex-shrink-0">
+                    <span className="material-symbols-outlined text-primary dark:text-accent text-xl">
+                      schedule
+                    </span>
+                  </div>
+                  <div>
+                    <h4 className="font-bold text-gray-900 dark:text-white mb-1">24-Hour Response</h4>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">
+                      Rapid deployment for time-sensitive investigations
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-4">
+                  <div className="w-12 h-12 bg-accent/10 dark:bg-accent/20 rounded-xl flex items-center justify-center flex-shrink-0">
+                    <span className="material-symbols-outlined text-accent text-xl">
+                      workspace_premium
+                    </span>
+                  </div>
+                  <div>
+                    <h4 className="font-bold text-gray-900 dark:text-white mb-1">100% PE Licensed</h4>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">
+                      All investigations by licensed Professional Engineers
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-4">
+                  <div className="w-12 h-12 bg-green-500/10 rounded-xl flex items-center justify-center flex-shrink-0">
+                    <span className="material-symbols-outlined text-green-500 text-xl">
+                      verified
+                    </span>
+                  </div>
+                  <div>
+                    <h4 className="font-bold text-gray-900 dark:text-white mb-1">Defensible Reports</h4>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">
+                      Court-ready documentation and expert testimony
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-4">
+                  <div className="w-12 h-12 bg-blue-500/10 rounded-xl flex items-center justify-center flex-shrink-0">
+                    <span className="material-symbols-outlined text-blue-500 text-xl">
+                      lock
+                    </span>
+                  </div>
+                  <div>
+                    <h4 className="font-bold text-gray-900 dark:text-white mb-1">Secure & Confidential</h4>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">
+                      Protected communications and data handling
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Contact Info Card */}
+            <div className="bg-gradient-to-br from-primary to-primary-dark dark:from-accent dark:to-accent-light rounded-3xl p-8 shadow-2xl text-white">
+              <h3 className="text-xl font-black mb-6">Need Immediate Assistance?</h3>
+              <div className="space-y-4">
+                <a href="tel:+18559295888" className="flex items-center gap-3 hover:translate-x-2 transition-transform">
+                  <span className="material-symbols-outlined text-2xl">phone</span>
+                  <div>
+                    <p className="text-sm opacity-90">Call Us Now</p>
+                    <p className="text-lg font-bold">(855) 929-5888</p>
+                  </div>
+                </a>
+                <a href="mailto:claims@trinitypllc.com" className="flex items-center gap-3 hover:translate-x-2 transition-transform">
+                  <span className="material-symbols-outlined text-2xl">email</span>
+                  <div>
+                    <p className="text-sm opacity-90">Email Us</p>
+                    <p className="text-base font-bold break-all">claims@trinitypllc.com</p>
+                  </div>
+                </a>
+              </div>
+            </div>
+
           </div>
         </div>
       </div>
