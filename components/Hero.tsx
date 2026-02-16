@@ -1,57 +1,163 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 
 export default function Hero() {
   const [currentSlide, setCurrentSlide] = useState(0);
+  const [isAutoPlaying, setIsAutoPlaying] = useState(true);
+  const [slideDirection, setSlideDirection] = useState<"left" | "right">("right");
+  const touchStartX = useRef(0);
+  const touchEndX = useRef(0);
 
   const slides = [
     {
-      badge: "Licensed PE Engineers",
-      headline: ["Fastest", "Turnaround", "in the Industry"],
-      accentLine: 2,
-      description: "Professional forensic engineering investigations. 24-hour deployment. Nationwide coverage.",
-      stat: "24hr",
-      statLabel: "Emergency Response Time",
-      statIcon: "speed",
-      statColor: "green",
-    },
-    {
-      badge: "Certified Forensic Experts",
-      headline: ["Engineering", "Truth Through", "Investigation"],
-      accentLine: 2,
-      description: "Precision investigations with defensible reports. Unmatched technical accuracy for insurance and legal professionals.",
-      stat: "98%",
-      statLabel: "Report Accuracy Rate",
-      statIcon: "trending_up",
+      badge: "Most Requested Service",
+      headline: ["Storm Damage", "Investigation", "Services"],
+      accentLine: 0,
+      description: "Hurricane, wind, hail, and severe weather damage assessment with 24-hour deployment nationwide.",
+      stat: "5,000+",
+      statLabel: "Storm Cases Completed",
+      statIcon: "cyclone",
       statColor: "primary",
+      serviceIcon: "cyclone",
+      serviceLink: "/services/storm-damage",
     },
     {
-      badge: "Nationwide Coverage",
-      headline: ["10,000+ Cases", "Completed", "Successfully"],
-      accentLine: 1,
-      description: "Industry-leading forensic engineering services across all 50 states. Rapid deployment. Expert testimony available.",
-      stat: "100%",
-      statLabel: "PE Licensed Engineers",
-      statIcon: "workspace_premium",
+      badge: "Critical Infrastructure",
+      headline: ["Structural", "Engineering", "Analysis"],
+      accentLine: 0,
+      description: "Foundation settlement, framing failures, and load-bearing analysis with PE-certified engineers.",
+      stat: "2,500+",
+      statLabel: "Structural Investigations",
+      statIcon: "architecture",
       statColor: "accent",
+      serviceIcon: "architecture",
+      serviceLink: "/services/structural",
+    },
+    {
+      badge: "Advanced Detection",
+      headline: ["Water Loss", "Source", "Identification"],
+      accentLine: 0,
+      description: "Advanced plumbing failure and intrusion source identification with thermal imaging and moisture mapping.",
+      stat: "3,800+",
+      statLabel: "Water Loss Cases",
+      statIcon: "opacity",
+      statColor: "primary",
+      serviceIcon: "opacity",
+      serviceLink: "/services/water-loss",
+    },
+    {
+      badge: "Premium Certification",
+      headline: ["FORTIFIED", "Roof", "Evaluation"],
+      accentLine: 0,
+      description: "Official FORTIFIED certification and high-wind roof system evaluation by certified inspectors.",
+      stat: "1,200+",
+      statLabel: "FORTIFIED Inspections",
+      statIcon: "shield",
+      statColor: "green",
+      serviceIcon: "shield",
+      serviceLink: "/services/fortified",
+    },
+    {
+      badge: "Complex Cases",
+      headline: ["Large Loss", "Multi-Discipline", "Investigations"],
+      accentLine: 0,
+      description: "Comprehensive investigations for catastrophic property failures requiring multiple engineering disciplines.",
+      stat: "850+",
+      statLabel: "Large Loss Cases",
+      statIcon: "warning",
+      statColor: "accent",
+      serviceIcon: "warning",
+      serviceLink: "/services/large-loss",
+    },
+    {
+      badge: "Origin & Cause",
+      headline: ["Fire", "Investigation", "Services"],
+      accentLine: 0,
+      description: "Origin and cause determination for residential and commercial fires with expert testimony available.",
+      stat: "1,400+",
+      statLabel: "Fire Investigations",
+      statIcon: "local_fire_department",
+      statColor: "primary",
+      serviceIcon: "local_fire_department",
+      serviceLink: "/services/small-fire",
     },
   ];
 
-  // Auto-rotate slides
+  // Auto-rotate slides - FASTER
   useEffect(() => {
+    if (!isAutoPlaying) return;
+    
     const timer = setInterval(() => {
+      setSlideDirection("right");
       setCurrentSlide((prev) => (prev + 1) % slides.length);
-    }, 3000); // Change every 3 seconds
+    }, 3000); // Change every 3 seconds (faster!)
 
     return () => clearInterval(timer);
-  }, [slides.length]);
+  }, [slides.length, isAutoPlaying]);
 
   const currentContent = slides[currentSlide];
 
+  // Navigation functions
+  const goToSlide = (index: number) => {
+    if (index > currentSlide) {
+      setSlideDirection("right");
+    } else {
+      setSlideDirection("left");
+    }
+    setCurrentSlide(index);
+  };
+
+  const nextSlide = () => {
+    setSlideDirection("right");
+    setCurrentSlide((prev) => (prev + 1) % slides.length);
+  };
+
+  const prevSlide = () => {
+    setSlideDirection("left");
+    setCurrentSlide((prev) => (prev - 1 + slides.length) % slides.length);
+  };
+
+  // Touch handlers for swipe gestures
+  const handleTouchStart = (e: React.TouchEvent) => {
+    touchStartX.current = e.touches[0].clientX;
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    touchEndX.current = e.touches[0].clientX;
+  };
+
+  const handleTouchEnd = () => {
+    if (touchStartX.current - touchEndX.current > 50) {
+      nextSlide();
+    }
+    if (touchStartX.current - touchEndX.current < -50) {
+      prevSlide();
+    }
+  };
+
+  // Keyboard navigation
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "ArrowLeft") {
+        prevSlide();
+      } else if (e.key === "ArrowRight") {
+        nextSlide();
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);  // eslint-disable-line react-hooks/exhaustive-deps
+
   return (
-    <header className="relative min-h-screen overflow-hidden bg-black dark:bg-background-dark flex items-center">
+    <header 
+      className="relative min-h-screen overflow-hidden bg-black dark:bg-background-dark flex items-center"
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
+    >
 
       {/* === Background Video === */}
       <div className="absolute inset-0 z-0">
@@ -68,6 +174,59 @@ export default function Hero() {
         <div className="absolute inset-0 bg-gradient-to-r from-black/80 via-black/60 to-black/40"></div>
       </div>
 
+      {/* === Carousel Navigation Arrows === */}
+      {/* Previous Button */}
+      <button
+        onClick={prevSlide}
+        className="absolute left-4 md:left-8 top-1/2 -translate-y-1/2 z-20 group"
+        aria-label="Previous slide"
+      >
+        <div className="relative w-14 h-14 md:w-16 md:h-16 backdrop-blur-xl bg-white/10 hover:bg-primary/90 border-2 border-white/30 hover:border-primary rounded-full flex items-center justify-center transition-all hover:scale-110 shadow-2xl">
+          <span className="material-symbols-outlined text-white text-3xl group-hover:-translate-x-1 transition-transform">
+            chevron_left
+          </span>
+          {/* Keyboard hint */}
+          <div className="absolute -bottom-8 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity">
+            <span className="text-white/60 text-xs font-bold">←</span>
+          </div>
+        </div>
+      </button>
+
+      {/* Next Button */}
+      <button
+        onClick={nextSlide}
+        className="absolute right-4 md:right-8 top-1/2 -translate-y-1/2 z-20 group"
+        aria-label="Next slide"
+      >
+        <div className="relative w-14 h-14 md:w-16 md:h-16 backdrop-blur-xl bg-white/10 hover:bg-primary/90 border-2 border-white/30 hover:border-primary rounded-full flex items-center justify-center transition-all hover:scale-110 shadow-2xl">
+          <span className="material-symbols-outlined text-white text-3xl group-hover:translate-x-1 transition-transform">
+            chevron_right
+          </span>
+          {/* Keyboard hint */}
+          <div className="absolute -bottom-8 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity">
+            <span className="text-white/60 text-xs font-bold">→</span>
+          </div>
+        </div>
+      </button>
+
+      {/* Carousel Label - Top Center */}
+      <div className="absolute top-8 left-1/2 -translate-x-1/2 z-20">
+        <div className="backdrop-blur-xl bg-white/10 border border-white/20 px-6 py-3 rounded-full shadow-xl">
+          <div className="flex items-center gap-3">
+            <span className="material-symbols-outlined text-accent text-lg animate-pulse">
+              view_carousel
+            </span>
+            <span className="text-white text-sm font-bold uppercase tracking-wider">
+              Service Showcase
+            </span>
+            <div className="w-1 h-1 bg-white/60 rounded-full"></div>
+            <span className="text-white/80 text-xs font-semibold">
+              Swipe or use arrows
+            </span>
+          </div>
+        </div>
+      </div>
+
       {/* === Main Content Container === */}
       <div className="relative z-10 w-full max-w-7xl mx-auto px-6 py-20">
         <div className="grid lg:grid-cols-12 gap-12 items-center">
@@ -76,26 +235,32 @@ export default function Hero() {
           <div className="lg:col-span-8 space-y-12">
 
             {/* Trust Badge - Animated */}
-            <div className="inline-flex items-center gap-3 backdrop-blur-md bg-white/10 border border-white/20 px-6 py-3 rounded-full transition-all duration-300">
+            <div 
+              key={`badge-${currentSlide}`}
+              className="inline-flex items-center gap-3 backdrop-blur-md bg-white/10 border border-white/20 px-6 py-3 rounded-full transition-all duration-300"
+              style={{
+                animation: "fadeInUp 0.3s ease-out both",
+              }}
+            >
               <div className="w-2 h-2 bg-accent rounded-full animate-pulse"></div>
               <span className="text-white font-bold text-sm uppercase tracking-widest">
                 {currentContent.badge}
               </span>
             </div>
 
-            {/* Massive Headline - Animated */}
+            {/* Massive Headline - Animated with faster transitions */}
             <div className="space-y-6">
               <h1 className="text-6xl md:text-7xl lg:text-8xl font-black text-white leading-[0.95]">
                 {currentContent.headline.map((line, index) => (
                   <span
-                    key={index}
-                    className={`block transition-all duration-500 ${
+                    key={`${currentSlide}-${index}`}
+                    className={`block transition-all duration-300 ${
                       index === currentContent.accentLine
                         ? "text-primary dark:text-accent"
                         : "text-white"
                     }`}
                     style={{
-                      animation: `fadeInUp 0.5s ease-out ${index * 0.15}s both`,
+                      animation: `fadeInUp 0.4s ease-out ${index * 0.1}s both`,
                     }}
                   >
                     {line}
@@ -103,9 +268,10 @@ export default function Hero() {
                 ))}
               </h1>
               <p 
-                className="text-2xl md:text-3xl text-gray-200 font-light leading-relaxed max-w-2xl transition-all duration-400"
+                key={`desc-${currentSlide}`}
+                className="text-2xl md:text-3xl text-gray-200 font-light leading-relaxed max-w-2xl transition-all duration-300"
                 style={{
-                  animation: "fadeInUp 0.5s ease-out 0.45s both",
+                  animation: "fadeInUp 0.4s ease-out 0.3s both",
                 }}
               >
                 {currentContent.description}
@@ -160,11 +326,12 @@ export default function Hero() {
           {/* ========== RIGHT: FLOATING STAT CARDS (4 cols) ========== */}
           <div className="lg:col-span-4 hidden lg:flex flex-col gap-6">
 
-            {/* Animated Stat Card - Changes with content */}
+            {/* Animated Stat Card - Changes with content - FASTER */}
             <div 
+              key={`stat-${currentSlide}`}
               className="backdrop-blur-xl bg-white/10 border border-white/20 rounded-3xl p-8 shadow-2xl hover:bg-white/15 transition-all group"
               style={{
-                animation: "fadeInRight 0.5s ease-out 0.3s both",
+                animation: "fadeInRight 0.4s ease-out 0.2s both",
               }}
             >
               <div className="flex items-start justify-between mb-4">
@@ -174,7 +341,7 @@ export default function Hero() {
                     : currentContent.statColor === "accent"
                     ? "bg-accent/20"
                     : "bg-primary/20"
-                } rounded-2xl flex items-center justify-center`}>
+                } rounded-2xl flex items-center justify-center transition-all duration-300`}>
                   <span className={`material-symbols-outlined ${
                     currentContent.statColor === "green" 
                       ? "text-green-400" 
@@ -237,11 +404,11 @@ export default function Hero() {
           </div>
         </div>
 
-        {/* Featured Services Pills - Bottom */}
+        {/* All Services Pills - Bottom */}
         <div className="mt-20 pt-12 border-t border-white/10">
           <div className="flex flex-wrap items-center gap-4">
             <span className="text-sm font-bold text-gray-400 uppercase tracking-wider">
-              Featured Services:
+              All Services:
             </span>
             {[
               { name: "Storm Damage", icon: "cyclone", href: "/services/storm-damage" },
@@ -250,6 +417,12 @@ export default function Hero() {
               { name: "FORTIFIED", icon: "shield", href: "/services/fortified" },
               { name: "Large Loss", icon: "warning", href: "/services/large-loss" },
               { name: "Fire Investigation", icon: "local_fire_department", href: "/services/small-fire" },
+              { name: "Plumbing Failure", icon: "plumbing", href: "/services/plumbing-failure" },
+              { name: "HVAC/Electrical", icon: "electrical_services", href: "/services/hvac-electrical" },
+              { name: "Component Failure", icon: "build", href: "/services/component-failure" },
+              { name: "Lightning Damage", icon: "bolt", href: "/services/lightning-damage" },
+              { name: "Chimney Collapse", icon: "home", href: "/services/chimney-collapse" },
+              { name: "Fraud Investigation", icon: "gavel", href: "/services/vandalism-fraud" },
             ].map((service) => (
               <Link
                 key={service.name}
@@ -268,20 +441,59 @@ export default function Hero() {
         </div>
       </div>
 
-      {/* === Slide Indicators === */}
-      <div className="absolute bottom-32 left-1/2 -translate-x-1/2 z-10 flex gap-3">
-        {slides.map((_, index) => (
-          <button
-            key={index}
-            onClick={() => setCurrentSlide(index)}
-            className={`transition-all duration-200 rounded-full ${
-              index === currentSlide
-                ? "w-12 h-2 bg-primary"
-                : "w-2 h-2 bg-white/40 hover:bg-white/60"
-            }`}
-            aria-label={`Go to slide ${index + 1}`}
-          />
-        ))}
+      {/* === Carousel Indicators - Enhanced === */}
+      <div className="absolute bottom-32 left-1/2 -translate-x-1/2 z-20">
+        <div className="backdrop-blur-xl bg-white/10 border border-white/20 rounded-full px-6 py-4 shadow-2xl">
+          <div className="flex items-center gap-3">
+            {slides.map((slide, index) => (
+              <button
+                key={index}
+                onClick={() => goToSlide(index)}
+                className={`group relative transition-all duration-300 ${
+                  index === currentSlide
+                    ? "w-14"
+                    : "w-10"
+                }`}
+                aria-label={`Go to slide ${index + 1}: ${slide.badge}`}
+              >
+                {/* Progress bar for active slide - FASTER */}
+                {index === currentSlide && isAutoPlaying && (
+                  <div className="absolute inset-0 bg-primary rounded-full overflow-hidden">
+                    <div 
+                      className="h-full bg-accent"
+                      style={{
+                        animation: "progress 3s linear",
+                        transformOrigin: "left"
+                      }}
+                    />
+                  </div>
+                )}
+                
+                {/* Indicator dot/bar */}
+                <div className={`relative h-2 rounded-full transition-all duration-300 ${
+                  index === currentSlide
+                    ? "bg-primary shadow-lg shadow-primary/50"
+                    : "bg-white/40 group-hover:bg-white/60"
+                }`} />
+                
+                {/* Tooltip */}
+                <div className="absolute bottom-full mb-3 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+                  <div className="bg-white/95 backdrop-blur-sm text-gray-900 px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap shadow-xl">
+                    {slide.badge}
+                    <div className="absolute top-full left-1/2 -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-l-transparent border-r-transparent border-t-white/95"></div>
+                  </div>
+                </div>
+              </button>
+            ))}
+          </div>
+          
+          {/* Slide counter */}
+          <div className="text-center mt-3">
+            <span className="text-white/80 text-xs font-bold">
+              {currentSlide + 1} / {slides.length}
+            </span>
+          </div>
+        </div>
       </div>
 
       {/* === Scroll Indicator === */}
@@ -291,6 +503,21 @@ export default function Hero() {
           <div className="w-6 h-10 rounded-full border-2 border-white/30 flex justify-center pt-2">
             <div className="w-1 h-2 bg-white/60 rounded-full animate-pulse"></div>
           </div>
+        </div>
+      </div>
+
+      {/* === Auto-play indicator === */}
+      <div className="absolute top-8 right-8 z-20 backdrop-blur-xl bg-white/10 border border-white/20 px-4 py-2 rounded-full shadow-xl">
+        <div className="flex items-center gap-2">
+          <div className="relative flex items-center justify-center">
+            <span className="material-symbols-outlined text-accent text-sm animate-pulse">
+              play_circle
+            </span>
+            <div className="absolute inset-0 bg-accent/20 rounded-full animate-ping"></div>
+          </div>
+          <span className="text-white text-xs font-bold uppercase tracking-wider">
+            Auto-Playing
+          </span>
         </div>
       </div>
 
@@ -318,9 +545,68 @@ export default function Hero() {
           }
         }
 
-        /* Faster transitions for quicker slide changes */
+        @keyframes progress {
+          from {
+            transform: scaleX(0);
+          }
+          to {
+            transform: scaleX(1);
+          }
+        }
+
+        @keyframes slideInRight {
+          from {
+            opacity: 0;
+            transform: translateX(100px);
+          }
+          to {
+            opacity: 1;
+            transform: translateX(0);
+          }
+        }
+
+        @keyframes slideInLeft {
+          from {
+            opacity: 0;
+            transform: translateX(-100px);
+          }
+          to {
+            opacity: 1;
+            transform: translateX(0);
+          }
+        }
+
+        /* Faster, smoother transitions */
         .transition-all {
-          transition-duration: 400ms;
+          transition-duration: 300ms;
+          transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        /* Smooth content transitions */
+        header * {
+          transition-property: opacity, transform;
+          transition-duration: 500ms;
+          transition-timing-function: ease-in-out;
+        }
+
+        /* Custom scrollbar for carousel area */
+        ::-webkit-scrollbar {
+          width: 8px;
+          height: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+          background: rgba(255, 255, 255, 0.1);
+          border-radius: 10px;
+        }
+
+        ::-webkit-scrollbar-thumb {
+          background: rgba(255, 255, 255, 0.3);
+          border-radius: 10px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+          background: rgba(255, 255, 255, 0.5);
         }
       `}</style>
 
