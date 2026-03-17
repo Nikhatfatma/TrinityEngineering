@@ -1,659 +1,704 @@
 "use client";
 
-import { useState, FormEvent } from "react";
+import { useState } from "react";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
+import StepProgressBar from "@/components/inspection-form/StepProgressBar";
+import FormSection from "@/components/inspection-form/FormSection";
+import InputField from "@/components/inspection-form/InputField";
+import SelectCard from "@/components/inspection-form/SelectCard";
+import CheckboxToggle from "@/components/inspection-form/CheckboxToggle";
+import AddressGroup from "@/components/inspection-form/AddressGroup";
+import SuccessMessage from "@/components/inspection-form/SuccessMessage";
+
+/* ------------------------------------------------------------------ */
+/*  Data Constants                                                     */
+/* ------------------------------------------------------------------ */
+
+const INSPECTION_TYPES = [
+  { id: "structural-loss", title: "Structural Loss", image: "https://images.unsplash.com/photo-1503387762-592deb58ef4e?w=800&q=80" },
+  { id: "storm-damage", title: "Storm Damage", image: "https://images.unsplash.com/photo-1527482797697-8795b05a13fe?w=800&q=80" },
+  { id: "large-complex-loss", title: "Large / Complex Loss", image: "https://images.unsplash.com/photo-1541888946425-d81bb19240f5?w=800&q=80" },
+  { id: "interior-water-loss", title: "Interior Water Loss", image: "https://images.unsplash.com/photo-1584622650111-993a426fbf0a?w=800&q=80" },
+  { id: "lightning-damage", title: "Lightning Damage", image: "https://images.unsplash.com/photo-1605727216801-e27ce1d0cc28?w=800&q=80" },
+  { id: "vandalism", title: "Vandalism", image: "https://images.unsplash.com/photo-1589829545856-d10d557cf95f?w=800&q=80" },
+  { id: "chimney-fire-collapse", title: "Chimney Fire / Collapse", image: "https://images.unsplash.com/photo-1582268611958-ebfd161ef9cf?w=800&q=80" },
+  { id: "component-failure", title: "Component Failure", image: "https://images.unsplash.com/photo-1621905251918-48416bd8575a?w=800&q=80" },
+  { id: "hvac-electrical", title: "HVAC / Electrical", image: "https://images.unsplash.com/photo-1581094794329-c8112a89af12?w=800&q=80" },
+  { id: "small-fire", title: "Small Fire", image: "https://images.unsplash.com/photo-1583508915901-b5f84c1dcde1?w=800&q=80" },
+  { id: "plumbing-failure", title: "Plumbing Failure", image: "https://images.unsplash.com/photo-1607472586893-edb57bdc0e39?w=800&q=80" },
+];
+
+const BUILDING_TYPES = [
+  { id: "residential", title: "Residential", image: "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=800&q=80" },
+  { id: "light-commercial", title: "Light Commercial (<10,000 sf)", image: "https://images.unsplash.com/photo-1497366216548-37526070297c?w=800&q=80" },
+  { id: "commercial", title: "Commercial (>10,000 sf)", image: "https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?w=800&q=80" },
+  { id: "municipal-religious-other", title: "Municipal / Religious / Other", image: "https://images.unsplash.com/photo-1523908511403-7fc7b25592f4?w=800&q=80" },
+  { id: "multiple-structures", title: "Multiple Structures", image: "https://images.unsplash.com/photo-1512917774080-9991f1c4c750?w=800&q=80" },
+];
+
+const INSURANCE_COMPANIES = [
+  "State Farm", "Allstate", "GEICO", "Progressive", "USAA",
+  "Liberty Mutual", "Farmers Insurance", "Nationwide", "Travelers",
+  "American Family", "Erie Insurance", "Auto-Owners Insurance",
+  "Chubb", "Hartford", "Hanover Insurance", "Cincinnati Financial",
+  "Amica Mutual", "Safeco", "MetLife", "AIG", "Other",
+];
+
+const WIZARD_STEPS = [
+  { title: "Inspection", icon: "assignment" },
+  { title: "Insurance", icon: "shield" },
+  { title: "Policyholder", icon: "person" },
+  { title: "Roofer", icon: "roofing" },
+  { title: "Adjuster", icon: "gavel" },
+  { title: "Review", icon: "check_circle" },
+];
+
+/* ------------------------------------------------------------------ */
+/*  Form Data Type                                                     */
+/* ------------------------------------------------------------------ */
+
+interface FormData {
+  // Step 1
+  inspectionType: string;
+  buildingType: string;
+  // Step 2
+  claimNumber: string;
+  insuranceCompany: string;
+  adjusterEmail: string;
+  adjusterFirstName: string;
+  adjusterLastName: string;
+  adjusterPhone: string;
+  adjusterPhoneExt: string;
+  secondEmailForReport: string;
+  adjusterComments: string;
+  isIAClaim: boolean;
+  iaFirstName: string;
+  iaLastName: string;
+  iaEmail: string;
+  iaPhone: string;
+  iaCompany: string;
+  iaSecondEmail: string;
+  iaThirdEmail: string;
+  // Step 3
+  policyholderFirstName: string;
+  policyholderLastName: string;
+  policyholderPhone1: string;
+  spouseFirstName: string;
+  spouseLastName: string;
+  policyholderPhone2: string;
+  streetAddress: string;
+  addressLine2: string;
+  city: string;
+  state: string;
+  zip: string;
+  // Step 4
+  rooferName: string;
+  rooferCompany: string;
+  rooferPhone: string;
+  inspectionName: string;
+  // Step 5
+  publicAdjusterName: string;
+  publicAdjusterCompany: string;
+  publicAdjusterPhone: string;
+  publicAdjusterEmail: string;
+}
+
+const INITIAL_FORM_DATA: FormData = {
+  inspectionType: "",
+  buildingType: "",
+  claimNumber: "",
+  insuranceCompany: "",
+  adjusterEmail: "",
+  adjusterFirstName: "",
+  adjusterLastName: "",
+  adjusterPhone: "",
+  adjusterPhoneExt: "",
+  secondEmailForReport: "",
+  adjusterComments: "",
+  isIAClaim: false,
+  iaFirstName: "",
+  iaLastName: "",
+  iaEmail: "",
+  iaPhone: "",
+  iaCompany: "",
+  iaSecondEmail: "",
+  iaThirdEmail: "",
+  policyholderFirstName: "",
+  policyholderLastName: "",
+  policyholderPhone1: "",
+  spouseFirstName: "",
+  spouseLastName: "",
+  policyholderPhone2: "",
+  streetAddress: "",
+  addressLine2: "",
+  city: "",
+  state: "",
+  zip: "",
+  rooferName: "",
+  rooferCompany: "",
+  rooferPhone: "",
+  inspectionName: "",
+  publicAdjusterName: "",
+  publicAdjusterCompany: "",
+  publicAdjusterPhone: "",
+  publicAdjusterEmail: "",
+};
+
+/* ------------------------------------------------------------------ */
+/*  Page Component                                                     */
+/* ------------------------------------------------------------------ */
 
 export default function SubmitInspectionPage() {
-  const [currentStage, setCurrentStage] = useState(0); // 0 = service selection, 1-4 = form stages
-  const [selectedService, setSelectedService] = useState<any>(null);
-  
-  const [formData, setFormData] = useState({
-    name: "",
-    company: "",
-    email: "",
-    phone: "",
-    address: "",
-    city: "",
-    state: "",
-    zip: "",
-    incidentDate: "",
-    priority: "standard",
-    description: "",
-  });
+  const [currentStep, setCurrentStep] = useState(0);
+  const [formData, setFormData] = useState<FormData>(INITIAL_FORM_DATA);
+  const [showErrors, setShowErrors] = useState(false);
+  const [isSubmitted, setIsSubmitted] = useState(false);
 
-  const services = [
-    {
-      name: "Structural Failure",
-      slug: "structural",
-      icon: "architecture",
-      image: "https://images.unsplash.com/photo-1503387762-592deb58ef4e?w=600&q=80",
-      description: "Foundation settlement, framing failures, load-bearing analysis",
-      color: "from-blue-500 to-blue-600",
-    },
-    {
-      name: "Storm Damage",
-      slug: "storm-damage",
-      icon: "cyclone",
-      image: "https://images.unsplash.com/photo-1527482797697-8795b05a13fe?w=600&q=80",
-      description: "Hurricane, wind, hail, tornado damage assessment",
-      color: "from-purple-500 to-purple-600",
-    },
-    {
-      name: "Water Loss",
-      slug: "water-loss",
-      icon: "opacity",
-      image: "https://images.unsplash.com/photo-1584622650111-993a426fbf0a?w=600&q=80",
-      description: "Plumbing failure, flooding, intrusion analysis",
-      color: "from-cyan-500 to-cyan-600",
-    },
-    {
-      name: "FORTIFIED Roof",
-      slug: "fortified",
-      icon: "roofing",
-      image: "https://images.unsplash.com/photo-1632778149955-e80f8ceca2e8?w=600&q=80",
-      description: "Official FORTIFIED certification and evaluation",
-      color: "from-green-500 to-green-600",
-    },
-    {
-      name: "Large Loss",
-      slug: "large-loss",
-      icon: "warning",
-      image: "https://images.unsplash.com/photo-1541888946425-d81bb19240f5?w=600&q=80",
-      description: "Complex multi-discipline catastrophic investigations",
-      color: "from-red-500 to-red-600",
-    },
-    {
-      name: "Lightning Damage",
-      slug: "lightning",
-      icon: "bolt",
-      image: "https://images.unsplash.com/photo-1605727216801-e27ce1d0cc28?w=600&q=80",
-      description: "Direct and indirect lightning strike analysis",
-      color: "from-yellow-500 to-yellow-600",
-    },
-    {
-      name: "Chimney Collapse",
-      slug: "chimney",
-      icon: "home",
-      image: "https://images.unsplash.com/photo-1582268611958-ebfd161ef9cf?w=600&q=80",
-      description: "Masonry failure and structural chimney investigation",
-      color: "from-orange-500 to-orange-600",
-    },
-    {
-      name: "Component Failure",
-      slug: "component",
-      icon: "build",
-      image: "https://images.unsplash.com/photo-1621905251918-48416bd8575a?w=600&q=80",
-      description: "HVAC, appliance, building system component analysis",
-      color: "from-indigo-500 to-indigo-600",
-    },
-    {
-      name: "HVAC/Electrical",
-      slug: "hvac",
-      icon: "electrical_services",
-      image: "https://images.unsplash.com/photo-1581094794329-c8112a89af12?w=600&q=80",
-      description: "Mechanical and electrical system failure investigation",
-      color: "from-teal-500 to-teal-600",
-    },
-    {
-      name: "Fire Investigation",
-      slug: "fire",
-      icon: "local_fire_department",
-      image: "https://images.unsplash.com/photo-1583508915901-b5f84c1dcde1?w=600&q=80",
-      description: "Origin and cause determination for fires",
-      color: "from-rose-500 to-rose-600",
-    },
-    {
-      name: "Plumbing Failure",
-      slug: "plumbing",
-      icon: "plumbing",
-      image: "https://images.unsplash.com/photo-1607472586893-edb57bdc0e39?w=600&q=80",
-      description: "Water heater, pipe breaks, fixture malfunction",
-      color: "from-sky-500 to-sky-600",
-    },
-    {
-      name: "Fraud Investigation",
-      slug: "fraud",
-      icon: "gavel",
-      image: "https://images.unsplash.com/photo-1589829545856-d10d557cf95f?w=600&q=80",
-      description: "Forensic analysis of intentional vs accidental damage",
-      color: "from-gray-600 to-gray-700",
-    },
-  ];
+  /* ---- handlers ---- */
 
-  const states = [
-    "AL", "AK", "AZ", "AR", "CA", "CO", "CT", "DE", "FL", "GA",
-    "HI", "ID", "IL", "IN", "IA", "KS", "KY", "LA", "ME", "MD",
-    "MA", "MI", "MN", "MS", "MO", "MT", "NE", "NV", "NH", "NJ",
-    "NM", "NY", "NC", "ND", "OH", "OK", "OR", "PA", "RI", "SC",
-    "SD", "TN", "TX", "UT", "VT", "VA", "WA", "WV", "WI", "WY",
-  ];
-
-  const handleServiceSelect = (service: any) => {
-    setSelectedService(service);
-    setCurrentStage(1);
+  const handleChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
+  ) => {
+    setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
-    setFormData({
-      ...formData,
-      [e.target.name]: e.target.value,
-    });
+  const handleNext = () => {
+    // Validation for Step 1
+    if (currentStep === 0) {
+      if (!formData.inspectionType || !formData.buildingType) {
+        setShowErrors(true);
+        // Scroll to the first error
+        window.scrollTo({ top: 0, behavior: "smooth" });
+        return; // Prevent proceeding
+      }
+      setShowErrors(false); // Clear errors if valid
+    }
+
+    if (currentStep < WIZARD_STEPS.length - 1) {
+      setCurrentStep(currentStep + 1);
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
   };
 
-  const handleSubmit = (e: FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    console.log("Form submitted:", { ...formData, service: selectedService.name });
-    // Handle form submission
+  const handleBack = () => {
+    if (currentStep > 0) {
+      setCurrentStep(currentStep - 1);
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
   };
 
-  const stages = [
-    { title: "Select Service", icon: "category" },
-    { title: "Contact Info", icon: "person" },
-    { title: "Location", icon: "location_on" },
-    { title: "Case Details", icon: "description" },
-    { title: "Review & Submit", icon: "check_circle" },
-  ];
+  const handleSubmit = () => {
+    console.log("Inspection form submitted:", formData);
+    setIsSubmitted(true);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  const handleReset = () => {
+    setFormData(INITIAL_FORM_DATA);
+    setCurrentStep(0);
+    setIsSubmitted(false);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  const goToStep = (step: number) => {
+    setCurrentStep(step);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  /* ---- helpers ---- */
+
+  const labelFor = (id: string, list: { id: string; title: string }[]) =>
+    list.find((i) => i.id === id)?.title ?? "—";
+
+  /* ================================================================ */
+  /*  RENDER                                                           */
+  /* ================================================================ */
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100 dark:from-background-dark dark:via-section-dark dark:to-background-dark">
       <Navbar />
-      
+
       <main className="pt-32 pb-20">
-        <div className="max-w-7xl mx-auto px-6">
-          {/* Header */}
-          <div className="text-center mb-12">
+        <div className="max-w-5xl mx-auto px-4 sm:px-6">
+          {/* ── Header ── */}
+          <div className="text-center mb-10">
             <div className="inline-flex items-center gap-2 bg-primary/10 dark:bg-primary/20 text-primary dark:text-accent px-5 py-3 rounded-full mb-6 border border-primary/20">
               <span className="material-symbols-outlined text-base">send</span>
               <span className="font-bold text-sm uppercase tracking-wider">
                 New Investigation Request
               </span>
             </div>
-            <h1 className="text-4xl md:text-5xl lg:text-6xl font-black text-gray-900 dark:text-white mb-4">
+            <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-black text-gray-900 dark:text-white mb-4">
               Submit Inspection Request
             </h1>
-            <p className="text-lg text-gray-600 dark:text-gray-400 max-w-2xl mx-auto">
-              {currentStage === 0 
-                ? "Select your investigation type to get started" 
-                : "Complete the form and our PE engineers will respond within 24 hours"}
+            <p className="text-base sm:text-lg text-gray-600 dark:text-gray-400 max-w-2xl mx-auto">
+              Complete the form below and our PE engineers will respond within 24
+              hours
             </p>
           </div>
 
-          {/* Progress Bar */}
-          {currentStage > 0 && (
-            <div className="mb-12">
-              <div className="relative max-w-4xl mx-auto">
-                {/* Background connecting line */}
-                <div className="absolute top-6 left-0 right-0 h-1 bg-gray-200 dark:bg-gray-700"></div>
-                
-                {/* Active progress line */}
-                <div 
-                  className="absolute top-6 left-0 h-1 bg-gradient-to-r from-green-500 via-primary to-accent transition-all duration-500"
-                  style={{ 
-                    width: `${((currentStage - 1) / (stages.length - 1)) * 100}%` 
-                  }}
-                ></div>
-
-                {/* Steps */}
-                <div className="relative flex items-center justify-between">
-                  {stages.map((stage, index) => (
-                    <div key={index} className="flex flex-col items-center relative z-10">
-                      {/* Circle with shadow */}
-                      <div className={`relative w-14 h-14 rounded-full flex items-center justify-center border-4 border-white dark:border-gray-900 transition-all duration-300 ${
-                        index < currentStage 
-                          ? 'bg-green-500 shadow-lg shadow-green-500/50' 
-                          : index === currentStage
-                          ? 'bg-primary dark:bg-accent shadow-xl shadow-primary/50 dark:shadow-accent/50 scale-110'
-                          : 'bg-gray-200 dark:bg-gray-700'
-                      }`}>
-                        <span className={`material-symbols-outlined text-xl transition-all ${
-                          index <= currentStage ? 'text-white' : 'text-gray-500'
-                        }`}>
-                          {index < currentStage ? 'check' : stage.icon}
-                        </span>
-                        
-                        {/* Pulse animation for active step */}
-                        {index === currentStage && (
-                          <span className="absolute inset-0 rounded-full bg-primary dark:bg-accent animate-ping opacity-20"></span>
-                        )}
-                      </div>
-                      
-                      {/* Label */}
-                      <span className={`text-xs font-bold mt-3 text-center max-w-[80px] hidden md:block transition-colors ${
-                        index <= currentStage ? 'text-gray-900 dark:text-white' : 'text-gray-400'
-                      }`}>
-                        {stage.title}
-                      </span>
-                      
-                      {/* Step number for mobile */}
-                      <span className={`text-xs font-bold mt-2 md:hidden ${
-                        index <= currentStage ? 'text-gray-900 dark:text-white' : 'text-gray-400'
-                      }`}>
-                        {index + 1}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
+          {/* ── Progress Bar ── */}
+          {!isSubmitted && (
+            <StepProgressBar
+              steps={WIZARD_STEPS}
+              currentStep={currentStep}
+              onStepClick={(s) => s < currentStep && goToStep(s)}
+            />
           )}
 
-          {/* Stage 0: Service Selection Grid */}
-          {currentStage === 0 && (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-              {services.map((service) => (
-                <button
-                  key={service.slug}
-                  onClick={() => handleServiceSelect(service)}
-                  className="group relative bg-white dark:bg-section-dark rounded-3xl overflow-hidden border-2 border-gray-200 dark:border-gray-800 hover:border-primary dark:hover:border-accent transition-all hover:shadow-2xl hover:scale-105"
-                >
-                  {/* Image */}
-                  <div className="relative h-48 overflow-hidden">
-                    <img
-                      src={service.image}
-                      alt={service.name}
-                      className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
-                    />
-                    <div className={`absolute inset-0 bg-gradient-to-t ${service.color} opacity-60`}></div>
-                    
-                    {/* Icon */}
-                    <div className="absolute top-4 right-4 w-14 h-14 bg-white/90 dark:bg-black/60 rounded-2xl flex items-center justify-center backdrop-blur-sm">
-                      <span className={`material-symbols-outlined text-3xl bg-gradient-to-br ${service.color} bg-clip-text text-transparent`}>
-                        {service.icon}
-                      </span>
-                    </div>
+          {/* ── Form Card ── */}
+          <div className="bg-white dark:bg-section-dark rounded-3xl border-2 border-gray-200 dark:border-gray-800 p-6 sm:p-8 md:p-12 shadow-2xl">
+            {isSubmitted ? (
+               <SuccessMessage onReset={handleReset} />
+            ) : (
+              <>
+                {/* =============================== */}
+                {/*  STEP 1 – Inspection Request    */}
+                {/* =============================== */}
+                {currentStep === 0 && (
+              <FormSection
+                title="Inspection Request"
+                icon="assignment"
+                subtitle="Select the inspection type and building type"
+              >
+                {/* Inspection Type */}
+                <div className="mb-8">
+                  <h3 className="text-sm font-bold text-gray-600 dark:text-gray-400 uppercase tracking-wider mb-4">
+                    Inspection Type <span className="text-red-500">*</span>
+                  </h3>
+                  <div className={`grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 p-1 rounded-2xl transition-colors ${showErrors && !formData.inspectionType ? "border-2 border-red-500 bg-red-50/50 dark:bg-red-900/10" : "border-2 border-transparent"}`}>
+                    {INSPECTION_TYPES.map((t) => (
+                      <SelectCard
+                        key={t.id}
+                        label={t.title}
+                        value={t.id}
+                        image={t.image}
+                        selected={formData.inspectionType === t.id}
+                        onSelect={() => {
+                          setFormData({ ...formData, inspectionType: t.id });
+                          if (formData.buildingType) setShowErrors(false);
+                        }}
+                      />
+                    ))}
                   </div>
-
-                  {/* Content */}
-                  <div className="p-6">
-                    <h3 className="text-xl font-black text-gray-900 dark:text-white mb-2 group-hover:text-primary dark:group-hover:text-accent transition-colors">
-                      {service.name}
-                    </h3>
-                    <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed">
-                      {service.description}
+                  {showErrors && !formData.inspectionType && (
+                    <p className="text-red-500 text-sm font-semibold mt-2 ml-1 animate-fadeIn">
+                      Please select an inspection type.
                     </p>
-                    
-                    {/* Arrow */}
-                    <div className="mt-4 flex items-center text-primary dark:text-accent font-bold text-sm">
-                      <span>Select Service</span>
-                      <span className="material-symbols-outlined ml-2 group-hover:translate-x-2 transition-transform">
-                        arrow_forward
-                      </span>
-                    </div>
-                  </div>
-                </button>
-              ))}
-            </div>
-          )}
-
-          {/* Form Stages */}
-          {currentStage > 0 && (
-            <div className="max-w-4xl mx-auto">
-              {/* Selected Service Banner */}
-              <div className="mb-8 bg-white dark:bg-section-dark rounded-3xl border-2 border-gray-200 dark:border-gray-800 p-6 shadow-xl">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-4">
-                    <div className={`w-16 h-16 rounded-2xl bg-gradient-to-br ${selectedService.color} flex items-center justify-center`}>
-                      <span className="material-symbols-outlined text-3xl text-white">
-                        {selectedService.icon}
-                      </span>
-                    </div>
-                    <div>
-                      <p className="text-sm font-semibold text-gray-500 dark:text-gray-400">Selected Service</p>
-                      <h3 className="text-2xl font-black text-gray-900 dark:text-white">{selectedService.name}</h3>
-                    </div>
-                  </div>
-                  <button
-                    onClick={() => {
-                      setCurrentStage(0);
-                      setSelectedService(null);
-                    }}
-                    className="text-sm font-bold text-gray-500 hover:text-primary dark:hover:text-accent transition-colors"
-                  >
-                    Change Service
-                  </button>
+                  )}
                 </div>
-              </div>
 
-              {/* Form Container */}
-              <div className="bg-white dark:bg-section-dark rounded-3xl border-2 border-gray-200 dark:border-gray-800 p-8 md:p-12 shadow-2xl">
-                <form onSubmit={handleSubmit} className="space-y-8">
-                  
-                  {/* Stage 1: Contact Information */}
-                  {currentStage === 1 && (
-                    <div className="space-y-6 animate-fadeIn">
-                      <div className="flex items-center gap-3 mb-8">
-                        <div className="w-12 h-12 bg-primary/10 dark:bg-primary/20 rounded-xl flex items-center justify-center">
-                          <span className="material-symbols-outlined text-primary dark:text-accent text-2xl">
-                            person
-                          </span>
-                        </div>
-                        <h2 className="text-3xl font-black text-gray-900 dark:text-white">
-                          Contact Information
-                        </h2>
-                      </div>
-                      
-                      <div className="grid md:grid-cols-2 gap-6">
-                        <div className="space-y-2">
-                          <label className="text-sm font-bold text-gray-700 dark:text-gray-300 flex items-center gap-2">
-                            <span className="material-symbols-outlined text-primary text-sm">badge</span>
-                            Full Name *
-                          </label>
-                          <input
-                            name="name"
-                            value={formData.name}
-                            onChange={handleChange}
-                            className="w-full bg-gray-50 dark:bg-background-dark border-2 border-gray-200 dark:border-gray-700 rounded-xl px-4 py-4 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary dark:focus:ring-accent focus:border-transparent transition-all"
-                            placeholder="John Smith"
-                            type="text"
-                            required
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <label className="text-sm font-bold text-gray-700 dark:text-gray-300 flex items-center gap-2">
-                            <span className="material-symbols-outlined text-primary text-sm">business</span>
-                            Company/Organization
-                          </label>
-                          <input
-                            name="company"
-                            value={formData.company}
-                            onChange={handleChange}
-                            className="w-full bg-gray-50 dark:bg-background-dark border-2 border-gray-200 dark:border-gray-700 rounded-xl px-4 py-4 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary dark:focus:ring-accent focus:border-transparent transition-all"
-                            placeholder="ABC Insurance Company"
-                            type="text"
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <label className="text-sm font-bold text-gray-700 dark:text-gray-300 flex items-center gap-2">
-                            <span className="material-symbols-outlined text-primary text-sm">email</span>
-                            Email Address *
-                          </label>
-                          <input
-                            name="email"
-                            value={formData.email}
-                            onChange={handleChange}
-                            className="w-full bg-gray-50 dark:bg-background-dark border-2 border-gray-200 dark:border-gray-700 rounded-xl px-4 py-4 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary dark:focus:ring-accent focus:border-transparent transition-all"
-                            placeholder="john@company.com"
-                            type="email"
-                            required
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <label className="text-sm font-bold text-gray-700 dark:text-gray-300 flex items-center gap-2">
-                            <span className="material-symbols-outlined text-primary text-sm">phone</span>
-                            Phone Number *
-                          </label>
-                          <input
-                            name="phone"
-                            value={formData.phone}
-                            onChange={handleChange}
-                            className="w-full bg-gray-50 dark:bg-background-dark border-2 border-gray-200 dark:border-gray-700 rounded-xl px-4 py-4 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary dark:focus:ring-accent focus:border-transparent transition-all"
-                            placeholder="+1 (555) 000-0000"
-                            type="tel"
-                            required
-                          />
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Stage 2: Property Location */}
-                  {currentStage === 2 && (
-                    <div className="space-y-6 animate-fadeIn">
-                      <div className="flex items-center gap-3 mb-8">
-                        <div className="w-12 h-12 bg-primary/10 dark:bg-primary/20 rounded-xl flex items-center justify-center">
-                          <span className="material-symbols-outlined text-primary dark:text-accent text-2xl">
-                            location_on
-                          </span>
-                        </div>
-                        <h2 className="text-3xl font-black text-gray-900 dark:text-white">
-                          Property Location
-                        </h2>
-                      </div>
-                      
-                      <div className="space-y-6">
-                        <div className="space-y-2">
-                          <label className="text-sm font-bold text-gray-700 dark:text-gray-300 flex items-center gap-2">
-                            <span className="material-symbols-outlined text-primary text-sm">home</span>
-                            Street Address *
-                          </label>
-                          <input
-                            name="address"
-                            value={formData.address}
-                            onChange={handleChange}
-                            className="w-full bg-gray-50 dark:bg-background-dark border-2 border-gray-200 dark:border-gray-700 rounded-xl px-4 py-4 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary dark:focus:ring-accent focus:border-transparent transition-all"
-                            placeholder="123 Main Street"
-                            type="text"
-                            required
-                          />
-                        </div>
-                        <div className="grid md:grid-cols-3 gap-6">
-                          <div className="space-y-2">
-                            <label className="text-sm font-bold text-gray-700 dark:text-gray-300">
-                              City *
-                            </label>
-                            <input
-                              name="city"
-                              value={formData.city}
-                              onChange={handleChange}
-                              className="w-full bg-gray-50 dark:bg-background-dark border-2 border-gray-200 dark:border-gray-700 rounded-xl px-4 py-4 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary dark:focus:ring-accent focus:border-transparent transition-all"
-                              placeholder="City"
-                              type="text"
-                              required
-                            />
-                          </div>
-                          <div className="space-y-2">
-                            <label className="text-sm font-bold text-gray-700 dark:text-gray-300">
-                              State *
-                            </label>
-                            <select
-                              name="state"
-                              value={formData.state}
-                              onChange={handleChange}
-                              className="w-full bg-gray-50 dark:bg-background-dark border-2 border-gray-200 dark:border-gray-700 rounded-xl px-4 py-4 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary dark:focus:ring-accent focus:border-transparent transition-all cursor-pointer"
-                              required
-                            >
-                              <option value="">Select</option>
-                              {states.map((state) => (
-                                <option key={state} value={state}>{state}</option>
-                              ))}
-                            </select>
-                          </div>
-                          <div className="space-y-2">
-                            <label className="text-sm font-bold text-gray-700 dark:text-gray-300">
-                              ZIP Code *
-                            </label>
-                            <input
-                              name="zip"
-                              value={formData.zip}
-                              onChange={handleChange}
-                              className="w-full bg-gray-50 dark:bg-background-dark border-2 border-gray-200 dark:border-gray-700 rounded-xl px-4 py-4 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary dark:focus:ring-accent focus:border-transparent transition-all"
-                              placeholder="12345"
-                              type="text"
-                              required
-                            />
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Stage 3: Case Details */}
-                  {currentStage === 3 && (
-                    <div className="space-y-6 animate-fadeIn">
-                      <div className="flex items-center gap-3 mb-8">
-                        <div className="w-12 h-12 bg-primary/10 dark:bg-primary/20 rounded-xl flex items-center justify-center">
-                          <span className="material-symbols-outlined text-primary dark:text-accent text-2xl">
-                            description
-                          </span>
-                        </div>
-                        <h2 className="text-3xl font-black text-gray-900 dark:text-white">
-                          Case Details
-                        </h2>
-                      </div>
-                      
-                      <div className="space-y-6">
-                        <div className="grid md:grid-cols-2 gap-6">
-                          <div className="space-y-2">
-                            <label className="text-sm font-bold text-gray-700 dark:text-gray-300 flex items-center gap-2">
-                              <span className="material-symbols-outlined text-primary text-sm">event</span>
-                              Incident Date
-                            </label>
-                            <input
-                              name="incidentDate"
-                              value={formData.incidentDate}
-                              onChange={handleChange}
-                              className="w-full bg-gray-50 dark:bg-background-dark border-2 border-gray-200 dark:border-gray-700 rounded-xl px-4 py-4 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary dark:focus:ring-accent focus:border-transparent transition-all"
-                              type="date"
-                            />
-                          </div>
-                          <div className="space-y-2">
-                            <label className="text-sm font-bold text-gray-700 dark:text-gray-300 flex items-center gap-2">
-                              <span className="material-symbols-outlined text-primary text-sm">speed</span>
-                              Priority Level *
-                            </label>
-                            <select
-                              name="priority"
-                              value={formData.priority}
-                              onChange={handleChange}
-                              className="w-full bg-gray-50 dark:bg-background-dark border-2 border-gray-200 dark:border-gray-700 rounded-xl px-4 py-4 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary dark:focus:ring-accent focus:border-transparent transition-all cursor-pointer"
-                              required
-                            >
-                              <option value="standard">Standard (3-5 days)</option>
-                              <option value="expedited">Expedited (24-48 hours)</option>
-                              <option value="emergency">Emergency (Same Day)</option>
-                            </select>
-                          </div>
-                        </div>
-                        <div className="space-y-2">
-                          <label className="text-sm font-bold text-gray-700 dark:text-gray-300 flex items-center gap-2">
-                            <span className="material-symbols-outlined text-primary text-sm">edit_note</span>
-                            Incident Description *
-                          </label>
-                          <textarea
-                            name="description"
-                            value={formData.description}
-                            onChange={handleChange}
-                            className="w-full bg-gray-50 dark:bg-background-dark border-2 border-gray-200 dark:border-gray-700 rounded-xl px-4 py-4 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary dark:focus:ring-accent focus:border-transparent resize-none transition-all"
-                            placeholder="Please provide a detailed description of the damage, incident, or failure requiring investigation..."
-                            rows={8}
-                            required
-                          ></textarea>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Stage 4: Review & Submit */}
-                  {currentStage === 4 && (
-                    <div className="space-y-6 animate-fadeIn">
-                      <div className="flex items-center gap-3 mb-8">
-                        <div className="w-12 h-12 bg-green-500/10 rounded-xl flex items-center justify-center">
-                          <span className="material-symbols-outlined text-green-500 text-2xl">
-                            check_circle
-                          </span>
-                        </div>
-                        <h2 className="text-3xl font-black text-gray-900 dark:text-white">
-                          Review & Submit
-                        </h2>
-                      </div>
-
-                      {/* Review Summary */}
-                      <div className="space-y-4">
-                        <div className="bg-gray-50 dark:bg-background-dark rounded-2xl p-6 border border-gray-200 dark:border-gray-700">
-                          <h4 className="font-bold text-gray-900 dark:text-white mb-4">Contact Information</h4>
-                          <div className="grid grid-cols-2 gap-4 text-sm">
-                            <div>
-                              <p className="text-gray-500 dark:text-gray-400">Name</p>
-                              <p className="font-semibold text-gray-900 dark:text-white">{formData.name}</p>
-                            </div>
-                            <div>
-                              <p className="text-gray-500 dark:text-gray-400">Email</p>
-                              <p className="font-semibold text-gray-900 dark:text-white">{formData.email}</p>
-                            </div>
-                            <div>
-                              <p className="text-gray-500 dark:text-gray-400">Phone</p>
-                              <p className="font-semibold text-gray-900 dark:text-white">{formData.phone}</p>
-                            </div>
-                            <div>
-                              <p className="text-gray-500 dark:text-gray-400">Company</p>
-                              <p className="font-semibold text-gray-900 dark:text-white">{formData.company || 'N/A'}</p>
-                            </div>
-                          </div>
-                        </div>
-
-                        <div className="bg-gray-50 dark:bg-background-dark rounded-2xl p-6 border border-gray-200 dark:border-gray-700">
-                          <h4 className="font-bold text-gray-900 dark:text-white mb-4">Property Location</h4>
-                          <p className="text-gray-900 dark:text-white font-semibold">
-                            {formData.address}, {formData.city}, {formData.state} {formData.zip}
-                          </p>
-                        </div>
-
-                        <div className="bg-gray-50 dark:bg-background-dark rounded-2xl p-6 border border-gray-200 dark:border-gray-700">
-                          <h4 className="font-bold text-gray-900 dark:text-white mb-4">Case Details</h4>
-                          <div className="space-y-3 text-sm">
-                            <div>
-                              <p className="text-gray-500 dark:text-gray-400">Service Type</p>
-                              <p className="font-semibold text-gray-900 dark:text-white">{selectedService.name}</p>
-                            </div>
-                            <div>
-                              <p className="text-gray-500 dark:text-gray-400">Priority</p>
-                              <p className="font-semibold text-gray-900 dark:text-white capitalize">{formData.priority}</p>
-                            </div>
-                            {formData.incidentDate && (
-                              <div>
-                                <p className="text-gray-500 dark:text-gray-400">Incident Date</p>
-                                <p className="font-semibold text-gray-900 dark:text-white">{formData.incidentDate}</p>
-                              </div>
-                            )}
-                            <div>
-                              <p className="text-gray-500 dark:text-gray-400 mb-2">Description</p>
-                              <p className="text-gray-900 dark:text-white">{formData.description}</p>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Navigation Buttons */}
-                  <div className="flex items-center justify-between pt-8 border-t border-gray-200 dark:border-gray-800">
-                    {currentStage > 1 && (
-                      <button
-                        type="button"
-                        onClick={() => setCurrentStage(currentStage - 1)}
-                        className="inline-flex items-center gap-2 px-6 py-3 rounded-xl font-bold text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-all"
-                      >
-                        <span className="material-symbols-outlined">arrow_back</span>
-                        Back
-                      </button>
-                    )}
-                    
-                    {currentStage < 4 ? (
-                      <button
-                        type="button"
-                        onClick={() => setCurrentStage(currentStage + 1)}
-                        className="ml-auto inline-flex items-center gap-2 bg-primary hover:bg-primary-dark dark:bg-accent dark:hover:bg-accent-light text-white px-8 py-4 rounded-xl font-bold text-lg transition-all shadow-lg hover:shadow-xl"
-                      >
-                        Continue
-                        <span className="material-symbols-outlined">arrow_forward</span>
-                      </button>
-                    ) : (
-                      <button
-                        type="submit"
-                        className="ml-auto inline-flex items-center gap-2 bg-green-500 hover:bg-green-600 text-white px-8 py-4 rounded-xl font-bold text-lg transition-all shadow-lg hover:shadow-xl"
-                      >
-                        <span className="material-symbols-outlined">send</span>
-                        Submit Request
-                      </button>
-                    )}
+                {/* Building Type */}
+                <div>
+                  <h3 className="text-sm font-bold text-gray-600 dark:text-gray-400 uppercase tracking-wider mb-4">
+                    Building Type <span className="text-red-500">*</span>
+                  </h3>
+                  <div className={`grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 p-1 rounded-2xl transition-colors ${showErrors && !formData.buildingType ? "border-2 border-red-500 bg-red-50/50 dark:bg-red-900/10" : "border-2 border-transparent"}`}>
+                    {BUILDING_TYPES.map((b) => (
+                      <SelectCard
+                        key={b.id}
+                        label={b.title}
+                        value={b.id}
+                        image={b.image}
+                        selected={formData.buildingType === b.id}
+                        onSelect={() => {
+                          setFormData({ ...formData, buildingType: b.id });
+                          if (formData.inspectionType) setShowErrors(false);
+                        }}
+                      />
+                    ))}
                   </div>
-                </form>
-              </div>
+                  {showErrors && !formData.buildingType && (
+                    <p className="text-red-500 text-sm font-semibold mt-2 ml-1 animate-fadeIn">
+                      Please select a building type.
+                    </p>
+                  )}
+                </div>
+              </FormSection>
+            )}
+
+            {/* ======================================= */}
+            {/*  STEP 2 – Insurance Carrier Information */}
+            {/* ======================================= */}
+            {currentStep === 1 && (
+              <FormSection
+                title="Insurance Carrier Information"
+                icon="shield"
+                subtitle="Provide the insurance carrier and adjuster details"
+              >
+                <div className="space-y-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                    <InputField
+                      label="Claim Number"
+                      name="claimNumber"
+                      value={formData.claimNumber}
+                      onChange={handleChange}
+                      placeholder="CLM-123456"
+                      required
+                      icon="tag"
+                    />
+                    {/* Insurance Company Dropdown */}
+                    <div className="space-y-2">
+                      <label
+                        htmlFor="insuranceCompany"
+                        className="text-sm font-bold text-gray-700 dark:text-gray-300 flex items-center gap-2"
+                      >
+                        <span className="material-symbols-outlined text-primary dark:text-accent text-sm">business</span>
+                        Insurance Company
+                      </label>
+                      <select
+                        id="insuranceCompany"
+                        name="insuranceCompany"
+                        value={formData.insuranceCompany}
+                        onChange={handleChange}
+                        className="w-full bg-gray-50 dark:bg-background-dark border-2 border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3.5 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary dark:focus:ring-accent focus:border-transparent transition-all cursor-pointer"
+                      >
+                        <option value="">Select Insurance Company</option>
+                        {INSURANCE_COMPANIES.map((c) => (
+                          <option key={c} value={c}>{c}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                    <InputField
+                      label="Adjuster Email"
+                      name="adjusterEmail"
+                      value={formData.adjusterEmail}
+                      onChange={handleChange}
+                      type="email"
+                      placeholder="adjuster@insurance.com"
+                      required
+                      icon="email"
+                    />
+                    <InputField
+                      label="Second Email for Report"
+                      name="secondEmailForReport"
+                      value={formData.secondEmailForReport}
+                      onChange={handleChange}
+                      type="email"
+                      placeholder="optional@email.com"
+                      icon="alternate_email"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                    <InputField
+                      label="Adjuster First Name"
+                      name="adjusterFirstName"
+                      value={formData.adjusterFirstName}
+                      onChange={handleChange}
+                      placeholder="First Name"
+                      icon="badge"
+                    />
+                    <InputField
+                      label="Adjuster Last Name"
+                      name="adjusterLastName"
+                      value={formData.adjusterLastName}
+                      onChange={handleChange}
+                      placeholder="Last Name"
+                      icon="badge"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                    <InputField
+                      label="Adjuster Phone"
+                      name="adjusterPhone"
+                      value={formData.adjusterPhone}
+                      onChange={handleChange}
+                      type="tel"
+                      placeholder="+1 (555) 000-0000"
+                      required
+                      icon="phone"
+                    />
+                    <InputField
+                      label="Adjuster Phone Extension"
+                      name="adjusterPhoneExt"
+                      value={formData.adjusterPhoneExt}
+                      onChange={handleChange}
+                      placeholder="Ext. 123"
+                      icon="dialpad"
+                    />
+                  </div>
+
+                  {/* Adjuster Comments */}
+                  <div className="space-y-2">
+                    <label
+                      htmlFor="adjusterComments"
+                      className="text-sm font-bold text-gray-700 dark:text-gray-300 flex items-center gap-2"
+                    >
+                      <span className="material-symbols-outlined text-primary dark:text-accent text-sm">comment</span>
+                      Adjuster&apos;s Comments
+                    </label>
+                    <textarea
+                      id="adjusterComments"
+                      name="adjusterComments"
+                      value={formData.adjusterComments}
+                      onChange={handleChange}
+                      rows={4}
+                      placeholder="Any additional comments from the adjuster..."
+                      className="w-full bg-gray-50 dark:bg-background-dark border-2 border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3.5 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-primary dark:focus:ring-accent focus:border-transparent resize-none transition-all"
+                    />
+                  </div>
+
+                  {/* IA Toggle */}
+                  <div className="bg-gray-50 dark:bg-background-dark rounded-2xl p-5 border border-gray-200 dark:border-gray-700">
+                    <CheckboxToggle
+                      label="This claim is being submitted by an IA"
+                      checked={formData.isIAClaim}
+                      onChange={(checked) =>
+                        setFormData({ ...formData, isIAClaim: checked })
+                      }
+                    >
+                      <div className="bg-white dark:bg-section-dark rounded-xl p-5 border border-gray-200 dark:border-gray-700 space-y-5">
+                        <h4 className="text-sm font-bold text-gray-600 dark:text-gray-400 uppercase tracking-wider">
+                          Independent Adjuster Information
+                        </h4>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                          <InputField label="IA First Name" name="iaFirstName" value={formData.iaFirstName} onChange={handleChange} placeholder="First Name" icon="badge" />
+                          <InputField label="IA Last Name" name="iaLastName" value={formData.iaLastName} onChange={handleChange} placeholder="Last Name" icon="badge" />
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                          <InputField label="IA Email" name="iaEmail" value={formData.iaEmail} onChange={handleChange} type="email" placeholder="ia@company.com" icon="email" />
+                          <InputField label="IA Phone" name="iaPhone" value={formData.iaPhone} onChange={handleChange} type="tel" placeholder="+1 (555) 000-0000" icon="phone" />
+                        </div>
+                        <InputField label="IA Company" name="iaCompany" value={formData.iaCompany} onChange={handleChange} placeholder="Company Name" icon="business" />
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                          <InputField label="IA Second Email" name="iaSecondEmail" value={formData.iaSecondEmail} onChange={handleChange} type="email" placeholder="optional@email.com" icon="alternate_email" />
+                          <InputField label="IA Third Email" name="iaThirdEmail" value={formData.iaThirdEmail} onChange={handleChange} type="email" placeholder="optional@email.com" icon="alternate_email" />
+                        </div>
+                      </div>
+                    </CheckboxToggle>
+                  </div>
+                </div>
+              </FormSection>
+            )}
+
+            {/* ====================================== */}
+            {/*  STEP 3 – Policyholder Information     */}
+            {/* ====================================== */}
+            {currentStep === 2 && (
+              <FormSection
+                title="Policyholder Information"
+                icon="person"
+                subtitle="Enter the policyholder and property details"
+              >
+                <div className="space-y-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                    <InputField label="Policyholder First Name" name="policyholderFirstName" value={formData.policyholderFirstName} onChange={handleChange} placeholder="First Name" required icon="badge" />
+                    <InputField label="Policyholder Last Name" name="policyholderLastName" value={formData.policyholderLastName} onChange={handleChange} placeholder="Last Name" required icon="badge" />
+                  </div>
+                  <InputField label="Policyholder Phone 1" name="policyholderPhone1" value={formData.policyholderPhone1} onChange={handleChange} type="tel" placeholder="+1 (555) 000-0000" required icon="phone" />
+
+                  {/* Spouse / Second Policyholder */}
+                  <div className="bg-gray-50 dark:bg-background-dark rounded-2xl p-5 border border-gray-200 dark:border-gray-700">
+                    <h4 className="text-sm font-bold text-gray-600 dark:text-gray-400 uppercase tracking-wider mb-4 flex items-center gap-2">
+                      <span className="material-symbols-outlined text-primary dark:text-accent text-base">group</span>
+                      Spouse / Second Policyholder
+                    </h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                      <InputField label="First Name" name="spouseFirstName" value={formData.spouseFirstName} onChange={handleChange} placeholder="First Name" icon="badge" />
+                      <InputField label="Last Name" name="spouseLastName" value={formData.spouseLastName} onChange={handleChange} placeholder="Last Name" icon="badge" />
+                    </div>
+                  </div>
+
+                  <InputField label="Policyholder Phone 2" name="policyholderPhone2" value={formData.policyholderPhone2} onChange={handleChange} type="tel" placeholder="+1 (555) 000-0000" icon="phone" />
+
+                  {/* Address */}
+                  <div className="bg-gray-50 dark:bg-background-dark rounded-2xl p-5 border border-gray-200 dark:border-gray-700">
+                    <AddressGroup
+                      streetAddress={formData.streetAddress}
+                      addressLine2={formData.addressLine2}
+                      city={formData.city}
+                      state={formData.state}
+                      zip={formData.zip}
+                      onChange={handleChange}
+                    />
+                  </div>
+                </div>
+              </FormSection>
+            )}
+
+            {/* ============================== */}
+            {/*  STEP 4 – Roofer Information   */}
+            {/* ============================== */}
+            {currentStep === 3 && (
+              <FormSection
+                title="Roofer Information"
+                icon="roofing"
+                subtitle="Provide roofer details if applicable"
+                optional
+              >
+                <div className="space-y-5">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                    <InputField label="Roofer Name" name="rooferName" value={formData.rooferName} onChange={handleChange} placeholder="Full Name" icon="badge" />
+                    <InputField label="Roofer Company" name="rooferCompany" value={formData.rooferCompany} onChange={handleChange} placeholder="Company Name" icon="business" />
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                    <InputField label="Roofer Phone" name="rooferPhone" value={formData.rooferPhone} onChange={handleChange} type="tel" placeholder="+1 (555) 000-0000" icon="phone" />
+                    <InputField label="Inspection Name" name="inspectionName" value={formData.inspectionName} onChange={handleChange} placeholder="Inspection Name" icon="description" />
+                  </div>
+                </div>
+              </FormSection>
+            )}
+
+            {/* ======================================== */}
+            {/*  STEP 5 – Public Adjuster Information    */}
+            {/* ======================================== */}
+            {currentStep === 4 && (
+              <FormSection
+                title="Public Adjuster Information"
+                icon="gavel"
+                subtitle="Provide public adjuster details if applicable"
+                optional
+              >
+                <div className="space-y-5">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                    <InputField label="Public Adjuster Name" name="publicAdjusterName" value={formData.publicAdjusterName} onChange={handleChange} placeholder="Full Name" icon="badge" />
+                    <InputField label="Public Adjuster Company" name="publicAdjusterCompany" value={formData.publicAdjusterCompany} onChange={handleChange} placeholder="Company Name" icon="business" />
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                    <InputField label="Public Adjuster Phone" name="publicAdjusterPhone" value={formData.publicAdjusterPhone} onChange={handleChange} type="tel" placeholder="+1 (555) 000-0000" icon="phone" />
+                    <InputField label="Public Adjuster Email" name="publicAdjusterEmail" value={formData.publicAdjusterEmail} onChange={handleChange} type="email" placeholder="adjuster@company.com" icon="email" />
+                  </div>
+                </div>
+              </FormSection>
+            )}
+
+            {/* ========================= */}
+            {/*  STEP 6 – Review & Submit */}
+            {/* ========================= */}
+            {currentStep === 5 && (
+              <FormSection
+                title="Review & Submit"
+                icon="check_circle"
+                subtitle="Review your information before submitting"
+              >
+                <div className="space-y-5">
+                  {/* Section 1 – Inspection Request */}
+                  <ReviewBlock
+                    title="Inspection Request"
+                    icon="assignment"
+                    onEdit={() => goToStep(0)}
+                  >
+                    <ReviewRow label="Inspection Type" value={labelFor(formData.inspectionType, INSPECTION_TYPES)} />
+                    <ReviewRow label="Building Type" value={labelFor(formData.buildingType, BUILDING_TYPES)} />
+                  </ReviewBlock>
+
+                  {/* Section 2 – Insurance Carrier */}
+                  <ReviewBlock
+                    title="Insurance Carrier"
+                    icon="shield"
+                    onEdit={() => goToStep(1)}
+                  >
+                    <ReviewRow label="Claim Number" value={formData.claimNumber} />
+                    <ReviewRow label="Insurance Company" value={formData.insuranceCompany} />
+                    <ReviewRow label="Adjuster" value={`${formData.adjusterFirstName} ${formData.adjusterLastName}`.trim()} />
+                    <ReviewRow label="Adjuster Email" value={formData.adjusterEmail} />
+                    <ReviewRow label="Adjuster Phone" value={formData.adjusterPhone} />
+                    {formData.adjusterPhoneExt && <ReviewRow label="Extension" value={formData.adjusterPhoneExt} />}
+                    {formData.secondEmailForReport && <ReviewRow label="Second Email" value={formData.secondEmailForReport} />}
+                    {formData.adjusterComments && <ReviewRow label="Comments" value={formData.adjusterComments} />}
+                    {formData.isIAClaim && (
+                      <>
+                        <div className="col-span-2 border-t border-gray-200 dark:border-gray-700 pt-3 mt-1">
+                          <span className="text-xs font-bold text-primary dark:text-accent uppercase tracking-wider">IA Information</span>
+                        </div>
+                        <ReviewRow label="IA Name" value={`${formData.iaFirstName} ${formData.iaLastName}`.trim()} />
+                        <ReviewRow label="IA Company" value={formData.iaCompany} />
+                        <ReviewRow label="IA Email" value={formData.iaEmail} />
+                        <ReviewRow label="IA Phone" value={formData.iaPhone} />
+                      </>
+                    )}
+                  </ReviewBlock>
+
+                  {/* Section 3 – Policyholder */}
+                  <ReviewBlock
+                    title="Policyholder"
+                    icon="person"
+                    onEdit={() => goToStep(2)}
+                  >
+                    <ReviewRow label="Policyholder" value={`${formData.policyholderFirstName} ${formData.policyholderLastName}`.trim()} />
+                    <ReviewRow label="Phone 1" value={formData.policyholderPhone1} />
+                    {(formData.spouseFirstName || formData.spouseLastName) && (
+                      <ReviewRow label="Spouse" value={`${formData.spouseFirstName} ${formData.spouseLastName}`.trim()} />
+                    )}
+                    {formData.policyholderPhone2 && <ReviewRow label="Phone 2" value={formData.policyholderPhone2} />}
+                    <ReviewRow label="Address" value={[formData.streetAddress, formData.addressLine2, formData.city, formData.state, formData.zip].filter(Boolean).join(", ")} />
+                  </ReviewBlock>
+
+                  {/* Section 4 – Roofer */}
+                  <ReviewBlock
+                    title="Roofer Information"
+                    icon="roofing"
+                    onEdit={() => goToStep(3)}
+                    optional
+                  >
+                    <ReviewRow label="Roofer Name" value={formData.rooferName} />
+                    <ReviewRow label="Company" value={formData.rooferCompany} />
+                    <ReviewRow label="Phone" value={formData.rooferPhone} />
+                    <ReviewRow label="Inspection Name" value={formData.inspectionName} />
+                  </ReviewBlock>
+
+                  {/* Section 5 – Public Adjuster */}
+                  <ReviewBlock
+                    title="Public Adjuster"
+                    icon="gavel"
+                    onEdit={() => goToStep(4)}
+                    optional
+                  >
+                    <ReviewRow label="Name" value={formData.publicAdjusterName} />
+                    <ReviewRow label="Company" value={formData.publicAdjusterCompany} />
+                    <ReviewRow label="Phone" value={formData.publicAdjusterPhone} />
+                    <ReviewRow label="Email" value={formData.publicAdjusterEmail} />
+                  </ReviewBlock>
+                </div>
+              </FormSection>
+            )}
+
+            {/* ── Navigation Buttons ── */}
+            <div className="flex items-center justify-between pt-8 mt-8 border-t border-gray-200 dark:border-gray-800">
+              {currentStep > 0 ? (
+                <button
+                  type="button"
+                  onClick={handleBack}
+                  className="inline-flex items-center gap-2 px-5 py-3 rounded-xl font-bold text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-all"
+                >
+                  <span className="material-symbols-outlined text-xl">arrow_back</span>
+                  Back
+                </button>
+              ) : (
+                <div />
+              )}
+
+              {currentStep < WIZARD_STEPS.length - 1 ? (
+                <button
+                  type="button"
+                  onClick={handleNext}
+                  className="inline-flex items-center gap-2 bg-primary hover:bg-primary-dark dark:bg-accent dark:hover:bg-accent-light text-white px-8 py-4 rounded-xl font-bold text-lg transition-all shadow-lg hover:shadow-xl hover:scale-[1.02] active:scale-[0.98]"
+                >
+                  Next
+                  <span className="material-symbols-outlined">arrow_forward</span>
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleSubmit}
+                  className="inline-flex items-center gap-2 bg-green-500 hover:bg-green-600 text-white px-10 py-4 rounded-xl font-bold text-lg transition-all shadow-lg shadow-green-500/30 hover:shadow-xl hover:shadow-green-500/40 hover:scale-[1.02] active:scale-[0.98]"
+                >
+                  <span className="material-symbols-outlined">send</span>
+                  Send Inspection
+                </button>
+              )}
             </div>
-          )}
-        </div>
-      </main>
+          </>
+        )}
+      </div>
+    </div>
+  </main>
 
       <Footer />
 
@@ -661,7 +706,7 @@ export default function SubmitInspectionPage() {
         @keyframes fadeIn {
           from {
             opacity: 0;
-            transform: translateY(20px);
+            transform: translateY(16px);
           }
           to {
             opacity: 1;
@@ -669,9 +714,66 @@ export default function SubmitInspectionPage() {
           }
         }
         .animate-fadeIn {
-          animation: fadeIn 0.5s ease-out;
+          animation: fadeIn 0.45s ease-out;
         }
       `}</style>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  Review sub-components                                              */
+/* ------------------------------------------------------------------ */
+
+function ReviewBlock({
+  title,
+  icon,
+  onEdit,
+  optional,
+  children,
+}: {
+  title: string;
+  icon: string;
+  onEdit: () => void;
+  optional?: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="bg-gray-50 dark:bg-background-dark rounded-2xl p-5 md:p-6 border border-gray-200 dark:border-gray-700">
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-2">
+          <span className="material-symbols-outlined text-primary dark:text-accent text-xl">
+            {icon}
+          </span>
+          <h4 className="font-bold text-gray-900 dark:text-white">{title}</h4>
+          {optional && (
+            <span className="text-[10px] font-semibold bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400 px-2 py-0.5 rounded-full">
+              Optional
+            </span>
+          )}
+        </div>
+        <button
+          type="button"
+          onClick={onEdit}
+          className="inline-flex items-center gap-1.5 text-sm font-bold text-primary dark:text-accent hover:underline transition-all"
+        >
+          <span className="material-symbols-outlined text-base">edit</span>
+          Edit
+        </button>
+      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3 text-sm">
+        {children}
+      </div>
+    </div>
+  );
+}
+
+function ReviewRow({ label, value }: { label: string; value: string }) {
+  if (!value) return null;
+  return (
+    <div>
+      <p className="text-gray-500 dark:text-gray-400 text-xs mb-0.5">{label}</p>
+      <p className="font-semibold text-gray-900 dark:text-white break-words">{value}</p>
     </div>
   );
 }

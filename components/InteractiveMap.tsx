@@ -536,6 +536,11 @@ export default function InteractiveMap() {
     pitch: 60,
     bearing: 0,
   });
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const filteredRequests = useMemo(() => {
     // Filter by service type
@@ -841,7 +846,7 @@ export default function InteractiveMap() {
           </div>
 
           <div className="h-[600px] md:h-[700px] lg:h-[800px] relative">
-            {typeof window !== 'undefined' && (
+            {mounted && (
               <Map
                 ref={mapRef}
                 {...viewState}

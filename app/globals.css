@@ -50,3 +50,19 @@
 .maplibregl-popup-tip {
   border-top-color: rgba(18, 18, 18, 0.95) !important;
 }
+
+/* Form step transitions */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fadeIn {
+  animation: fadeIn 0.45s ease-out;
+}
