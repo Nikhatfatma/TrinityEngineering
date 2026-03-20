@@ -39,3 +39,6 @@ next-env.d.ts
   node_modules/
 .build/
 .env.local
+
+functions/**/node_modules
+.build
