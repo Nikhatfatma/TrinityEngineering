@@ -1,0 +1,9 @@
+{
+  "functions": {
+    "targets": [
+      "trinity_web_portal_function"
+    ],
+    "ignore": [],
+    "source": "functions"
+  }
+}

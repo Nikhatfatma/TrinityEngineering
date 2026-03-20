@@ -19,6 +19,7 @@ interface AddressGroupProps {
   zip: string;
   onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => void;
   prefix?: string;
+  errors?: Partial<Record<string, string>>;
 }
 
 export default function AddressGroup({
@@ -29,17 +30,19 @@ export default function AddressGroup({
   zip,
   onChange,
   prefix = "",
+  errors = {},
 }: AddressGroupProps) {
   const namePrefix = prefix ? `${prefix}_` : "";
+  const getError = (fieldName: string) => errors[`${namePrefix}${fieldName}`];
 
   return (
-    <div className="space-y-4">
-      <h4 className="text-sm font-bold text-gray-600 dark:text-gray-400 uppercase tracking-wider flex items-center gap-2">
-        <span className="material-symbols-outlined text-primary dark:text-accent text-base">location_on</span>
+    <div className="space-y-3">
+      <h4 className="text-xs font-bold text-gray-600 dark:text-gray-400 uppercase tracking-wider flex items-center gap-1.5">
+        <span className="material-symbols-outlined text-primary dark:text-accent text-sm">location_on</span>
         Inspection Address
       </h4>
 
-      <div className="grid grid-cols-1 gap-4">
+      <div className="grid grid-cols-1 gap-3">
         <InputField
           label="Street Address"
           name={`${namePrefix}streetAddress`}
@@ -48,6 +51,8 @@ export default function AddressGroup({
           placeholder="123 Main Street"
           required
           icon="home"
+          invalid={!!getError("streetAddress")}
+          error={getError("streetAddress")}
         />
         <InputField
           label="Address Line 2"
@@ -58,7 +63,7 @@ export default function AddressGroup({
         />
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
         <InputField
           label="City"
           name={`${namePrefix}city`}
@@ -66,13 +71,15 @@ export default function AddressGroup({
           onChange={onChange}
           placeholder="City"
           required
+          invalid={!!getError("city")}
+          error={getError("city")}
         />
 
         {/* State dropdown */}
-        <div className="space-y-2">
+        <div className="space-y-1">
           <label
             htmlFor={`${namePrefix}state`}
-            className="text-sm font-bold text-gray-700 dark:text-gray-300 flex items-center gap-2"
+            className="text-xs font-bold text-gray-700 dark:text-gray-300 flex items-center gap-1.5"
           >
             State <span className="text-red-500">*</span>
           </label>
@@ -82,7 +89,11 @@ export default function AddressGroup({
             value={state}
             onChange={onChange}
             required
-            className="w-full bg-gray-50 dark:bg-background-dark border-2 border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3.5 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary dark:focus:ring-accent focus:border-transparent transition-all cursor-pointer"
+            className={`w-full bg-gray-50 dark:bg-background-dark border rounded-lg px-3 py-1.5 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:border-transparent transition-all cursor-pointer ${
+              getError("state")
+                ? "border-red-500 focus:ring-red-500 dark:focus:ring-red-400"
+                : "border-gray-200 dark:border-gray-700 focus:ring-primary dark:focus:ring-accent"
+            }`}
           >
             <option value="">Select State</option>
             {US_STATES.map((s) => (
@@ -91,6 +102,11 @@ export default function AddressGroup({
               </option>
             ))}
           </select>
+          {getError("state") && (
+            <p className="text-xs text-red-500 font-semibold -mt-1">
+              {getError("state")}
+            </p>
+          )}
         </div>
 
         <InputField
@@ -100,6 +116,8 @@ export default function AddressGroup({
           onChange={onChange}
           placeholder="12345"
           required
+          invalid={!!getError("zip")}
+          error={getError("zip")}
         />
       </div>
     </div>

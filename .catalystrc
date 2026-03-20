@@ -1,0 +1,30 @@
+{
+  "defaults": {
+    "project": 1,
+    "env": 1
+  },
+  "actives": {
+    "project": 1,
+    "env": 1
+  },
+  "projects": [
+    {
+      "idx": 1,
+      "id": "4915000000023010",
+      "name": "TrinityWebPortal",
+      "domain": {
+        "id": "10121983846",
+        "name": "trinitywebportal-836373025.development"
+      },
+      "timezone": "America/New_York",
+      "env": [
+        {
+          "idx": 1,
+          "id": "836373025",
+          "name": "Development",
+          "type": 3
+        }
+      ]
+    }
+  ]
+}

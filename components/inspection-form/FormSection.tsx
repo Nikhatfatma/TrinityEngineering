@@ -18,16 +18,16 @@ export default function FormSection({
   children,
 }: FormSectionProps) {
   return (
-    <div className="space-y-6 animate-fadeIn">
-      <div className="flex items-center gap-3 mb-2">
-        <div className="w-12 h-12 bg-primary/10 dark:bg-primary/20 rounded-xl flex items-center justify-center flex-shrink-0">
-          <span className="material-symbols-outlined text-primary dark:text-accent text-2xl">
+    <div className="space-y-4 animate-fadeIn">
+      <div className="flex items-center gap-2 mb-1">
+        <div className="w-8 h-8 bg-primary/10 dark:bg-primary/20 rounded-lg flex items-center justify-center flex-shrink-0">
+          <span className="material-symbols-outlined text-primary dark:text-accent text-lg">
             {icon}
           </span>
         </div>
         <div>
-          <div className="flex items-center gap-3">
-            <h2 className="text-2xl md:text-3xl font-black text-gray-900 dark:text-white">
+          <div className="flex items-center gap-2">
+            <h2 className="text-lg md:text-xl font-black text-gray-900 dark:text-white">
               {title}
             </h2>
             {optional && (

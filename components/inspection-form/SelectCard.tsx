@@ -9,6 +9,7 @@ interface GridSelectCardProps {
   image?: string;
   selected: boolean;
   onSelect: () => void;
+  dimmed?: boolean;
 }
 
 export default function SelectCard({
@@ -17,6 +18,7 @@ export default function SelectCard({
   image,
   selected,
   onSelect,
+  dimmed = false,
 }: GridSelectCardProps) {
   const [imgError, setImgError] = useState(false);
 
@@ -28,7 +30,9 @@ export default function SelectCard({
         ${
           selected
             ? "border-blue-500 bg-blue-50 shadow-md ring-2 ring-blue-500/50 scale-[1.02]"
-            : "border-gray-200 bg-white hover:border-blue-300 hover:shadow-lg hover:scale-[1.01]"
+            : `border-gray-200 bg-white hover:border-blue-300 hover:shadow-lg hover:scale-[1.01] ${
+                dimmed ? "opacity-60 grayscale-[0.2]" : ""
+              }`
         }
       `}
     >
@@ -40,7 +44,7 @@ export default function SelectCard({
       )}
 
       {/* Image container */}
-      <div className="w-full relative h-32 sm:h-40 bg-gray-100 overflow-hidden">
+      <div className="w-full relative h-20 sm:h-24 bg-gray-100 overflow-hidden">
         {image && !imgError ? (
            <Image 
               src={image} 
@@ -62,9 +66,9 @@ export default function SelectCard({
       </div>
 
       {/* Label container */}
-      <div className="w-full p-4 border-t border-gray-100 flex-grow flex items-center justify-center">
+      <div className="w-full px-2 py-1.5 border-t border-gray-100 flex-grow flex items-center justify-center">
         <span
-          className={`font-black text-sm sm:text-base transition-colors duration-300 ${
+          className={`font-bold text-[11px] sm:text-xs leading-tight text-center transition-colors duration-300 ${
             selected
               ? "text-blue-700"
               : "text-gray-900 group-hover:text-blue-600"

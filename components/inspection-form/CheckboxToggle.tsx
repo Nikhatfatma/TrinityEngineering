@@ -19,14 +19,24 @@ export default function CheckboxToggle({
   const [height, setHeight] = useState(0);
 
   useEffect(() => {
-    if (contentRef.current) {
-      setHeight(checked ? contentRef.current.scrollHeight : 0);
-    }
+    if (!contentRef.current) return;
+    const el = contentRef.current;
+
+    const updateHeight = () => setHeight(checked ? el.scrollHeight : 0);
+    updateHeight();
+
+    if (!checked) return;
+
+    const observer = new ResizeObserver(() => {
+      updateHeight();
+    });
+    observer.observe(el);
+    return () => observer.disconnect();
   }, [checked]);
 
   return (
-    <div className="space-y-4">
-      <label className="flex items-center gap-3 cursor-pointer group select-none">
+    <div className="space-y-2">
+      <label className="flex items-center gap-2 cursor-pointer group select-none">
         <div className="relative">
           <input
             type="checkbox"
@@ -35,18 +45,18 @@ export default function CheckboxToggle({
             className="sr-only peer"
           />
           <div
-            className={`w-6 h-6 rounded-lg border-2 flex items-center justify-center transition-all duration-300 ${
+            className={`w-5 h-5 rounded-md border-2 flex items-center justify-center transition-all duration-300 ${
               checked
                 ? "bg-primary dark:bg-accent border-primary dark:border-accent"
                 : "border-gray-300 dark:border-gray-600 group-hover:border-primary dark:group-hover:border-accent"
             }`}
           >
             {checked && (
-              <span className="material-symbols-outlined text-white text-base">check</span>
+              <span className="material-symbols-outlined text-white text-sm">check</span>
             )}
           </div>
         </div>
-        <span className="text-sm font-semibold text-gray-700 dark:text-gray-300 group-hover:text-gray-900 dark:group-hover:text-white transition-colors">
+        <span className="text-xs font-semibold text-gray-700 dark:text-gray-300 group-hover:text-gray-900 dark:group-hover:text-white transition-colors">
           {label}
         </span>
       </label>
