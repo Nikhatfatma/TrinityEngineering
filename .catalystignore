@@ -1,0 +1,36 @@
+# Dependencies (installed on server via scripts.install)
+node_modules
+
+# Next.js build cache (rebuilt on server)
+/.next
+
+# Git
+.git
+.gitignore
+
+# Catalyst system files
+.catalystrc
+catalyst-debug.log
+.build
+
+# Functions (deployed separately by Catalyst)
+functions
+
+# IDE / Editor
+.vscode
+
+# Environment files (use Catalyst console for env vars)
+.env.local
+.env*.local
+
+# Build artifacts
+*.tsbuildinfo
+tsconfig.tsbuildinfo
+
+# Lock files (package.json is sufficient)
+package-lock.json
+
+# Misc
+.eslintrc.json
+README.md
+.DS_Store

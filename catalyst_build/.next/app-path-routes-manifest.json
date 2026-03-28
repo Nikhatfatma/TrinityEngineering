@@ -1,0 +1,17 @@
+{
+  "/api/insurance-companies/route": "/api/insurance-companies",
+  "/_not-found/page": "/_not-found",
+  "/api/submit-inspection/route": "/api/submit-inspection",
+  "/careers/page": "/careers",
+  "/admin/failed-submissions/page": "/admin/failed-submissions",
+  "/about/page": "/about",
+  "/case-studies/page": "/case-studies",
+  "/page": "/",
+  "/client-login/page": "/client-login",
+  "/contact/page": "/contact",
+  "/white-papers/page": "/white-papers",
+  "/submit-assignment/page": "/submit-assignment",
+  "/fortified/page": "/fortified",
+  "/submit-inspection/page": "/submit-inspection",
+  "/services/[slug]/page": "/services/[slug]"
+}

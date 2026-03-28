@@ -24,9 +24,8 @@ export default function AdminFailedSubmissionsPage() {
     setLoading(true);
     setError("");
     try {
-      const functionUrl =
-        process.env.NEXT_PUBLIC_CATALYST_FUNCTION_URL ||
-        "/server/trinity_web_portal_function/execute";
+      const functionUrl = "/api/submit-inspection";
+
 
       const res = await fetch(functionUrl, {
         method: "POST",
@@ -54,9 +53,8 @@ export default function AdminFailedSubmissionsPage() {
     setRetryingId(rowId);
     
     try {
-      const functionUrl =
-        process.env.NEXT_PUBLIC_CATALYST_FUNCTION_URL ||
-        "/server/trinity_web_portal_function/execute";
+      const functionUrl = "/api/submit-inspection";
+
 
       const res = await fetch(functionUrl, {
         method: "POST",

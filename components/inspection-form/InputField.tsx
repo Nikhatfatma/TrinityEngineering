@@ -1,66 +1,57 @@
 "use client";
 
-import React from "react";
+import React, { forwardRef } from "react";
 
-interface InputFieldProps {
+interface InputFieldProps extends React.InputHTMLAttributes<HTMLInputElement> {
   label: string;
-  name: string;
-  value: string;
-  onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => void;
-  type?: "text" | "email" | "tel" | "date" | "number";
-  placeholder?: string;
-  required?: boolean;
-  icon?: string;
-  disabled?: boolean;
+  icon?: React.ElementType;
   invalid?: boolean;
   error?: string;
 }
 
-export default function InputField({
-  label,
-  name,
-  value,
-  onChange,
-  type = "text",
-  placeholder = "",
-  required = false,
-  icon,
-  disabled = false,
-  invalid = false,
-  error,
-}: InputFieldProps) {
-  return (
-    <div className="space-y-1">
-      <label
-        htmlFor={name}
-        className="text-xs font-bold text-gray-700 dark:text-gray-300 flex items-center gap-1.5"
-      >
-        {icon && (
-          <span className="material-symbols-outlined text-primary dark:text-accent text-sm">
-            {icon}
-          </span>
+const InputField = forwardRef<HTMLInputElement, InputFieldProps>(
+  ({ label, name, type = "text", placeholder = "", required = false, icon: Icon, disabled = false, invalid = false, error, ...props }, ref) => {
+    return (
+      <div className="space-y-0.5 w-full">
+        {label && (
+          <label
+            htmlFor={name}
+            className="text-[11px] font-semibold text-gray-700 dark:text-gray-300 flex items-center gap-1"
+          >
+            {Icon && (
+              <Icon className="text-primary dark:text-accent w-3 h-3" />
+            )}
+            {label}
+            {required && <span className="text-red-500 ml-0.5">*</span>}
+          </label>
         )}
-        {label}
-        {required && <span className="text-red-500">*</span>}
-      </label>
-      <input
-        id={name}
-        name={name}
-        value={value}
-        onChange={onChange}
-        type={type}
-        placeholder={placeholder}
-        required={required}
-        disabled={disabled}
-        className={`w-full bg-gray-50 dark:bg-background-dark border rounded-lg px-3 py-1.5 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-primary dark:focus:ring-accent focus:border-transparent transition-all disabled:opacity-50 disabled:cursor-not-allowed ${
-          invalid
-            ? "border-red-500 focus:ring-red-500 dark:focus:ring-red-400"
-            : "border-gray-200 dark:border-gray-700"
-        }`}
-      />
-      {error && (
-        <p className="text-xs text-red-500 font-semibold mt-0.5">{error}</p>
-      )}
-    </div>
-  );
-}
+        <div className="relative">
+          <input
+            {...props}
+            ref={ref}
+            id={name}
+            name={name}
+            type={type}
+            required={required}
+            placeholder={placeholder}
+            disabled={disabled}
+            className={`w-full bg-gray-50 dark:bg-background-dark border rounded-lg px-3 py-2 text-xs text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:border-transparent transition-all ${
+              invalid
+                ? "border-red-500 focus:ring-red-500 dark:border-red-400 dark:focus:ring-red-400"
+                : "border-gray-200 focus:ring-primary dark:border-gray-700 dark:focus:ring-accent"
+            } ${disabled ? "opacity-60 cursor-not-allowed" : ""}`}
+          />
+        </div>
+        {error && (
+          <p className="text-[10px] text-red-500 font-semibold">
+            {error}
+          </p>
+        )}
+      </div>
+    );
+  }
+);
+
+InputField.displayName = "InputField";
+
+export default InputField;

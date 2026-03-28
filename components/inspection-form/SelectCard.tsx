@@ -1,15 +1,15 @@
 "use client";
 
-import React, { useState } from "react";
-import Image from "next/image";
+import { Check } from "lucide-react";
 
-interface GridSelectCardProps {
+interface SelectCardProps {
   label: string;
   value: string;
-  image?: string;
+  image: string;
   selected: boolean;
   onSelect: () => void;
   dimmed?: boolean;
+  horizontal?: boolean;
 }
 
 export default function SelectCard({
@@ -19,60 +19,46 @@ export default function SelectCard({
   selected,
   onSelect,
   dimmed = false,
-}: GridSelectCardProps) {
-  const [imgError, setImgError] = useState(false);
-
+  horizontal = false,
+}: SelectCardProps) {
   return (
     <button
       type="button"
       onClick={onSelect}
-      className={`group relative flex flex-col items-center justify-start text-center rounded-xl overflow-hidden border transition-all duration-300 cursor-pointer w-full
-        ${
-          selected
-            ? "border-blue-500 bg-blue-50 shadow-md ring-2 ring-blue-500/50 scale-[1.02]"
-            : `border-gray-200 bg-white hover:border-blue-300 hover:shadow-lg hover:scale-[1.01] ${
-                dimmed ? "opacity-60 grayscale-[0.2]" : ""
-              }`
-        }
-      `}
+      className={`group relative flex w-full transition-all duration-300 border overflow-hidden ${horizontal ? "flex-row items-center h-12 rounded-lg" : "flex-col items-center rounded-lg text-center"
+        } ${selected
+          ? "border-primary ring-2 ring-primary/30 shadow-lg shadow-primary/10"
+          : "border-gray-200 dark:border-gray-700 bg-white dark:bg-background-dark hover:shadow-lg hover:-translate-y-0.5 shadow-sm"
+        } ${dimmed && !selected ? "opacity-65 saturate-75 scale-[0.97]" : "opacity-100"}`}
     >
-      {/* Selected check indicator */}
-      {selected && (
-        <div className="absolute top-3 right-3 z-10 w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center shadow-lg">
-          <span className="material-symbols-outlined text-white text-sm font-bold">check</span>
-        </div>
-      )}
-
-      {/* Image container */}
-      <div className="w-full relative h-20 sm:h-24 bg-gray-100 overflow-hidden">
-        {image && !imgError ? (
-           <Image 
-              src={image} 
-              alt={label}
-              fill
-              className="object-cover transition-transform duration-500 group-hover:scale-105"
-              sizes="(max-width: 768px) 50vw, (max-width: 1200px) 33vw, 25vw"
-              onError={() => setImgError(true)}
-           />
-        ) : (
-          <div className="w-full h-full flex flex-col items-center justify-center text-gray-400">
-            <span className="material-symbols-outlined text-4xl mb-2">image</span>
-            <span className="text-xs">{label}</span>
+      {/* Image — adjusted for horizontal or vertical */}
+      <div className={`${horizontal ? "w-16 h-full border-r border-gray-100 dark:border-gray-800" : "w-full h-32 md:h-40"
+        } relative overflow-hidden flex-shrink-0`}>
+        <img
+          src={image}
+          alt={label}
+          className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+        />
+        {/* Subtle unselected overlay */}
+        {!selected && (
+          <div className="absolute inset-0 bg-gradient-to-t from-black/20 via-transparent to-transparent transition-opacity duration-300 group-hover:opacity-0" />
+        )}
+        {/* Selected check overlay */}
+        {selected && (
+          <div className="absolute inset-0 bg-primary/15 flex items-center justify-center">
+            <div className={`${horizontal ? "w-4 h-4" : "w-6 h-6"} rounded-full bg-primary flex items-center justify-center shadow-md`}>
+              <Check className="text-white w-2.5 h-2.5" strokeWidth={3} />
+            </div>
           </div>
         )}
-        
-        {/* Subtle gradient overlay to match aesthetic */}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/10 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
       </div>
-
-      {/* Label container */}
-      <div className="w-full px-2 py-1.5 border-t border-gray-100 flex-grow flex items-center justify-center">
+      {/* Label */}
+      <div className={`w-full transition-colors flex items-center ${horizontal ? "px-3 h-full" : "px-1.5 py-1.5"
+        } ${selected ? "bg-primary/5 dark:bg-accent/10" : "bg-white dark:bg-background-dark"
+        }`}>
         <span
-          className={`font-bold text-[11px] sm:text-xs leading-tight text-center transition-colors duration-300 ${
-            selected
-              ? "text-blue-700"
-              : "text-gray-900 group-hover:text-blue-600"
-          }`}
+          className={`text-[10px] font-bold leading-tight block text-left transition-colors ${selected ? "text-primary dark:text-accent" : "text-gray-700 dark:text-gray-300"
+            }`}
         >
           {label}
         </span>

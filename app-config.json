@@ -1,0 +1,22 @@
+{
+  "command": "node standalone_build/server.js",
+  "build_path": ".",
+  "stack": "node20",
+  "memory": 1024,
+  "env_variables": {
+    "PORT": "${X_ZOHO_CATALYST_LISTEN_PORT}",
+    "HOSTNAME": "0.0.0.0",
+    "NEXT_PUBLIC_CATALYST_FUNCTION_URL": "https://trinitywebportal-836373025.development.catalystserverless.com/server/trinity_web_portal_function/execute",
+    "ADMIN_USERNAME": "trinity_admin",
+    "ADMIN_PASSWORD": "T3am@Secure#2026",
+    "ZOHO_CLIENT_ID": "1000.E8FASHJGE81V5HA34B92EF69GWQGTR",
+    "ZOHO_CREATOR_APP_NAME": "inspection-app",
+    "ZOHO_CREATOR_ACCOUNT_OWNER": "trinity5",
+    "ZOHO_CLIENT_SECRET": "d961fcb2c4670a764438906b30b85ce02ee8417f0e",
+    "ZOHO_CREATOR_FORM_NAME": "inspection_form",
+    "ZOHO_REFRESH_TOKEN": "1000.b13fa0453d076b66bc2ac2c55f3988fa.5dc9706faeb8c150ec4c3d7fc49ff450"
+  },
+  "scripts": {
+    "install": "npm install && npm run build && rm -rf standalone_build && mv .next/standalone ./standalone_build && mkdir -p standalone_build/public && cp -r public/* standalone_build/public/ || true && mkdir -p standalone_build/.next/static && cp -r .next/static/* standalone_build/.next/static/ || true"
+  }
+}

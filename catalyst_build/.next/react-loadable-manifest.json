@@ -1,0 +1,30 @@
+{
+  "components\\InteractiveMap.tsx -> react-map-gl/maplibre": {
+    "id": 5127,
+    "files": [
+      "static/chunks/127.9b789589bc5daa62.js"
+    ]
+  },
+  "node_modules\\@vis.gl\\react-maplibre\\dist\\components\\map.js -> maplibre-gl": {
+    "id": 4606,
+    "files": [
+      "static/chunks/05f6971a.fa0f207d828ab64c.js"
+    ]
+  },
+  "node_modules\\@vis.gl\\react-maplibre\\dist\\index.cjs -> maplibre-gl": {
+    "id": 4606,
+    "files": []
+  },
+  "node_modules\\next\\dist\\client\\index.js -> ../pages/_app": {
+    "id": 5139,
+    "files": [
+      "static/chunks/139.7a5a8e93a21948c1.js"
+    ]
+  },
+  "node_modules\\next\\dist\\client\\index.js -> ../pages/_error": {
+    "id": 1646,
+    "files": [
+      "static/chunks/646.f342b7cffc01feb0.js"
+    ]
+  }
+}

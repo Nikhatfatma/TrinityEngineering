@@ -1,0 +1,17 @@
+{
+  "/api/insurance-companies/route": "app/api/insurance-companies/route.js",
+  "/_not-found/page": "app/_not-found/page.js",
+  "/api/submit-inspection/route": "app/api/submit-inspection/route.js",
+  "/careers/page": "app/careers/page.js",
+  "/admin/failed-submissions/page": "app/admin/failed-submissions/page.js",
+  "/about/page": "app/about/page.js",
+  "/case-studies/page": "app/case-studies/page.js",
+  "/page": "app/page.js",
+  "/client-login/page": "app/client-login/page.js",
+  "/contact/page": "app/contact/page.js",
+  "/white-papers/page": "app/white-papers/page.js",
+  "/submit-assignment/page": "app/submit-assignment/page.js",
+  "/fortified/page": "app/fortified/page.js",
+  "/submit-inspection/page": "app/submit-inspection/page.js",
+  "/services/[slug]/page": "app/services/[slug]/page.js"
+}

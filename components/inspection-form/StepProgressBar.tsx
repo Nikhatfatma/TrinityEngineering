@@ -1,10 +1,10 @@
 "use client";
 
-import React from "react";
+import { Check } from "lucide-react";
 
 interface Step {
   title: string;
-  icon: string;
+  icon: React.ElementType;
 }
 
 interface StepProgressBarProps {
@@ -19,82 +19,68 @@ export default function StepProgressBar({
   onStepClick,
 }: StepProgressBarProps) {
   return (
-    <div className="mb-12">
-      <div className="relative max-w-5xl mx-auto">
-        {/* Background connecting line */}
-        <div className="absolute top-6 left-0 right-0 h-1 bg-gray-200 dark:bg-gray-700 hidden md:block"></div>
+    <div className="w-full mb-3 px-2">
+      <div className="relative flex justify-between items-start">
+        {/* Background Line */}
+        <div className="absolute top-[14px] left-0 w-full h-[2px] bg-gray-200 dark:bg-gray-700 rounded-full" />
 
-        {/* Active progress line */}
+        {/* Active Progress Line — green for completed, transitions to blue at active */}
         <div
-          className="absolute top-6 left-0 h-1 bg-gradient-to-r from-green-500 via-primary to-accent transition-all duration-700 ease-out hidden md:block"
+          className="absolute top-[14px] left-0 h-[2px] rounded-full transition-all duration-500 ease-out"
           style={{
             width: `${(currentStep / (steps.length - 1)) * 100}%`,
+            background: currentStep > 0
+              ? `linear-gradient(to right, #22c55e 0%, #22c55e ${((currentStep - 1) / currentStep) * 100}%, #2563eb 100%)`
+              : "#2563eb",
           }}
-        ></div>
+        />
 
-        {/* Steps */}
-        <div className="relative flex items-center justify-between">
-          {steps.map((step, index) => {
-            const isCompleted = index < currentStep;
-            const isActive = index === currentStep;
-            const isClickable = onStepClick && index < currentStep;
+        {steps.map((step, index) => {
+          const isActive = index === currentStep;
+          const isCompleted = index < currentStep;
+          const StepIcon = step.icon;
 
-            return (
-              <div
-                key={index}
-                className={`flex flex-col items-center relative z-10 ${
-                  isClickable ? "cursor-pointer" : ""
+          return (
+            <div
+              key={index}
+              className="flex flex-col items-center relative z-10"
+              style={{ width: `${100 / steps.length}%` }}
+            >
+              <button
+                type="button"
+                onClick={() => onStepClick?.(index)}
+                className={`w-7 h-7 rounded-full flex items-center justify-center transition-all duration-300 relative ${
+                  isActive
+                    ? "bg-blue-600 text-white shadow-[0_0_12px_rgba(37,99,235,0.5)] ring-3 ring-blue-400/30 scale-110"
+                    : isCompleted
+                    ? "bg-green-500 text-white shadow-sm"
+                    : "bg-white dark:bg-section-dark border-2 border-gray-300 dark:border-gray-600 text-gray-400"
                 }`}
-                onClick={() => isClickable && onStepClick(index)}
               >
-                {/* Circle */}
-                <div
-                  className={`relative w-12 h-12 md:w-14 md:h-14 rounded-full flex items-center justify-center border-4 border-white dark:border-gray-900 transition-all duration-500 ${
-                    isCompleted
-                      ? "bg-green-500 shadow-lg shadow-green-500/30"
-                      : isActive
-                      ? "bg-primary dark:bg-accent shadow-xl shadow-primary/40 dark:shadow-accent/40 scale-110"
-                      : "bg-gray-200 dark:bg-gray-700"
-                  }`}
-                >
-                  <span
-                    className={`material-symbols-outlined text-lg md:text-xl transition-all ${
-                      isCompleted || isActive ? "text-white" : "text-gray-500"
-                    }`}
-                  >
-                    {isCompleted ? "check" : step.icon}
-                  </span>
+                {isCompleted ? (
+                  <Check className="w-3.5 h-3.5" strokeWidth={3} />
+                ) : (
+                  <StepIcon className="w-3.5 h-3.5" />
+                )}
 
-                  {/* Pulse animation for active step */}
-                  {isActive && (
-                    <span className="absolute inset-0 rounded-full bg-primary dark:bg-accent animate-ping opacity-20"></span>
-                  )}
-                </div>
-
-                {/* Label */}
-                <span
-                  className={`text-[10px] md:text-xs font-bold mt-2 md:mt-3 text-center max-w-[70px] md:max-w-[90px] leading-tight transition-colors ${
-                    isCompleted || isActive
-                      ? "text-gray-900 dark:text-white"
-                      : "text-gray-400 dark:text-gray-500"
-                  }`}
-                >
-                  {step.title}
-                </span>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* Mobile step indicator */}
-      <div className="md:hidden mt-4 text-center">
-        <span className="text-sm font-bold text-primary dark:text-accent">
-          Step {currentStep + 1} of {steps.length}
-        </span>
-        <span className="text-sm text-gray-500 dark:text-gray-400 ml-2">
-          — {steps[currentStep].title}
-        </span>
+                {isActive && (
+                  <span className="absolute inset-0 rounded-full bg-blue-500 animate-ping opacity-20" />
+                )}
+              </button>
+              <span
+                className={`text-[9px] font-bold mt-1 transition-colors uppercase tracking-wide text-center leading-tight ${
+                  isActive
+                    ? "text-blue-600 dark:text-blue-400"
+                    : isCompleted
+                    ? "text-green-600 dark:text-green-400"
+                    : "text-gray-400 dark:text-gray-500"
+                }`}
+              >
+                {step.title}
+              </span>
+            </div>
+          );
+        })}
       </div>
     </div>
   );

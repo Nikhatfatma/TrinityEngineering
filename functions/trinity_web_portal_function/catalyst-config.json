@@ -7,5 +7,17 @@
 	},
 	"execution": {
 		"main": "index.js"
+	},
+	"pack": {
+		"include": [
+			"index.js",
+			"package.json",
+			"node_modules/**"
+		],
+		"exclude": [
+			"node_modules/.bin",
+			"node_modules/*/test",
+			"node_modules/*/tests"
+		]
 	}
 }

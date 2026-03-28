@@ -22,19 +22,19 @@ export default function Navbar() {
   ];
 
   return (
-    <nav className="fixed top-0 w-full z-50 bg-white/95 dark:bg-background-dark/95 backdrop-blur-sm border-b border-gray-200 dark:border-gray-800">
-      <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
+    <nav className="fixed top-0 w-full z-50 bg-white dark:bg-background-dark border-b border-gray-200 dark:border-gray-800 shadow-md">
+      <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
         {/* Logo */}
         <Link href="/" className="flex items-center">
           <img 
             src="/logo.jpg" 
             alt="Trinity Engineering" 
-            className="h-14 w-auto object-contain"
+            className="h-10 w-auto object-contain"
           />
         </Link>
 
         {/* Desktop Menu - Center */}
-        <div className="hidden lg:flex items-center gap-8">
+        <div className="hidden lg:flex items-center gap-6">
           {/* Services Dropdown */}
           <div 
             className="relative group"
@@ -168,10 +168,10 @@ export default function Navbar() {
 
           {/* Submit Inspection Button */}
           <Link
-            className="bg-primary hover:bg-primary-dark dark:bg-accent dark:hover:bg-accent-light text-white px-6 py-2.5 rounded-lg text-sm font-bold transition-all shadow-md hover:shadow-lg flex items-center gap-2 whitespace-nowrap"
+            className="bg-primary hover:bg-primary-dark dark:bg-accent dark:hover:bg-accent-light text-white px-5 py-1.5 rounded-lg text-[13px] font-bold transition-all shadow-md hover:shadow-lg flex items-center gap-2 whitespace-nowrap"
             href="/submit-inspection"
           >
-            <span className="material-icons text-base">send</span>
+            <span className="material-icons text-sm">send</span>
             Submit Inspection
           </Link>
         </div>

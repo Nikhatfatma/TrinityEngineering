@@ -3,7 +3,17 @@
     "targets": [
       "trinity_web_portal_function"
     ],
-    "ignore": [],
-    "source": "functions"
-  }
+    "ignore": [
+      "**/node_modules/**",
+      ".catalystignore",
+      "catalyst.json",
+      "catalyst-debug.log"
+    ]
+  },
+  "appsail": [
+    {
+      "source": "catalyst_build",
+      "name": "trinity-app"
+    }
+  ]
 }

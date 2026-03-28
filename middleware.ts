@@ -1,34 +1,82 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
+/**
+ * Basic Auth Middleware for Next.js
+ * 
+ * Securely handles /admin route authentication using environment variables.
+ * Implements fixes for:
+ * 1. Env variable loading and logging
+ * 2. Trimmed credentials
+ * 3. Robust header parsing (indexOf vs split)
+ * 4. Cache-Control: no-store to prevent loop
+ */
+
+const getDynamicEnv = (key: string) => {
+  if (typeof process !== 'undefined' && process.env) {
+    const val = process.env[key] || '';
+    // Log the length and first/last character for debugging (safely)
+    if (val) {
+      const firstChar = val.charAt(0);
+      const lastChar = val.charAt(val.length - 1);
+      console.log(`[AUTH ENV] Loaded ${key} (length: ${val.length}, first: "${firstChar}", last: "${lastChar}")`);
+    } else {
+      console.warn(`[AUTH ENV] Missing ${key}`);
+    }
+    return val;
+  }
+  return '';
+};
+
 export function middleware(req: NextRequest) {
   // Check if the route is blocked by basic auth
-  const basicAuth = req.headers.get('authorization');
+  const authHeader = req.headers.get('authorization') || req.headers.get('x-forwarded-authorization');
 
-  if (basicAuth) {
-    const authValue = basicAuth.split(' ')[1];
-    // Decode base64 
-    const [user, pwd] = atob(authValue).split(':');
+  if (authHeader) {
+    try {
+      const authParts = authHeader.split(' ');
+      if (authParts.length === 2 && authParts[0].toLowerCase() === 'basic') {
+        const authValue = authParts[1];
+        
+        // Decode base64 safely
+        const decoded = atob(authValue);
+        const index = decoded.indexOf(':');
+        
+        if (index !== -1) {
+          const user = decoded.substring(0, index).trim();
+          const pwd = decoded.substring(index + 1).trim();
 
-    // Retrieve credentials from environment variables (with fallback for local dev if missing)
-    const expectedUser = process.env.ADMIN_USERNAME;
-    const expectedPwd = process.env.ADMIN_PASSWORD;
+          const expectedUser = getDynamicEnv('ADMIN_USERNAME').trim();
+          const expectedPwd = getDynamicEnv('ADMIN_PASSWORD').trim();
 
-    // Only authenticate if the env vars are actually set to prevent default backdoor, unless missing (then fail secure)
-    if (expectedUser && expectedPwd && user === expectedUser && pwd === expectedPwd) {
-      return NextResponse.next();
-    } else if (!expectedUser || !expectedPwd) {
-        // If they aren't set, fail secure but allow bypass if we hardcode a fallback strictly for debugging? 
-        // No, production best practice: fail if env vars missing.
-        console.error("ADMIN_USERNAME or ADMIN_PASSWORD is not set in environment variables.");
+          // Compare credentials
+          if (expectedUser && expectedPwd && user === expectedUser && pwd === expectedPwd) {
+            return NextResponse.next();
+          } else {
+            console.error(
+              `[AUTH FAILED] User: "${user}" | Expected User Set: ${!!expectedUser} | Pwd Match: ${pwd === expectedPwd}`
+            );
+          }
+        } else {
+          console.warn("[AUTH ERROR] Invalid authorization header format (missing colon)");
+        }
+      }
+    } catch (e) {
+      console.error("[AUTH ERROR] Decode failed:", e);
     }
+  } else {
+    console.log("[AUTH TRIGGER] No Authorization header. URL:", req.url);
   }
 
-  // Require basic auth
+  // Require basic auth with no-store headers to prevent caching 401 response
   return new NextResponse('Authentication required', {
     status: 401,
     headers: {
       'WWW-Authenticate': 'Basic realm="Secure Admin Area"',
+      'Content-Type': 'text/plain',
+      'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0',
+      'Pragma': 'no-cache',
+      'Expires': '0'
     },
   });
 }
