@@ -42,3 +42,19 @@ next-env.d.ts
 
 # Custom Catalyst Build
 standalone_build/
+# env files
+.env
+.env.local
+.env.*
+
+# next build
+.next/
+catalyst_build/.next/
+
+# build folders
+build/
+dist/
+catalyst_build/
+
+# node
+node_modules/

@@ -272,6 +272,11 @@ export default function SubmitInspectionPage() {
 
       if (data.success) {
         setCreateCompanyMessage({ type: 'success', text: "Company submitted for approval. You will be able to select it once it becomes active." });
+
+        const dynamicValue = newCompanyData.name;
+        setFormData(prev => ({ ...prev, insuranceCompany: dynamicValue }));
+        setInsuranceCompanyQuery(dynamicValue);
+
         // Reset form after a delay then close
         setTimeout(() => {
           handleAddNewCompanyReset();

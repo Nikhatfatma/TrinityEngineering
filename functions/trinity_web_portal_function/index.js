@@ -48,33 +48,46 @@ function mapFormDataToCreator(data) {
 
 let cachedToken = null;
 let tokenExpiry = 0;
+let tokenPromise = null;
 
 async function getNewAccessToken() {
     if (cachedToken && Date.now() < tokenExpiry) {
         return cachedToken;
     }
 
-    const clientId = (process.env.ZOHO_CLIENT_ID || '').replace(/['"]/g, '').trim();
-    const clientSecret = (process.env.ZOHO_CLIENT_SECRET || '').replace(/['"]/g, '').trim();
-    const refreshToken = (process.env.ZOHO_REFRESH_TOKEN || '').replace(/['"]/g, '').trim();
-
-    if (!clientId || !clientSecret || !refreshToken) {
-        throw new Error("Missing OAuth credentials in environment variables (ZOHO_CLIENT_ID, ZOHO_CLIENT_SECRET, ZOHO_REFRESH_TOKEN)");
+    if (tokenPromise) {
+        return tokenPromise;
     }
 
-    const url = `https://accounts.zoho.com/oauth/v2/token?refresh_token=${refreshToken}&client_id=${clientId}&client_secret=${clientSecret}&grant_type=refresh_token`;
+    tokenPromise = (async () => {
+        try {
+            const clientId = (process.env.ZOHO_CLIENT_ID || '').replace(/['"]/g, '').trim();
+            const clientSecret = (process.env.ZOHO_CLIENT_SECRET || '').replace(/['"]/g, '').trim();
+            const refreshToken = (process.env.ZOHO_REFRESH_TOKEN || '').replace(/['"]/g, '').trim();
 
-    const response = await fetch(url, { method: 'POST' });
-    const data = await response.json();
+            if (!clientId || !clientSecret || !refreshToken) {
+                throw new Error("Missing OAuth credentials in environment variables (ZOHO_CLIENT_ID, ZOHO_CLIENT_SECRET, ZOHO_REFRESH_TOKEN)");
+            }
 
-    if (data.error) {
-        throw new Error(`Failed to refresh token: ${data.error}`);
-    }
+            const url = `https://accounts.zoho.com/oauth/v2/token?refresh_token=${refreshToken}&client_id=${clientId}&client_secret=${clientSecret}&grant_type=refresh_token`;
 
-    cachedToken = data.access_token;
-    tokenExpiry = Date.now() + (55 * 60 * 1000); // Cache for 55 mins
+            const response = await fetch(url, { method: 'POST' });
+            const data = await response.json();
 
-    return cachedToken;
+            if (data.error) {
+                throw new Error(`Failed to refresh token: ${data.error}`);
+            }
+
+            cachedToken = data.access_token;
+            tokenExpiry = Date.now() + (55 * 60 * 1000); // Cache for 55 mins
+
+            return cachedToken;
+        } finally {
+            tokenPromise = null;
+        }
+    })();
+
+    return tokenPromise;
 }
 
 module.exports = async (context, basicIO) => {
@@ -145,10 +158,13 @@ module.exports = async (context, basicIO) => {
                 let token = await getNewAccessToken();
 
                 async function submitToCreator(accessToken) {
-                    const owner = process.env.ZOHO_CREATOR_ACCOUNT_OWNER || 'owner';
-                    const appName = process.env.ZOHO_CREATOR_APP_NAME || 'inspection-app';
-                    const formName = process.env.ZOHO_CREATOR_FORM_NAME || 'inspection-form';
+                    const owner = (process.env.ZOHO_CREATOR_ACCOUNT_OWNER || 'owner').replace(/['"]/g, '').trim();
+                    const appName = (process.env.ZOHO_CREATOR_APP_NAME || 'inspection-app').replace(/['"]/g, '').trim();
+                    const formName = (process.env.ZOHO_CREATOR_FORM_NAME || 'Inspection_Request_Public_Submission').replace(/['"]/g, '').trim();
                     const creatorUrl = `https://creator.zoho.com/api/v2/${owner}/${appName}/form/${formName}`;
+
+                    console.log(`[Creator API] Submitting to URL: ${creatorUrl}`);
+                    console.log(`[Creator API] Form Name used: ${formName}`);
 
                     return fetch(creatorUrl, {
                         method: 'POST',
@@ -256,10 +272,12 @@ module.exports = async (context, basicIO) => {
                 let token = await getNewAccessToken();
 
                 async function submitToCreator(accessToken) {
-                    const owner = process.env.ZOHO_CREATOR_ACCOUNT_OWNER || 'owner';
-                    const appName = process.env.ZOHO_CREATOR_APP_NAME || 'inspection-app';
-                    const formName = process.env.ZOHO_CREATOR_FORM_NAME || 'inspection-form';
+                    const owner = (process.env.ZOHO_CREATOR_ACCOUNT_OWNER || 'owner').replace(/['"]/g, '').trim();
+                    const appName = (process.env.ZOHO_CREATOR_APP_NAME || 'inspection-app').replace(/['"]/g, '').trim();
+                    const formName = (process.env.ZOHO_CREATOR_FORM_NAME || 'Inspection_Request_Public_Submission').replace(/['"]/g, '').trim();
                     const creatorUrl = `https://creator.zoho.com/api/v2/${owner}/${appName}/form/${formName}`;
+                    console.log(`[Creator API Retry] Submitting to URL: ${creatorUrl}`);
+                    console.log(`[Creator API Retry] Form Name used: ${formName}`);
                     return fetch(creatorUrl, {
                         method: 'POST',
                         headers: { 'Authorization': `Zoho-oauthtoken ${accessToken}`, 'Content-Type': 'application/json' },
@@ -315,15 +333,25 @@ module.exports = async (context, basicIO) => {
             }
 
             const zcql = catalystApp.zcql();
-            const safeSearch = search.replace(/'/g, "''").toLowerCase();
+            // ZCQL LIKE is case-sensitive and ZCQL does NOT support LOWER()/UPPER().
+            // Fix: fetch all active rows and filter in JS for case-insensitive matching.
+            const searchLower = search.toLowerCase();
 
             try {
-                // 1. Search by company name (LIKE match)
-                const nameQuery = `SELECT ROWID, name, zoho_creator_id, status FROM InsuranceCompanies WHERE name LIKE '%${safeSearch}%' AND status = 'Active'`;
-                const nameResults = await zcql.executeZCQLQuery(nameQuery);
+                // 1. Fetch all active companies and filter in JS (case-insensitive)
+                const nameQuery = `SELECT ROWID, name, zoho_creator_id, status FROM InsuranceCompanies WHERE status = 'Active'`;
+                console.log(`[ZCQL Name Search] Executing query: ${nameQuery}`);
+                const allCompanies = await zcql.executeZCQLQuery(nameQuery);
+                console.log(`[ZCQL Name Search] Total active companies: ${allCompanies ? allCompanies.length : 0}`);
 
-                if (nameResults && nameResults.length > 0) {
-                    const results = nameResults.map(row => ({
+                // Case-insensitive filter in application code
+                const nameMatches = (allCompanies || []).filter(row =>
+                    (row.InsuranceCompanies.name || '').toLowerCase().includes(searchLower)
+                );
+                console.log(`[ZCQL Name Search] Matches for "${search}": ${nameMatches.length}`);
+
+                if (nameMatches.length > 0) {
+                    const results = nameMatches.map(row => ({
                         id: row.InsuranceCompanies.ROWID,
                         name: row.InsuranceCompanies.name,
                         zoho_creator_id: row.InsuranceCompanies.zoho_creator_id
@@ -333,25 +361,34 @@ module.exports = async (context, basicIO) => {
                     return;
                 }
 
-                // 2. If no name match, search aliases
-                const aliasQuery = `SELECT ROWID, alias, company_id FROM InsuranceAliases WHERE alias LIKE '%${safeSearch}%'`;
-                let aliasResults = [];
+                // 2. If no name match, fetch all aliases and filter in JS (case-insensitive)
+                const aliasQuery = `SELECT ROWID, alias, company_id FROM InsuranceAliases`;
+                console.log(`[ZCQL Alias Search] Executing query: ${aliasQuery}`);
+                let aliasMatches = [];
                 try {
-                    aliasResults = await zcql.executeZCQLQuery(aliasQuery);
+                    const allAliases = await zcql.executeZCQLQuery(aliasQuery);
+                    console.log(`[ZCQL Alias Search] Total aliases: ${allAliases ? allAliases.length : 0}`);
+                    aliasMatches = (allAliases || []).filter(row =>
+                        (row.InsuranceAliases.alias || '').toLowerCase().includes(searchLower)
+                    );
+                    console.log(`[ZCQL Alias Search] Matches for "${search}": ${aliasMatches.length}`);
                 } catch (aliasErr) {
                     // InsuranceAliases table may not exist yet — search still works via name
                     console.log("Alias search skipped (table may not exist):", aliasErr.message);
                 }
 
-                if (aliasResults && aliasResults.length > 0) {
+                if (aliasMatches.length > 0) {
                     // Get the company details for each alias match
-                    const companyIds = [...new Set(aliasResults.map(r => r.InsuranceAliases.company_id))];
+                    const companyIds = [...new Set(aliasMatches.map(r => r.InsuranceAliases.company_id))];
                     const results = [];
 
                     for (const companyId of companyIds) {
                         try {
-                            const companyQuery = `SELECT ROWID, name, zoho_creator_id, status FROM InsuranceCompanies WHERE ROWID = '${companyId}' AND status = 'Active'`;
+                            // ROWID is numeric BigInt — do not wrap in single quotes
+                            const companyQuery = `SELECT ROWID, name, zoho_creator_id, status FROM InsuranceCompanies WHERE ROWID = ${companyId} AND status = 'Active'`;
+                            console.log(`[ZCQL Company Lookup] Query: ${companyQuery}`);
                             const companyResult = await zcql.executeZCQLQuery(companyQuery);
+                            console.log(`[ZCQL Company Lookup] Result: ${companyResult ? companyResult.length : 0}`);
                             if (companyResult && companyResult.length > 0) {
                                 results.push({
                                     id: companyResult[0].InsuranceCompanies.ROWID,
@@ -394,7 +431,7 @@ module.exports = async (context, basicIO) => {
             }
 
             const zcql = catalystApp.zcql();
-            const safeName = companyName.replace(/'/g, "''").toLowerCase();
+            const safeName = companyName.replace(/'/g, "''");
 
             try {
                 // ── STEP 1: Search local DB ──
@@ -482,7 +519,7 @@ module.exports = async (context, basicIO) => {
                     }
                 };
 
-                const createResponse = await fetch(createUrl, {
+                let createResponse = await fetch(createUrl, {
                     method: 'POST',
                     headers: {
                         'Authorization': `Zoho-oauthtoken ${token}`,
@@ -490,7 +527,23 @@ module.exports = async (context, basicIO) => {
                     },
                     body: JSON.stringify(createPayload)
                 });
-                const createData = await createResponse.json();
+                let createData = await createResponse.json();
+
+                if (createResponse.status === 401 || (createData.code && [1030, 2945].includes(createData.code)) || JSON.stringify(createData).includes("INVALID_OAUTH")) {
+                    console.log("Token unexpectedly rejected by Zoho during company creation, forcing hard refresh...");
+                    cachedToken = null;
+                    tokenExpiry = 0;
+                    token = await getNewAccessToken();
+                    createResponse = await fetch(createUrl, {
+                        method: 'POST',
+                        headers: {
+                            'Authorization': `Zoho-oauthtoken ${token}`,
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify(createPayload)
+                    });
+                    createData = await createResponse.json();
+                }
 
                 if (!createResponse.ok || (createData.code && createData.code !== 3000)) {
                     // Creator POST failed — STOP submission entirely
@@ -548,8 +601,8 @@ module.exports = async (context, basicIO) => {
 
             try {
                 let token = await getNewAccessToken();
-                const owner = process.env.ZOHO_CREATOR_ACCOUNT_OWNER;
-                const appName = process.env.ZOHO_CREATOR_APP_NAME;
+                const owner = (process.env.ZOHO_CREATOR_ACCOUNT_OWNER || '').replace(/['"]/g, '').trim();
+                const appName = (process.env.ZOHO_CREATOR_APP_NAME || '').replace(/['"]/g, '').trim();
 
                 const createUrl = `https://creator.zoho.com/api/v2/${owner}/${appName}/form/All_Companies1`;
                 const createPayload = {
@@ -564,7 +617,7 @@ module.exports = async (context, basicIO) => {
                 };
 
                 console.log(`[createCompany] Creating Company: ${createUrl}`, JSON.stringify(createPayload));
-                const response = await fetch(createUrl, {
+                let response = await fetch(createUrl, {
                     method: 'POST',
                     headers: {
                         'Authorization': `Zoho-oauthtoken ${token}`,
@@ -572,8 +625,25 @@ module.exports = async (context, basicIO) => {
                     },
                     body: JSON.stringify(createPayload)
                 });
-                const resData = await response.json();
+                let resData = await response.json();
                 console.log(`[createCompany] Creator Response Status: ${response.status}`, JSON.stringify(resData));
+
+                if (response.status === 401 || (resData.code && [1030, 2945].includes(resData.code)) || JSON.stringify(resData).includes("INVALID_OAUTH")) {
+                    console.log("[createCompany] Token rejected by Zoho, forcing hard refresh...");
+                    cachedToken = null;
+                    tokenExpiry = 0;
+                    token = await getNewAccessToken();
+                    response = await fetch(createUrl, {
+                        method: 'POST',
+                        headers: {
+                            'Authorization': `Zoho-oauthtoken ${token}`,
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify(createPayload)
+                    });
+                    resData = await response.json();
+                    console.log(`[createCompany] Creator Retry Response Status: ${response.status}`, JSON.stringify(resData));
+                }
 
                 if (!response.ok || (resData.code && resData.code !== 3000)) {
                     throw new Error(resData.error || `Zoho Creator Error: ${JSON.stringify(resData)}`);

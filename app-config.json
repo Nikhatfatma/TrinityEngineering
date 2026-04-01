@@ -13,8 +13,9 @@
     "ZOHO_CREATOR_APP_NAME": "inspection-app",
     "ZOHO_CREATOR_ACCOUNT_OWNER": "trinity5",
     "ZOHO_CLIENT_SECRET": "d961fcb2c4670a764438906b30b85ce02ee8417f0e",
-    "ZOHO_CREATOR_FORM_NAME": "inspection_form",
-    "ZOHO_REFRESH_TOKEN": "1000.b13fa0453d076b66bc2ac2c55f3988fa.5dc9706faeb8c150ec4c3d7fc49ff450"
+    "ZOHO_CREATOR_FORM_NAME": "Inspection_Request_Public_Submission",
+    "ZOHO_REFRESH_TOKEN": "1000.b13fa0453d076b66bc2ac2c55f3988fa.5dc9706faeb8c150ec4c3d7fc49ff450",
+    "NEXT_PUBLIC_GOOGLE_MAPS_API_KEY": "${NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}"
   },
   "scripts": {
     "install": "npm install && npm run build && rm -rf standalone_build && mv .next/standalone ./standalone_build && mkdir -p standalone_build/public && cp -r public/* standalone_build/public/ || true && mkdir -p standalone_build/.next/static && cp -r .next/static/* standalone_build/.next/static/ || true"
