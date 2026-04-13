@@ -22,6 +22,7 @@ interface AddressGroupProps {
   state: string;
   zip: string;
   onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => void;
+  onBlur?: (e: React.FocusEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => void;
   prefix?: string;
   errors?: Partial<Record<string, string>>;
 }
@@ -35,6 +36,7 @@ export default function AddressGroup({
   state,
   zip,
   onChange,
+  onBlur,
   prefix = "",
   errors = {},
 }: AddressGroupProps) {
@@ -109,6 +111,7 @@ export default function AddressGroup({
               name={`${namePrefix}streetAddress`}
               value={streetAddress}
               onChange={onChange}
+              onBlur={onBlur}
               placeholder="123 Main St"
               required
               icon={Home}
@@ -123,6 +126,7 @@ export default function AddressGroup({
             name={`${namePrefix}streetAddress`}
             value={streetAddress}
             onChange={onChange}
+            onBlur={onBlur}
             placeholder="123 Main St"
             required
             icon={Home}
@@ -147,6 +151,7 @@ export default function AddressGroup({
           name={`${namePrefix}city`}
           value={city}
           onChange={onChange}
+          onBlur={onBlur}
           placeholder="New York"
           required
           icon={Building2}
@@ -160,16 +165,18 @@ export default function AddressGroup({
             className="text-[10px] font-bold text-gray-700 dark:text-gray-300 flex items-center gap-1"
           >
             <Globe className="text-primary dark:text-accent w-3 h-3" />
-            State
+            State <span className="text-red-500 ml-0.5">*</span>
           </label>
           <select
             id={`${namePrefix}state`}
             name={`${namePrefix}state`}
+            required
             value={state}
             onChange={onChange}
+            onBlur={onBlur}
             className={`w-full bg-gray-50 dark:bg-background-dark border rounded-lg px-3 py-2 text-[13px] text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:border-transparent transition-all cursor-pointer ${
               getError("state")
-                ? "border-red-500 focus:ring-red-500 dark:border-red-400 dark:focus:ring-red-400"
+                ? "border-gray-400 focus:ring-gray-300 dark:border-gray-600 dark:focus:ring-gray-600"
                 : "border-gray-200 focus:ring-primary dark:border-gray-700 dark:focus:ring-accent"
             }`}
           >
@@ -181,7 +188,7 @@ export default function AddressGroup({
             ))}
           </select>
           {getError("state") && (
-            <p className="text-[10px] text-red-500 font-semibold -mt-0.5">
+            <p className="text-[10px] text-gray-900 font-black mt-0.5 inline-block bg-gray-200/80 backdrop-blur-sm px-1.5 py-0.5 rounded border border-gray-300/50">
               {getError("state")}
             </p>
           )}
@@ -192,6 +199,7 @@ export default function AddressGroup({
           name={`${namePrefix}zip`}
           value={zip}
           onChange={onChange}
+          onBlur={onBlur}
           placeholder="10001"
           required
           icon={MapPin}

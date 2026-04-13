@@ -1,0 +1,3 @@
+{
+  "output": "{\"success\":false,\"message\":\"Saved as fallback explicitly due to Creator API error.\",\"isFallback\":true,\"error\":\"Missing OAuth credentials in environment variables (ZOHO_CLIENT_ID, ZOHO_CLIENT_SECRET, ZOHO_REFRESH_TOKEN)\"}"
+}

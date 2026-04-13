@@ -1,0 +1,1 @@
+const url = 'https://trinitywebportal-836373025.development.catalystserverless.com/server/trinity_web_portal_function/execute?action=searchInsuranceCompanies&search='; fetch(url, {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({action: 'searchInsuranceCompanies', search: ''})}).then(r => r.text()).then(console.log).catch(console.error);

@@ -40,6 +40,7 @@ import {
   AlertTriangle,
   Calendar
 } from "lucide-react";
+import { isValidEmail, isValidPhoneNumber, isValidZipCode, validateIaRecipients, type IaRecipient, validateAdjusterEmails, type AdjusterEmail } from "@/lib/utils/validation";
 
 /* ------------------------------------------------------------------ */
 /*  Data Constants                                                     */
@@ -68,13 +69,11 @@ const BUILDING_TYPES = [
 /* Insurance companies are now fetched from the database via API — no hardcoded list */
 
 const MAX_IA_EMAILS = 3;
+const MAX_ADJ_EMAILS = 3;
 
 const SEND_COPY_OPTIONS = ["all", "report", "invoice", "notifications"] as const;
 
-interface IaRecipient {
-  email: string;
-  notificationType: string[];
-}
+
 
 const WIZARD_STEPS = [
   { title: "Inspection & Property", icon: ClipboardList },
@@ -83,6 +82,17 @@ const WIZARD_STEPS = [
   { title: "Roofer & Public Adjuster", icon: Home },
   { title: "Review Your Submission", icon: CheckCircle },
 ];
+
+/**
+ * DOM-order priority for required fields per step.
+ * scrollToFirstInvalidField iterates this list so it always
+ * focuses the first *visible* invalid field, regardless of
+ * JS object key order.
+ */
+const STEP_FIELD_ORDER: Record<number, string[]> = {
+  1: ["claimNumber", "adjusterFirstName", "adjusterLastName", "adjusterPhone", "adjusterEmail" as any, "iaCompany", "iaFirstName", "iaLastName", "iaPhone"],
+  2: ["policyholderFirstName", "policyholderLastName", "streetAddress", "city", "state", "zip"],
+};
 
 /* ------------------------------------------------------------------ */
 /*  Form Data Type                                                     */
@@ -97,12 +107,12 @@ interface FormData {
   dateOfLoss: string;
   policyNumber: string;
   adjusterCompany: string;
-  adjusterEmail: string;
   adjusterFirstName: string;
   adjusterLastName: string;
   adjusterPhone: string;
   adjusterPhoneExt: string;
   secondEmailForReport: string;
+  adjusterEmails: AdjusterEmail[];
   adjusterComments: string;
   isIAClaim: boolean;
   iaFirstName: string;
@@ -114,6 +124,8 @@ interface FormData {
   policyholderFirstName: string;
   policyholderLastName: string;
   policyholderPhone1: string;
+  policyholderPhone1Extra: string;
+  propertyContactEmail: string;
   spouseFirstName: string;
   spouseLastName: string;
   policyholderPhone2: string;
@@ -126,7 +138,7 @@ interface FormData {
   rooferName: string;
   rooferCompany: string;
   rooferPhone: string;
-  inspectionName: string;
+  rooferEmail: string;
   // Step 4 - Public Adjuster
   publicAdjusterName: string;
   publicAdjusterCompany: string;
@@ -142,12 +154,12 @@ const INITIAL_FORM_DATA: FormData = {
   dateOfLoss: "",
   policyNumber: "",
   adjusterCompany: "",
-  adjusterEmail: "",
   adjusterFirstName: "",
   adjusterLastName: "",
   adjusterPhone: "",
   adjusterPhoneExt: "",
   secondEmailForReport: "",
+  adjusterEmails: [{ email: "", sendCopyOf: ["all", "report", "invoice", "notifications"] }],
   adjusterComments: "",
   isIAClaim: false,
   iaFirstName: "",
@@ -158,6 +170,8 @@ const INITIAL_FORM_DATA: FormData = {
   policyholderFirstName: "",
   policyholderLastName: "",
   policyholderPhone1: "",
+  policyholderPhone1Extra: "",
+  propertyContactEmail: "",
   spouseFirstName: "",
   spouseLastName: "",
   policyholderPhone2: "",
@@ -169,11 +183,18 @@ const INITIAL_FORM_DATA: FormData = {
   rooferName: "",
   rooferCompany: "",
   rooferPhone: "",
-  inspectionName: "",
+  rooferEmail: "",
   publicAdjusterName: "",
   publicAdjusterCompany: "",
   publicAdjusterPhone: "",
   publicAdjusterEmail: "",
+};
+
+const isPhoneEmpty = (val: string) => {
+  const v = (val || "").trim();
+  const digits = v.replace(/\D/g, "");
+  // Treat as empty if it has no digits, or only the country code (1 digit for US default)
+  return digits.length <= 1;
 };
 
 /* ------------------------------------------------------------------ */
@@ -188,6 +209,8 @@ export default function SubmitInspectionPage() {
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [iaEmailErrors, setIaEmailErrors] = useState<string[]>([]);
   const [iaSectionError, setIaSectionError] = useState("");
+  const [adjusterEmailErrors, setAdjusterEmailErrors] = useState<string[]>([]);
+  const [adjusterSectionError, setAdjusterSectionError] = useState("");
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [insuranceCompanyQuery, setInsuranceCompanyQuery] = useState("");
   const [insuranceCompanyOpen, setInsuranceCompanyOpen] = useState(false);
@@ -196,7 +219,38 @@ export default function SubmitInspectionPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState("");
   const [isCreatingCompany, setIsCreatingCompany] = useState(false);
+  const [hasSentCompany, setHasSentCompany] = useState(false);
   const [createCompanyMessage, setCreateCompanyMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
+  // DISABLED: Secondary primary phone feature — uncomment to restore
+  // const [showPrimaryPhone2, setShowPrimaryPhone2] = useState(false);
+  
+  const [skipRooferValidation, setSkipRooferValidation] = useState(false);
+  const [skipAdjusterValidation, setSkipAdjusterValidation] = useState(false);
+  const [lastButtonState, setLastButtonState] = useState("Next");
+  const [isValidationModalOpen, setIsValidationModalOpen] = useState(false);
+  const [validationQueue, setValidationQueue] = useState<('roofer' | 'adjuster')[]>([]);
+
+  const getStep3ValidationConfig = (type: 'roofer' | 'adjuster' | null) => {
+    if (type === 'roofer') {
+      return {
+        message: "If a roofer is involved, please provide their phone number for scheduling",
+        missingFields: ["rooferPhone"]
+      };
+    }
+    if (type === 'adjuster') {
+      const missing = [];
+      if (!formData.publicAdjusterEmail.trim()) missing.push("publicAdjusterEmail");
+      if (isPhoneEmpty(formData.publicAdjusterPhone)) missing.push("publicAdjusterPhone");
+      
+      return {
+        message: "If a public adjuster is involved, please provide both their phone number and email for scheduling",
+        missingFields: missing
+      };
+    }
+    return { message: "", missingFields: [] };
+  };
+
+  const validationModalConfig = getStep3ValidationConfig(validationQueue[0] || null);
 
   /* ── Insurance Company API Search State ── */
   const [insuranceSearchResults, setInsuranceSearchResults] = useState<{ id: string; name: string; zoho_creator_id: string }[]>([]);
@@ -204,23 +258,68 @@ export default function SubmitInspectionPage() {
   const [aliasMatch, setAliasMatch] = useState<{ matchedBy: string; results: { id: string; name: string; zoho_creator_id: string }[] } | null>(null);
   const [aliasDismissed, setAliasDismissed] = useState(false);
   const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [masterInsuranceList, setMasterInsuranceList] = useState<{ id: string; name: string; zoho_creator_id: string }[]>([]);
+  const insuranceCacheRef = useRef<Record<string, { results: any[], matchedBy?: string }>>({});
+
+  useEffect(() => {
+    fetch('/api/insurance-companies', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'searchInsuranceCompanies', search: '' }),
+    })
+      .then(res => res.json())
+      .then(data => {
+        if (data.success && data.results) {
+          setMasterInsuranceList(data.results);
+          setInsuranceSearchResults(data.results);
+        }
+      })
+      .catch(err => console.error('Failed to fetch insurance companies:', err));
+  }, []);
 
   /** Debounced API call to search insurance companies */
   const searchInsuranceCompanies = useCallback((query: string) => {
+    const trimmed = query.trim();
+    
     // Clear any pending debounce
     if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
 
-    const trimmed = query.trim();
-    if (!trimmed) {
-      setInsuranceSearchResults([]);
-      setAliasMatch(null);
+    // If master list is already loaded, filter locally for instant results
+    if (masterInsuranceList.length > 0) {
+      setInsuranceSearchLoading(true);
+      searchTimeoutRef.current = setTimeout(() => {
+        if (!trimmed) {
+          setInsuranceSearchResults(masterInsuranceList);
+        } else {
+          const lowerQuery = trimmed.toLowerCase();
+          const filtered = masterInsuranceList.filter(c => 
+            c.name.toLowerCase().includes(lowerQuery)
+          );
+          setInsuranceSearchResults(filtered);
+        }
+        setAliasMatch(null); // Local search doesn't support sophisticated alias mapping yet
+        setInsuranceSearchLoading(false);
+      }, 50); // Minimal debounce for local filtering
+      return;
+    }
+
+    // Fallback: Check cache
+    if (insuranceCacheRef.current[trimmed]) {
+      const cached = insuranceCacheRef.current[trimmed];
+      setInsuranceSearchResults(cached.results);
+      if (cached.matchedBy === 'alias' && cached.results.length > 0) {
+        setAliasMatch({ matchedBy: cached.matchedBy, results: cached.results });
+        setAliasDismissed(false);
+      } else {
+        setAliasMatch(null);
+      }
       setInsuranceSearchLoading(false);
       return;
     }
 
     setInsuranceSearchLoading(true);
 
-    // Debounce 300ms to avoid flooding the API
+    // Debounce 300ms for remote API fallback
     searchTimeoutRef.current = setTimeout(async () => {
       try {
         const res = await fetch('/api/insurance-companies', {
@@ -231,10 +330,15 @@ export default function SubmitInspectionPage() {
         const data = await res.json();
 
         if (data.success) {
-          setInsuranceSearchResults(data.results || []);
+          const results = data.results || [];
+          setInsuranceSearchResults(results);
+          
+          // Cache the results locally
+          insuranceCacheRef.current[trimmed] = { results, matchedBy: data.matchedBy };
+
           // If matched by alias, show "Did you mean" suggestion
-          if (data.matchedBy === 'alias' && data.results.length > 0) {
-            setAliasMatch({ matchedBy: data.matchedBy, results: data.results });
+          if (data.matchedBy === 'alias' && results.length > 0) {
+            setAliasMatch({ matchedBy: data.matchedBy, results: results });
             setAliasDismissed(false);
           } else {
             setAliasMatch(null);
@@ -250,10 +354,46 @@ export default function SubmitInspectionPage() {
         setInsuranceSearchLoading(false);
       }
     }, 300);
-  }, []);
+  }, [masterInsuranceList]);
+
+  /* ── Step 3 Helper Logic ── */
+  const isStep3FieldsEmpty = useCallback(() => {
+    try {
+      const { 
+        rooferName, rooferCompany, rooferPhone, rooferEmail, 
+        publicAdjusterName, publicAdjusterCompany, publicAdjusterPhone, publicAdjusterEmail 
+      } = formData;
+      
+      return (
+        !rooferName.trim() && !rooferCompany.trim() && isPhoneEmpty(rooferPhone) && !rooferEmail.trim() &&
+        !publicAdjusterName.trim() && !publicAdjusterCompany.trim() && isPhoneEmpty(publicAdjusterPhone) && !publicAdjusterEmail.trim()
+      );
+    } catch (err) {
+      console.error("Error checking Step 3 fields:", err);
+      return false;
+    }
+  }, [formData]);
+
+  // Log Skip/Next button state changes
+  useEffect(() => {
+    if (currentStep === 3) {
+      const isEmpty = isStep3FieldsEmpty();
+      const currentState = isEmpty ? "Skip" : "Next";
+      if (currentState !== lastButtonState) {
+        console.info(`[Step 3] Button state changed to: ${currentState}`);
+        setLastButtonState(currentState);
+      }
+    } else {
+      // Reset tracker when leaving step 3
+      if (lastButtonState !== "Next") setLastButtonState("Next");
+    }
+  }, [formData, currentStep, isStep3FieldsEmpty, lastButtonState]);
 
   const handleAddNewCompanySubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isCreatingCompany || hasSentCompany) return;
+    
+    setHasSentCompany(true);
     if (!newCompanyData.name.trim()) {
       setCreateCompanyMessage({ type: 'error', text: "Company Name is required." });
       return;
@@ -296,6 +436,7 @@ export default function SubmitInspectionPage() {
 
   const handleAddNewCompanyReset = () => {
     setNewCompanyData({ name: "", ccInvoicesTo: "", splitInvoice: false, invoiceEmail: "", priceList: "2025 Prices" });
+    setHasSentCompany(false);
   };
 
   // keep query in sync when form state changes (eg. reset/back)
@@ -309,9 +450,32 @@ export default function SubmitInspectionPage() {
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
   ) => {
     const { name, value } = e.target;
+    
+    // Auto-resize textarea for Adjuster Comments
+    if (name === "adjusterComments") {
+      const target = e.target as HTMLTextAreaElement;
+      target.style.height = "auto";
+      target.style.height = `${target.scrollHeight}px`;
+    }
+
+    // Reset skip flags if name fields are modified
+    if (name === "rooferName") setSkipRooferValidation(false);
+    if (name === "publicAdjusterName") setSkipAdjusterValidation(false);
 
     setFormData((prev) => {
-      const next = { ...prev, [name]: value };
+      let next = { ...prev, [name]: value };
+      
+      // Special routing for adjusterEmail -> adjusterEmails[0]
+      if (name === "adjusterEmail") {
+        const nextEmails = [...prev.adjusterEmails];
+        if (nextEmails.length === 0) {
+          nextEmails.push({ email: value, sendCopyOf: ["all", "report", "invoice", "notifications"] });
+        } else {
+          nextEmails[0] = { ...nextEmails[0], email: value };
+        }
+        next = { ...next, adjusterEmails: nextEmails };
+      }
+
       setFieldErrors((prevErrors) => {
         const nextErrors = { ...prevErrors };
         const err = validateField(name, value, next);
@@ -323,13 +487,47 @@ export default function SubmitInspectionPage() {
     });
   };
 
-  /* Scroll to first invalid field helper */
+  /**
+   * Blur handler for required fields.
+   * Validates the field immediately when the user leaves it so that
+   * inline error messages appear without waiting for the Next button.
+   */
+  const handleBlur = (
+    e: React.FocusEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
+  ) => {
+    const { name, value } = e.target;
+    const err = validateField(name, value, formData);
+    setFieldErrors((prev) => {
+      const next = { ...prev };
+      if (err) next[name] = err;
+      else delete next[name];
+      return next;
+    });
+  };
+
+  /* Scroll to first invalid field helper.
+   * Uses STEP_FIELD_ORDER to ensure the first *DOM-visible* required field
+   * is focused, rather than relying on unordered JS object key iteration.
+   */
   const scrollToFirstInvalidField = (
     errors: Record<string, string>,
-    iaErrors: string[] = []
+    iaErrors: string[] = [],
+    adjErrors: string[] = [],
+    step?: number
   ) => {
-    // Check for field errors first
-    for (const fieldName of Object.keys(errors)) {
+    // Use priority-ordered list when available, else fall back to Object.keys
+    const orderedKeys =
+      step !== undefined && STEP_FIELD_ORDER[step]
+        ? [
+            ...STEP_FIELD_ORDER[step].filter((k) => errors[k]),
+            ...Object.keys(errors).filter(
+              (k) => !STEP_FIELD_ORDER[step].includes(k)
+            ),
+          ]
+        : Object.keys(errors);
+
+    // Focus first field with an error
+    for (const fieldName of orderedKeys) {
       const element = document.getElementById(fieldName);
       if (element) {
         element.scrollIntoView({ behavior: "smooth", block: "center" });
@@ -344,9 +542,23 @@ export default function SubmitInspectionPage() {
         const element = document.getElementById(`ia-recipient-${index}`);
         if (element) {
           element.scrollIntoView({ behavior: "smooth", block: "center" });
-          // Focus the email input within this element
           const emailInput = element.querySelector(
             'input[name^="iaRecipientEmail_"]'
+          ) as HTMLInputElement;
+          if (emailInput) emailInput.focus();
+          return;
+        }
+      }
+    }
+
+    // Check for Adjuster email errors
+    for (let index = 0; index < adjErrors.length; index++) {
+      if (adjErrors[index]) {
+        const element = document.getElementById(`adj-recipient-${index}`);
+        if (element) {
+          element.scrollIntoView({ behavior: "smooth", block: "center" });
+          const emailInput = element.querySelector(
+            'input[name^="adjRecipientEmail_"]'
           ) as HTMLInputElement;
           if (emailInput) emailInput.focus();
           return;
@@ -377,8 +589,22 @@ export default function SubmitInspectionPage() {
       const adjusterErrors = validateAdjusterStep(formData);
       const errors = { ...insuranceErrors, ...adjusterErrors };
       setFieldErrors(errors);
+      setShowErrors(Object.keys(errors).length > 0);
 
       let hasStepErrors = Object.keys(errors).length > 0;
+
+      // Validate Adjuster extra emails
+      const { errors: adjErrs } = validateAdjusterEmails(formData.adjusterEmails);
+      setAdjusterEmailErrors(adjErrs);
+      // Secondary adjuster recipients start from index 1. Index 0 is the primary adjuster.
+      const hasSecondaryAdjusterError = adjErrs.slice(1).some(e => e !== "");
+      if (hasSecondaryAdjusterError) {
+        const hasDuplicate = adjErrs.some(e => e === "Duplicate email.");
+        setAdjusterSectionError(hasDuplicate ? "Duplicate email addresses found." : "Please fix the errors in the secondary adjuster recipients.");
+        hasStepErrors = true;
+      } else {
+        setAdjusterSectionError("");
+      }
 
       if (formData.isIAClaim) {
         const recipients = formData.iaRecipients;
@@ -390,7 +616,8 @@ export default function SubmitInspectionPage() {
           const { errors: iaErrs, hasError } = validateIaRecipients(recipients);
           setIaEmailErrors(iaErrs);
           if (hasError) {
-            setIaSectionError("Please fix the errors in the IA email recipients.");
+            const hasDuplicate = iaErrs.some(e => e === "Duplicate email.");
+            setIaSectionError(hasDuplicate ? "Duplicate email addresses found." : "Please fix the errors in the IA email recipients.");
             hasStepErrors = true;
           } else {
             setIaSectionError("");
@@ -402,10 +629,18 @@ export default function SubmitInspectionPage() {
       }
 
       if (hasStepErrors) {
-        scrollToFirstInvalidField(errors, formData.isIAClaim ? formData.iaRecipients.map((_, i) => {
-          const { errors: iaErrs } = validateIaRecipients(formData.iaRecipients);
-          return iaErrs[i] || "";
-        }) : []);
+        scrollToFirstInvalidField(
+          errors,
+          formData.isIAClaim ? formData.iaRecipients.map((_, i) => {
+            const { errors: iaErrs } = validateIaRecipients(formData.iaRecipients);
+            return iaErrs[i] || "";
+          }) : [],
+          formData.adjusterEmails.map((_, i) => {
+            const { errors: aErrs } = validateAdjusterEmails(formData.adjusterEmails);
+            return aErrs[i] || "";
+          }),
+          1 // step index for priority ordering
+        );
         return;
       }
       setFieldErrors({});
@@ -418,23 +653,74 @@ export default function SubmitInspectionPage() {
       const errors = { ...policyErrors, ...addressErrors };
       setFieldErrors(errors);
       if (Object.keys(errors).length > 0) {
-        scrollToFirstInvalidField(errors);
+        setShowErrors(true);
+        scrollToFirstInvalidField(errors, [], [], 2);
         return;
       }
+      setShowErrors(false);
       setFieldErrors({});
     }
 
     // Step 3: Roofer & Public Adjuster
     if (currentStep === 3) {
-      const rooferErrors = validateRooferStep(formData);
-      const paErrors = validatePublicAdjusterStep(formData);
-      const errors = { ...rooferErrors, ...paErrors };
-      setFieldErrors(errors);
-      if (Object.keys(errors).length > 0) {
-        scrollToFirstInvalidField(errors);
-        return;
+      try {
+        const queue: ('roofer' | 'adjuster')[] = [];
+
+        // Check Roofer FIRST (User preference)
+        if (formData.rooferName.trim() && isPhoneEmpty(formData.rooferPhone) && !skipRooferValidation) {
+          queue.push('roofer');
+        }
+
+        // Check or Next: Public Adjuster
+        const missingPAFields: string[] = [];
+        if (formData.publicAdjusterName.trim() && !skipAdjusterValidation) {
+          if (!formData.publicAdjusterEmail.trim()) missingPAFields.push("publicAdjusterEmail");
+          if (isPhoneEmpty(formData.publicAdjusterPhone)) missingPAFields.push("publicAdjusterPhone");
+          if (missingPAFields.length > 0) {
+            queue.push('adjuster');
+          }
+        }
+
+        if (queue.length > 0) {
+          console.info("[Step 3] Validation required. Queue initialized:", queue);
+          
+          // Set field errors immediately so they appear when the user is sent back
+          const newErrors: Record<string, string> = { ...fieldErrors };
+          queue.forEach(type => {
+            if (type === 'roofer') {
+              newErrors.rooferPhone = "Roofer phone is required for scheduling";
+            } else if (type === 'adjuster') {
+              if (!formData.publicAdjusterEmail.trim()) {
+                newErrors.publicAdjusterEmail = "Public Adjuster email is required";
+              }
+              if (isPhoneEmpty(formData.publicAdjusterPhone)) {
+                newErrors.publicAdjusterPhone = "Public Adjuster phone is required";
+              }
+            }
+          });
+          setFieldErrors(newErrors);
+          setShowErrors(true);
+
+          setValidationQueue(queue);
+          setIsValidationModalOpen(true);
+          return; // Stop here
+        }
+
+        // If no queue (bypass or already complete), perform final formatting check
+        const rooferErrors = validateRooferStep(formData);
+        const paErrors = validatePublicAdjusterStep(formData);
+        const errors = { ...rooferErrors, ...paErrors };
+        
+        setFieldErrors(errors);
+        if (Object.keys(errors).length > 0) {
+          console.info("[Step 3] Formatting errors detected:", errors);
+          scrollToFirstInvalidField(errors);
+          return;
+        }
+        setFieldErrors({});
+      } catch (err) {
+        console.error("Error during Step 3 validation:", err);
       }
-      setFieldErrors({});
     }
 
     if (currentStep < WIZARD_STEPS.length - 1) {
@@ -455,128 +741,115 @@ export default function SubmitInspectionPage() {
   };
 
   const handleSubmit = async () => {
-    // Validate Step 1 selection
-    const step1Valid = !!formData.inspectionType; // Building type optional
-
-    if (!step1Valid) {
-      setShowErrors(true);
-      const errorElement = document.querySelector("[data-field-name='inspectionType']");
-      if (errorElement) {
-        errorElement.scrollIntoView({ behavior: "smooth", block: "center" });
-      }
-      return;
-    }
-    setShowErrors(false);
-
-    // Validate all remaining steps (required + formatting for provided optional)
-    const combinedErrors = {
-      ...validateInsuranceStep(formData),
-      ...validateAdjusterStep(formData),
-      ...validatePolicyholderStep(formData),
-      ...validateAddressStep(formData),
-      ...validateRooferStep(formData),
-      ...validatePublicAdjusterStep(formData),
-    };
-
-    setFieldErrors(combinedErrors);
-
-    let hasErrors = Object.keys(combinedErrors).length > 0;
-    let iaErrs: string[] = [];
-
-    // Validate IA recipients if enabled
-    if (formData.isIAClaim) {
-      const recipients = formData.iaRecipients;
-      if (!recipients || recipients.length === 0) {
-        setIaEmailErrors([]);
-        setIaSectionError("At least one IA email is required.");
-        hasErrors = true;
-      } else {
-        const { errors: iaErrors, hasError } = validateIaRecipients(recipients);
-        iaErrs = iaErrors;
-        setIaEmailErrors(iaErrors);
-        if (hasError) {
-          setIaSectionError("Please fix the errors in the IA email recipients.");
-          hasErrors = true;
-        } else {
-          setIaSectionError("");
-        }
-      }
-    } else {
-      setIaEmailErrors([]);
-      setIaSectionError("");
-    }
-
-    if (hasErrors) {
-      scrollToFirstInvalidField(combinedErrors, iaErrs);
-      return;
-    }
-
-    setFieldErrors({});
-    setIsSubmitting(true);
-    setSubmitError("");
+    if (isSubmitting) return;
 
     try {
-      const functionUrl = '/api/submit-inspection';
-      let submissionData = { ...formData };
+      setIsSubmitting(true);
+      setSubmitError("");
 
-      // Helper to resolve company name to Zoho Creator record ID
-      const resolveCompany = async (name: string, fieldLabel: string) => {
-        if (!name || !name.trim()) return "";
-        try {
-          const res = await fetch('/api/insurance-companies', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ action: 'resolveCompanyId', companyName: name.trim() }),
-          });
-          const resData = await res.json();
-          if (!resData.success) throw new Error(resData.error || `Failed to resolve ${fieldLabel}`);
-          return resData.zoho_creator_id;
-        } catch (err: any) {
-          throw new Error(`${fieldLabel} Error: ${err.message}`);
-        }
-      };
-
-      // ── Resolve Lookup Fields to Zoho Creator IDs ──
-      try {
-        if (submissionData.insuranceCompany) {
-          submissionData.insuranceCompany = await resolveCompany(submissionData.insuranceCompany, "Insurance Company");
-        }
-        if (submissionData.adjusterCompany) {
-          submissionData.adjusterCompany = await resolveCompany(submissionData.adjusterCompany, "Adjuster Company");
-        }
-        if (submissionData.iaCompany) {
-          submissionData.iaCompany = await resolveCompany(submissionData.iaCompany, "IA Company");
-        }
-      } catch (resolveErr: any) {
-        setSubmitError(resolveErr.message);
-        setIsSubmitting(false);
+      // 1. Initial Step 1 Validation Check
+      if (!formData.inspectionType) {
+        setShowErrors(true);
+        setSubmitError("Please select an Inspection Type before submitting.");
+        const errorElement = document.querySelector("[data-field-name='inspectionType']");
+        if (errorElement) errorElement.scrollIntoView({ behavior: "smooth", block: "center" });
         return;
       }
 
-      fetch(functionUrl, {
+      // 2. Comprehensive Validation Check
+      const combinedErrors = {
+        ...validateInsuranceStep(formData),
+        ...validateAdjusterStep(formData),
+        ...validatePolicyholderStep(formData),
+        ...validateAddressStep(formData),
+        ...validateRooferStep(formData),
+        ...validatePublicAdjusterStep(formData),
+      };
+
+      setFieldErrors(combinedErrors);
+      let hasErrors = Object.keys(combinedErrors).length > 0;
+      let iaErrs: string[] = [];
+      let adjErrs: string[] = [];
+
+      // Validate IA recipients
+      if (formData.isIAClaim) {
+        const recipients = formData.iaRecipients;
+        if (!recipients || recipients.length === 0) {
+          setIaSectionError("At least one IA email is required.");
+          hasErrors = true;
+        } else {
+          const { errors: iaErrors, hasError } = validateIaRecipients(recipients);
+          iaErrs = iaErrors;
+          setIaEmailErrors(iaErrors);
+          if (hasError) {
+            const hasDuplicate = iaErrors.some(e => e === "Duplicate email.");
+            setIaSectionError(hasDuplicate ? "Duplicate email addresses found." : "Please fix the errors in the IA email recipients.");
+            hasErrors = true;
+          }
+        }
+      }
+
+      // Validate Adjuster extra emails
+      const { errors: aErrors } = validateAdjusterEmails(formData.adjusterEmails);
+      adjErrs = aErrors;
+      setAdjusterEmailErrors(aErrors);
+      // Secondary adjuster recipients start from index 1. Index 0 is the primary adjuster.
+      const hasSecondaryAdjusterError = aErrors.slice(1).some(e => e !== "");
+      if (hasSecondaryAdjusterError) {
+        const hasDuplicate = aErrors.some(e => e === "Duplicate email.");
+        setAdjusterSectionError(hasDuplicate ? "Duplicate email addresses found." : "Please fix the errors in the secondary adjuster recipients.");
+        hasErrors = true;
+      }
+
+      // 3. Block and Scroll on Validation Error
+      if (hasErrors) {
+        setShowErrors(true);
+        setSubmitError("Please fix the highlighted fields in the form to continue.");
+        scrollToFirstInvalidField(combinedErrors, iaErrs, adjErrs);
+        return;
+      }
+
+      // 4. Submission Payload Preparation
+      const functionUrl = '/api/submit-inspection';
+      let submissionData = { ...formData };
+
+      // Format Date of Loss for Zoho Creator (MM/dd/yyyy)
+      if (submissionData.dateOfLoss && submissionData.dateOfLoss.includes("-")) {
+        try {
+          const [y, m, d] = submissionData.dateOfLoss.split("-");
+          if (y && m && d && y.length === 4) {
+            submissionData.dateOfLoss = `${m.padStart(2, "0")}/${d.padStart(2, "0")}/${y}`;
+          }
+        } catch (e) {
+          console.warn("[Submission Prep] Failed to reformat date:", e);
+        }
+      }
+
+      console.group("Form Submission Triggered");
+      console.log("Payload:", submissionData);
+      console.groupEnd();
+
+      // 5. API Submission
+      const response = await fetch(functionUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'submitInspection', data: submissionData })
-      })
-        .then(async (res) => {
-          const result = await res.json();
-          if (!result.success) {
-            throw new Error(result.error || result.message || "An unknown error occurred");
-          }
-          setIsSubmitted(true);
-          window.scrollTo({ top: 0, behavior: "smooth" });
-        })
-        .catch((err) => {
-          console.error("Submission error details:", err);
-          setSubmitError(err.message || "Failed to submit. Please check browser console.");
-        })
-        .finally(() => {
-          setIsSubmitting(false);
-        });
+      });
+
+      const result = await response.json();
+
+      if (!response.ok || !result.success) {
+        throw new Error(result.error || result.message || "The server encountered an error while processing your request.");
+      }
+
+      console.info("Form submitted successfully");
+      setIsSubmitted(true);
+      window.scrollTo({ top: 0, behavior: "smooth" });
 
     } catch (err: any) {
-      console.error("Submission failed:", err);
-      setSubmitError(err.message || "Failed to submit. Please try again.");
+      console.error("Submission error catch block:", err);
+      setSubmitError(err.message || "We encountered a problem submitting your request. Please try again.");
+    } finally {
       setIsSubmitting(false);
     }
   };
@@ -586,6 +859,7 @@ export default function SubmitInspectionPage() {
     setCurrentStep(0);
     setMaxCompletedStep(0);
     setIsSubmitted(false);
+    // DISABLED: setShowPrimaryPhone2(false);
     setShowErrors(false);
     setIaEmailErrors([]);
     setIaSectionError("");
@@ -599,6 +873,14 @@ export default function SubmitInspectionPage() {
   };
 
   /* ---- helpers ---- */
+
+  const scrollToField = (id: string) => {
+    const el = document.getElementById(id);
+    if (el) {
+      el.scrollIntoView({ behavior: "smooth", block: "center" });
+      el.focus();
+    }
+  };
 
   const labelFor = (id: string, list: { id: string; title: string }[]) =>
     list.find((i) => i.id === id)?.title ?? "—";
@@ -635,55 +917,7 @@ export default function SubmitInspectionPage() {
     });
   };
 
-  const isValidEmail = (value: string) =>
-    /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
-
-  const validateIaRecipients = (recipients: IaRecipient[]) => {
-    const errors = recipients.map(() => "");
-    const seen = new Map<string, number>();
-
-    recipients.forEach((recipient, index) => {
-      const email = recipient.email.trim();
-
-      if (!email) {
-        errors[index] = "Email is required.";
-        return;
-      }
-
-      if (!isValidEmail(email)) {
-        errors[index] = "Enter a valid email address.";
-      }
-
-      const normalized = email.toLowerCase();
-      if (seen.has(normalized)) {
-        const firstIndex = seen.get(normalized)!;
-        errors[index] = "Duplicate email.";
-        if (!errors[firstIndex]) {
-          errors[firstIndex] = "Duplicate email.";
-        }
-      } else {
-        seen.set(normalized, index);
-      }
-    });
-
-    const hasError = errors.some((e) => e !== "");
-    return { errors, hasError };
-  };
-
-  const isValidPhoneNumber = (value: string) => {
-    const v = value.trim();
-    if (!v) return false;
-    // Allow common phone punctuation, validate by digit count
-    const digits = v.replace(/\D/g, "");
-    return digits.length >= 7 && digits.length <= 15;
-  };
-
-  const isValidZipCode = (value: string) => {
-    const v = value.trim();
-    if (!v) return false;
-    const digits = v.replace(/\D/g, "");
-    return digits.length >= 4 && digits.length <= 10;
-  };
+  /* ---- validation helpers ---- */
 
   const validateField = (
     name: string,
@@ -697,15 +931,26 @@ export default function SubmitInspectionPage() {
         return v ? "" : "Claim Number is required.";
       case "insuranceCompany":
         return ""; // Optional field — no validation needed
-      case "adjusterEmail":
-        if (!v) return "Adjuster Email is required.";
-        return isValidEmail(v) ? "" : "Enter a valid email address.";
+      case "adjusterEmail": {
+        const email = data.adjusterEmails[0]?.email || "";
+        if (!email.trim()) return "Adjuster Email is required.";
+        return isValidEmail(email) ? "" : "Enter a valid email address.";
+      }
+      case "adjusterFirstName":
+        return v ? "" : "Adjuster First Name is required.";
+      case "adjusterLastName":
+        return v ? "" : "Adjuster Last Name is required.";
       case "secondEmailForReport":
         if (!v) return "";
         return isValidEmail(v) ? "" : "Enter a valid email address.";
       case "adjusterPhone":
-        if (!v) return "Adjuster Phone is required.";
-        return isValidPhoneNumber(v) ? "" : "Enter a valid phone number.";
+        if (isPhoneEmpty(v)) {
+          return "Adjuster Phone is required.";
+        }
+        if (!isValidPhoneNumber(v)) {
+          return "Enter a valid phone number.";
+        }
+        return "";
       case "adjusterPhoneExt": {
         if (!v) return "";
         const digits = v.replace(/\D/g, "");
@@ -713,8 +958,13 @@ export default function SubmitInspectionPage() {
         return digits.length <= 6 ? "" : "Enter a valid extension.";
       }
       case "iaPhone":
-        if (!v) return "";
-        return isValidPhoneNumber(v) ? "" : "Enter a valid phone number.";
+        if (isPhoneEmpty(v)) {
+          return "IA Phone Number is required.";
+        }
+        if (!isValidPhoneNumber(v)) {
+          return "Enter a valid phone number.";
+        }
+        return "";
       case "iaFirstName":
         return v ? "" : "IA First Name is required.";
       case "iaLastName":
@@ -726,11 +976,25 @@ export default function SubmitInspectionPage() {
       case "policyholderLastName":
         return v ? "" : "Policyholder Last Name is required.";
       case "policyholderPhone1":
-        if (!v) return "Policyholder Phone 1 is required.";
-        return isValidPhoneNumber(v) ? "" : "Enter a valid phone number.";
+        if (isPhoneEmpty(v)) {
+          console.info("Phone validation skipped (empty field): policyholderPhone1");
+          return "";
+        }
+        if (!isValidPhoneNumber(v)) {
+          console.warn("Invalid phone number entered: policyholderPhone1");
+          return "Enter a valid phone number.";
+        }
+        return "";
       case "policyholderPhone2":
-        if (!v) return "";
-        return isValidPhoneNumber(v) ? "" : "Enter a valid phone number.";
+        if (isPhoneEmpty(v)) {
+          console.info("Phone field cleared, removing error: policyholderPhone2");
+          return "";
+        }
+        if (!isValidPhoneNumber(v)) {
+          console.warn("Invalid phone number entered: policyholderPhone2");
+          return "Enter a valid phone number.";
+        }
+        return "";
       case "streetAddress":
         return v ? "" : "Street Address is required.";
       case "city":
@@ -741,11 +1005,25 @@ export default function SubmitInspectionPage() {
         if (!v) return "Zip Code is required.";
         return isValidZipCode(v) ? "" : "Enter a valid Zip Code.";
       case "rooferPhone":
-        if (!v) return "";
-        return isValidPhoneNumber(v) ? "" : "Enter a valid phone number.";
+        if (isPhoneEmpty(v)) {
+          console.info("Phone field cleared, removing error: rooferPhone");
+          return "";
+        }
+        if (!isValidPhoneNumber(v)) {
+          console.warn("Invalid phone number entered: rooferPhone");
+          return "Enter a valid phone number.";
+        }
+        return "";
       case "publicAdjusterPhone":
-        if (!v) return "";
-        return isValidPhoneNumber(v) ? "" : "Enter a valid phone number.";
+        if (isPhoneEmpty(v)) {
+          console.info("Phone field cleared, removing error: publicAdjusterPhone");
+          return "";
+        }
+        if (!isValidPhoneNumber(v)) {
+          console.warn("Invalid phone number entered: publicAdjusterPhone");
+          return "Enter a valid phone number.";
+        }
+        return "";
       case "publicAdjusterEmail":
         if (!v) return "";
         return isValidEmail(v) ? "" : "Enter a valid email address.";
@@ -754,94 +1032,97 @@ export default function SubmitInspectionPage() {
     }
   };
 
-  const validateInsuranceStep = (data: FormData) => {
-    const fieldsToCheck: Array<keyof FormData> = [
-      "claimNumber",
-    ];
-
-    if (data.isIAClaim) {
-      fieldsToCheck.push("iaCompany", "iaFirstName", "iaLastName", "iaPhone");
-    }
-
+  const validateFields = (data: FormData, fields: (keyof FormData)[]) => {
     const errors: Record<string, string> = {};
-    fieldsToCheck.forEach((f) => {
+    fields.forEach((f) => {
       const err = validateField(f as string, String(data[f] || ""), data);
       if (err) errors[f as string] = err;
     });
     return errors;
+  };
+
+  const validateInsuranceStep = (data: FormData) => {
+    const fields: (keyof FormData)[] = ["claimNumber"];
+    if (data.isIAClaim) {
+      fields.push("iaCompany", "iaFirstName", "iaLastName", "iaPhone");
+    }
+    return validateFields(data, fields);
   };
 
   const validateAdjusterStep = (data: FormData) => {
-    const fieldsToCheck: Array<keyof FormData> = [
-      "adjusterEmail",
+    return validateFields(data, [
+      "adjusterFirstName",
+      "adjusterLastName",
+      "adjusterEmail" as any,
       "secondEmailForReport",
       "adjusterPhone",
       "adjusterPhoneExt",
-    ];
-
-    const errors: Record<string, string> = {};
-    fieldsToCheck.forEach((f) => {
-      const err = validateField(f as string, String(data[f] || ""), data);
-      if (err) errors[f as string] = err;
-    });
-    return errors;
+    ]);
   };
 
   const validatePolicyholderStep = (data: FormData) => {
-    const fieldsToCheck: Array<keyof FormData> = [
+    // Only validate backend-required fields: firstName + lastName.
+    // Phone fields are optional (format-checked only when filled) and
+    // are NOT in the backend required list — they must NOT block navigation.
+    return validateFields(data, [
       "policyholderFirstName",
       "policyholderLastName",
-      "policyholderPhone1",
-      "policyholderPhone2",
-    ];
-
-    const errors: Record<string, string> = {};
-    fieldsToCheck.forEach((f) => {
-      const err = validateField(f as string, String(data[f]), data);
-      if (err) errors[f as string] = err;
-    });
-    return errors;
+    ]);
   };
 
   const validateAddressStep = (data: FormData) => {
-    const errors: Record<string, string> = {};
-
-    const addressFields: Array<keyof FormData> = [
-      "streetAddress",
-      "city",
-      "state",
-      "zip",
-    ];
-    addressFields.forEach((f) => {
-      const err = validateField(f as string, String(data[f]), data);
-      if (err) errors[f as string] = err;
-    });
-    return errors;
+    return validateFields(data, ["streetAddress", "city", "state", "zip"]);
   };
 
   const validateRooferStep = (data: FormData) => {
     const errors: Record<string, string> = {};
+    if (skipRooferValidation) return errors;
 
-    // Validate Roofer Phone
-    const err = validateField("rooferPhone", data.rooferPhone, data);
-    if (err) errors.rooferPhone = err;
+    // Validate Roofer Phone — only if name is entered OR if number is entered
+    const isNameEntered = !!data.rooferName.trim();
+    const isPhoneEntered = !isPhoneEmpty(data.rooferPhone);
+
+    if (isNameEntered && !isPhoneEntered) {
+      errors.rooferPhone = "Roofer Phone is required.";
+    } else if (isPhoneEntered) {
+      const err = validateField("rooferPhone", data.rooferPhone, data);
+      if (err) errors.rooferPhone = err;
+    }
+    
     return errors;
   };
 
   const validatePublicAdjusterStep = (data: FormData) => {
     const errors: Record<string, string> = {};
-    const phoneErr = validateField(
-      "publicAdjusterPhone",
-      data.publicAdjusterPhone,
-      data
-    );
-    if (phoneErr) errors.publicAdjusterPhone = phoneErr;
-    const emailErr = validateField(
-      "publicAdjusterEmail",
-      data.publicAdjusterEmail,
-      data
-    );
-    if (emailErr) errors.publicAdjusterEmail = emailErr;
+    if (skipAdjusterValidation) return errors;
+    
+    const isNameEntered = !!data.publicAdjusterName.trim();
+    const isPhoneEntered = !isPhoneEmpty(data.publicAdjusterPhone);
+    const isEmailEntered = !!data.publicAdjusterEmail.trim();
+
+    if (isNameEntered) {
+      if (!isPhoneEntered) errors.publicAdjusterPhone = "Public Adjuster Phone is required.";
+      if (!isEmailEntered) errors.publicAdjusterEmail = "Public Adjuster Email is required.";
+    }
+
+    if (isPhoneEntered) {
+      const phoneErr = validateField(
+        "publicAdjusterPhone",
+        data.publicAdjusterPhone,
+        data
+      );
+      if (phoneErr) errors.publicAdjusterPhone = phoneErr;
+    }
+
+    if (isEmailEntered) {
+      const emailErr = validateField(
+        "publicAdjusterEmail",
+        data.publicAdjusterEmail,
+        data
+      );
+      if (emailErr) errors.publicAdjusterEmail = emailErr;
+    }
+
     return errors;
   };
 
@@ -857,11 +1138,11 @@ export default function SubmitInspectionPage() {
       </div>
 
       <main className="pt-16 pb-8">
-        <div className="max-w-5xl mx-auto px-6">
+        <div className={`${isSubmitted ? "max-w-xl" : "max-w-5xl"} mx-auto px-6`}>
 
           {/* ── Sticky Wrapper to prevent scrolling content from showing through the gap ── */}
           <div className="sticky top-16 z-40 bg-gray-50 dark:bg-background-dark pt-2 pb-4 mb-2 -mx-6 px-6">
-            <div className="bg-white dark:bg-section-dark px-1 py-0 shadow-md rounded-full border border-gray-200 dark:border-gray-800 flex flex-col justify-center max-w-5xl mx-auto w-full">
+            <div className={`bg-white dark:bg-section-dark px-1 py-0 shadow-md rounded-full border border-gray-200 dark:border-gray-800 flex flex-col justify-center ${isSubmitted ? "max-w-xl" : "max-w-5xl"} mx-auto w-full`}>
               <div className="text-center mb-0.5 flex justify-center items-center gap-2">
                 {(() => {
                   const Icon = WIZARD_STEPS[currentStep]?.icon;
@@ -886,7 +1167,7 @@ export default function SubmitInspectionPage() {
           </div>
 
           {/* ── Form Card ── */}
-          <div className="bg-white dark:bg-section-dark rounded-xl border border-gray-200 dark:border-gray-800 p-3 shadow-md">
+          <div className={`bg-white dark:bg-section-dark rounded-xl border border-gray-200 dark:border-gray-800 ${isSubmitted ? "p-0" : "p-3"} shadow-md overflow-hidden`}>
             {isSubmitted ? (
               <SuccessMessage onReset={handleReset} />
             ) : (
@@ -899,15 +1180,15 @@ export default function SubmitInspectionPage() {
                     {(() => {
                       const showBuildingType = !!formData.inspectionType && !["Component Failure", "Residential Storm Damage", "Structural Loss", "Large / Complex Loss", "Interior Water Loss"].includes(formData.inspectionType);
                       return (
-                        <div className={`grid grid-cols-1 gap-4 items-start animate-fadeIn ${showBuildingType ? "md:grid-cols-3" : ""}`}>
+                        <div className={`grid grid-cols-1 gap-4 items-start animate-fadeIn ${showBuildingType ? "md:grid-cols-4" : ""}`}>
                           {/* Left: Inspection Type */}
-                          <div className={`space-y-2.5 ${showBuildingType ? "md:col-span-2" : "md:col-span-3"}`}>
-                            <SectionHeader title="Inspection Type" icon={ClipboardList} />
+                          <div className={`space-y-2.5 ${showBuildingType ? "md:col-span-3" : "md:col-span-4"}`}>
+                            <SectionHeader title="Inspection Type" icon={ClipboardList} required />
                             <div
                               data-error-type="step1"
                               data-field-name="inspectionType"
-                              className={`grid gap-3 p-2 rounded-xl transition-all grid-cols-2 sm:grid-cols-4 ${showErrors && !formData.inspectionType
-                                ? "bg-red-50/50 dark:bg-red-900/10 ring-1 ring-red-500/50"
+                              className={`grid gap-2 p-2 rounded-xl transition-all grid-cols-2 ${showBuildingType ? "sm:grid-cols-3" : "sm:grid-cols-4"} ${showErrors && !formData.inspectionType
+                                ? "bg-gray-100/50 dark:bg-gray-800/10 ring-1 ring-gray-300"
                                 : "bg-gray-50/30 dark:bg-white/5"
                                 }`}
                             >
@@ -931,8 +1212,8 @@ export default function SubmitInspectionPage() {
                               ))}
                             </div>
                             {showErrors && !formData.inspectionType && (
-                              <p className="text-red-500 text-sm font-bold mt-2 flex items-center gap-2 animate-bounce">
-                                <BadgeAlert className="w-4 h-4" />
+                              <p className="text-gray-900 text-sm font-black mt-2 flex items-center gap-2 animate-bounce">
+                                <BadgeAlert className="w-4 h-4 text-gray-600" />
                                 Please select an inspection type to continue.
                               </p>
                             )}
@@ -941,8 +1222,8 @@ export default function SubmitInspectionPage() {
                           {/* Right: Building Type — only shown if required */}
                           {showBuildingType && (
                             <div className="space-y-2.5 md:col-span-1 animate-fadeIn">
-                              <SectionHeader title="Building Type" icon={Building2} optional />
-                              <div className="grid grid-cols-1 gap-3 p-2 rounded-xl bg-gray-50/30 dark:bg-white/5">
+                              <SectionHeader title="Building Type" icon={Building2} />
+                              <div className="grid grid-cols-2 md:grid-cols-1 gap-2 p-2 rounded-xl bg-gray-50/30 dark:bg-white/5">
                                 {BUILDING_TYPES.map((b) => (
                                   <SelectCard
                                     key={b.id}
@@ -1019,8 +1300,12 @@ export default function SubmitInspectionPage() {
                                   name="iaCompany"
                                   value={formData.iaCompany}
                                   onChange={handleChange}
+                                  onBlur={handleBlur}
                                   placeholder="Company Name"
                                   icon={Building2}
+                                  required
+                                  invalid={!!fieldErrors.iaCompany}
+                                  error={fieldErrors.iaCompany}
                                 />
                               </div>
 
@@ -1031,16 +1316,24 @@ export default function SubmitInspectionPage() {
                                   name="iaFirstName"
                                   value={formData.iaFirstName}
                                   onChange={handleChange}
+                                  onBlur={handleBlur}
                                   placeholder="First Name"
                                   icon={UserRound}
+                                  required
+                                  invalid={!!fieldErrors.iaFirstName}
+                                  error={fieldErrors.iaFirstName}
                                 />
                                 <InputField
                                   label="IA Last Name"
                                   name="iaLastName"
                                   value={formData.iaLastName}
                                   onChange={handleChange}
+                                  onBlur={handleBlur}
                                   placeholder="Last Name"
                                   icon={UserRound}
+                                  required
+                                  invalid={!!fieldErrors.iaLastName}
+                                  error={fieldErrors.iaLastName}
                                 />
                               </div>
 
@@ -1061,7 +1354,7 @@ export default function SubmitInspectionPage() {
                                 <SectionHeader title="Primary IA Email" />
                                 <div className="space-y-2">
                                   {formData.iaRecipients.map((recipient, index) => (
-                                    <div key={index} id={`ia-recipient-${index}`} className={`rounded-lg border p-1.5 bg-gray-50 dark:bg-background-dark/60 ${iaEmailErrors[index] ? "border-red-400 bg-red-50/60 dark:bg-red-900/20" : "border-gray-200 dark:border-gray-700"}`}>
+                                    <div key={index} id={`ia-recipient-${index}`} className={`rounded-lg border p-1.5 bg-gray-50 dark:bg-background-dark/60 ${iaEmailErrors[index] ? "border-gray-400 bg-gray-100/60 dark:bg-gray-800/20" : "border-gray-200 dark:border-gray-700"}`}>
                                       <div className="space-y-2">
                                         <InputField label={`IA Email ${formData.iaRecipients.length > 1 ? `#${index + 1}` : ""}`} name={`iaRecipientEmail_${index}`} value={recipient.email} onChange={(e) => {
                                           const nextRecipients = formData.iaRecipients.map((r, i) => i === index ? { ...r, email: e.target.value } : r);
@@ -1137,7 +1430,7 @@ export default function SubmitInspectionPage() {
                                       Add another email
                                     </button>
                                   </div>
-                                  {iaSectionError && (<p className="text-xs text-red-500 font-semibold pt-1">{iaSectionError}</p>)}
+                                  {iaSectionError && (<p className="text-xs text-gray-900 font-black bg-gray-200/80 backdrop-blur-sm px-2 py-1 rounded-md border border-gray-300/50 mt-1 inline-block">{iaSectionError}</p>)}
                                   {formData.iaRecipients.length >= MAX_IA_EMAILS && (<p className="text-[11px] text-gray-500 dark:text-gray-400">Maximum of {MAX_IA_EMAILS} IA email recipients reached.</p>)}
                                 </div>
                               </div>
@@ -1153,7 +1446,7 @@ export default function SubmitInspectionPage() {
                                   <div className="space-y-0.5 relative">
                                     <label htmlFor="insuranceCompany" className="text-[11px] font-semibold text-gray-700 dark:text-gray-300 flex items-center gap-1">
                                       <Building2 className="text-primary dark:text-accent w-3 h-3" />
-                                      Insurance Company <span className="text-gray-400 font-normal">(Optional)</span>
+                                      Insurance Company <span className="text-gray-400 font-normal"></span>
                                     </label>
                                     <div className="relative">
                                       <input
@@ -1176,15 +1469,15 @@ export default function SubmitInspectionPage() {
                                         }}
                                         onFocus={() => {
                                           setInsuranceCompanyOpen(true);
-                                          if (insuranceCompanyQuery) searchInsuranceCompanies(insuranceCompanyQuery);
+                                          searchInsuranceCompanies(insuranceCompanyQuery || "");
                                         }}
                                         onBlur={() => {
                                           setTimeout(() => setInsuranceCompanyOpen(false), 200);
                                           commitInsuranceCompanyValue(insuranceCompanyQuery);
                                         }}
-                                        placeholder="Optional: Search or type a company..."
+                                        placeholder="Search or type a company..."
                                         className={`w-full bg-gray-50 dark:bg-background-dark border rounded-lg px-2.5 py-1.5 text-xs text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:border-transparent transition-all ${fieldErrors.insuranceCompany
-                                          ? "border-red-500 focus:ring-red-500 dark:border-red-400 dark:focus:ring-red-400"
+                                          ? "border-gray-300 focus:ring-gray-300 dark:border-gray-600 dark:focus:ring-gray-600"
                                           : "border-gray-200 focus:ring-primary dark:border-gray-700 dark:focus:ring-accent"
                                           }`}
                                       />
@@ -1195,7 +1488,7 @@ export default function SubmitInspectionPage() {
                                       )}
                                     </div>
                                     {fieldErrors.insuranceCompany && (
-                                      <p className="text-[10px] text-red-500 font-semibold -mt-0.5">{fieldErrors.insuranceCompany}</p>
+                                      <p className="text-[10px] text-gray-900 font-black -mt-0.5">{fieldErrors.insuranceCompany}</p>
                                     )}
                                     {insuranceCompanyOpen && (
                                       <div className="absolute z-20 mt-1 w-full max-h-64 overflow-auto rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-section-dark shadow-lg">
@@ -1259,53 +1552,172 @@ export default function SubmitInspectionPage() {
                                       </div>
                                     )}
                                   </div>
-                                  <InputField label="Claim Number" name="claimNumber" value={formData.claimNumber} onChange={handleChange} placeholder="CLM-123456" required icon={Tag} invalid={!!fieldErrors.claimNumber} error={fieldErrors.claimNumber} />
+                                  <InputField label="Claim Number" name="claimNumber" value={formData.claimNumber} onChange={handleChange} onBlur={handleBlur} placeholder="CLM-123456" required icon={Tag} invalid={!!fieldErrors.claimNumber} error={fieldErrors.claimNumber} />
                                 </div>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3">
                                   <InputField label="Policy Number" name="policyNumber" value={formData.policyNumber} onChange={handleChange} placeholder="POL-789012" icon={Hash} invalid={!!fieldErrors.policyNumber} error={fieldErrors.policyNumber} />
-                                  <div className="space-y-0.5">
-                                    <label htmlFor="dateOfLoss" className="text-[11px] font-semibold text-gray-700 dark:text-gray-300 flex items-center gap-1">
-                                      <Calendar className="text-primary dark:text-accent w-3 h-3" />
-                                      Date of Loss <span className="text-gray-400 font-normal"></span>
-                                    </label>
-                                    <input
-                                      type="date"
-                                      id="dateOfLoss"
-                                      name="dateOfLoss"
-                                      value={formData.dateOfLoss}
-                                      onChange={handleChange}
-                                      className={`w-full bg-gray-50 dark:bg-background-dark border rounded-lg px-2.5 py-1.5 text-xs text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:border-transparent transition-all ${fieldErrors.dateOfLoss ? "border-red-500 focus:ring-red-500" : "border-gray-200 focus:ring-primary dark:border-gray-700 dark:focus:ring-accent"}`}
-                                    />
-                                    {fieldErrors.dateOfLoss && <p className="text-[10px] text-red-500 font-semibold">{fieldErrors.dateOfLoss}</p>}
-                                  </div>
+                                  <InputField
+                                    label="Date of Loss"
+                                    name="dateOfLoss"
+                                    type="date"
+                                    value={formData.dateOfLoss}
+                                    onChange={handleChange}
+                                    icon={Calendar}
+                                    invalid={!!fieldErrors.dateOfLoss}
+                                    error={fieldErrors.dateOfLoss}
+                                  />
                                 </div>
                               </div>
                               {/* Adjuster Details */}
                               <div className="bg-gray-50 dark:bg-background-dark rounded-lg p-2 border border-gray-200 dark:border-gray-700 space-y-2">
-                                <SectionHeader title="Adjuster Details" />
+                                <SectionHeader title={formData.isIAClaim ? "Carrier Adjuster Details" : "Adjuster Details"} />
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                                   <InputField label="Adjuster Company Name" name="adjusterCompany" value={formData.adjusterCompany} onChange={handleChange} placeholder="Company Name" icon={Building2} />
                                 </div>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                                  <InputField label="First Name" name="adjusterFirstName" value={formData.adjusterFirstName} onChange={handleChange} placeholder="First Name" icon={UserRound} />
-                                  <InputField label="Last Name" name="adjusterLastName" value={formData.adjusterLastName} onChange={handleChange} placeholder="Last Name" icon={UserRound} />
+                                  <InputField label="First Name" name="adjusterFirstName" value={formData.adjusterFirstName} onChange={handleChange} onBlur={handleBlur} placeholder="First Name" required icon={UserRound} invalid={!!fieldErrors.adjusterFirstName} error={fieldErrors.adjusterFirstName} />
+                                  <InputField label="Last Name" name="adjusterLastName" value={formData.adjusterLastName} onChange={handleChange} onBlur={handleBlur} placeholder="Last Name" required icon={UserRound} invalid={!!fieldErrors.adjusterLastName} error={fieldErrors.adjusterLastName} />
                                 </div>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                                  <PhoneInputField label="Adjuster Phone" name="adjusterPhone" value={formData.adjusterPhone} onChange={handleChange} required invalid={!!fieldErrors.adjusterPhone} error={fieldErrors.adjusterPhone} />
+                                  <PhoneInputField label="Adjuster Phone" name="adjusterPhone" value={formData.adjusterPhone} onChange={handleChange} onBlur={handleBlur} required invalid={!!fieldErrors.adjusterPhone} error={fieldErrors.adjusterPhone} />
                                   <InputField label="Phone Extension" name="adjusterPhoneExt" value={formData.adjusterPhoneExt} onChange={handleChange} placeholder="Ext. 123" icon={Hash} invalid={!!fieldErrors.adjusterPhoneExt} error={fieldErrors.adjusterPhoneExt} />
                                 </div>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                                  <InputField label="Adjuster Email" name="adjusterEmail" value={formData.adjusterEmail} onChange={handleChange} type="email" placeholder="adjuster@insurance.com" required icon={Mail} invalid={!!fieldErrors.adjusterEmail} error={fieldErrors.adjusterEmail} />
-                                  {formData.adjusterEmail && (
-                                    <InputField label="Second Email" name="secondEmailForReport" value={formData.secondEmailForReport} onChange={handleChange} type="email" placeholder="optional@email.com" icon={Mail} invalid={!!fieldErrors.secondEmailForReport} error={fieldErrors.secondEmailForReport} />
-                                  )}
+                                <div className="grid grid-cols-1">
+                                  <InputField label="Adjuster Email" name="adjusterEmail" value={formData.adjusterEmails[0]?.email || ""} onChange={handleChange} onBlur={handleBlur} type="email" placeholder="adjuster@insurance.com" required icon={Mail} invalid={!!fieldErrors.adjusterEmail} error={fieldErrors.adjusterEmail} />
+                                </div>
+                                
+                                {/* Send copy of for primary Adjuster */}
+                                <div className="mt-1 ml-1">
+                                  <p className="text-[10px] font-semibold text-gray-600 dark:text-gray-300 mb-1">Send copy of</p>
+                                  <div className="flex flex-wrap gap-2">
+                                    {SEND_COPY_OPTIONS.map((opt) => {
+                                      const checked = formData.adjusterEmails[0]?.sendCopyOf.includes(opt);
+                                      return (
+                                        <label key={opt} className="flex items-center gap-1 cursor-pointer select-none">
+                                          <input type="checkbox" checked={checked} onChange={() => {
+                                            let next: string[];
+                                            if (opt === "all") {
+                                              next = checked ? [] : ["all", "report", "invoice", "notifications"];
+                                            } else {
+                                              if (checked) {
+                                                next = formData.adjusterEmails[0].sendCopyOf.filter((o) => o !== opt && o !== "all");
+                                              } else {
+                                                next = [...formData.adjusterEmails[0].sendCopyOf.filter((o) => o !== "all"), opt];
+                                                if (next.includes("report") && next.includes("invoice") && next.includes("notifications")) {
+                                                  next = ["all", ...next];
+                                                }
+                                              }
+                                            }
+                                            const nextEmails = [...formData.adjusterEmails];
+                                            nextEmails[0] = { ...nextEmails[0], sendCopyOf: next };
+                                            setFormData({ ...formData, adjusterEmails: nextEmails });
+                                          }} className="w-3 h-3 rounded border-gray-300 text-primary focus:ring-primary" />
+                                          <span className="text-[10px] text-gray-700 dark:text-gray-300 capitalize">{opt === "all" ? "All" : opt.charAt(0).toUpperCase() + opt.slice(1)}</span>
+                                        </label>
+                                      );
+                                    })}
+                                  </div>
+                                </div>
+                                
+                                {/* Additional Adjuster Emails */}
+                                <div className="space-y-2 pt-2 border-t border-gray-200 dark:border-gray-700 mt-3">
+                                  <div className="space-y-2">
+                                    {formData.adjusterEmails.slice(1).map((recipient, idx) => {
+                                      const index = idx + 1;
+                                      return (
+                                        <div key={index} id={`adj-recipient-${index}`} className={`rounded-lg border p-1.5 bg-gray-50 dark:bg-background-dark/60 ${adjusterEmailErrors[index] ? "border-gray-400 bg-gray-100/60 dark:bg-gray-800/20" : "border-gray-200 dark:border-gray-700"}`}>
+                                          <div className="space-y-2">
+                                            <InputField label={`Additional Adjuster Email ${formData.adjusterEmails.length > 1 ? `#${index}` : ""}`} name={`adjRecipientEmail_${index}`} value={recipient.email} onChange={(e) => {
+                                              const nextRecipients = formData.adjusterEmails.map((r, i) => i === index ? { ...r, email: e.target.value } : r);
+                                              setFormData({ ...formData, adjusterEmails: nextRecipients });
+                                              const { errors } = validateAdjusterEmails(nextRecipients);
+                                              setAdjusterEmailErrors(errors);
+                                              setAdjusterSectionError("");
+                                            }} type="email" placeholder="additional@company.com" icon={Mail} />
+
+                                            {/* Send copy of — multi-select checkboxes */}
+                                            <div>
+                                              <p className="text-[10px] font-semibold text-gray-600 dark:text-gray-300 mb-1">Send copy of</p>
+                                              <div className="flex flex-wrap gap-2">
+                                                {SEND_COPY_OPTIONS.map((opt) => {
+                                                  const checked = recipient.sendCopyOf.includes(opt);
+                                                  return (
+                                                    <label key={opt} className="flex items-center gap-1 cursor-pointer select-none">
+                                                      <input type="checkbox" checked={checked} onChange={() => {
+                                                        let next: string[];
+                                                        if (opt === "all") {
+                                                          next = checked ? [] : ["all", "report", "invoice", "notifications"];
+                                                        } else {
+                                                          if (checked) {
+                                                            next = recipient.sendCopyOf.filter((o) => o !== opt && o !== "all");
+                                                          } else {
+                                                            next = [...recipient.sendCopyOf.filter((o) => o !== "all"), opt];
+                                                            if (next.includes("report") && next.includes("invoice") && next.includes("notifications")) {
+                                                              next = ["all", ...next];
+                                                            }
+                                                          }
+                                                        }
+                                                        const nextRecipients = formData.adjusterEmails.map((r, i) => i === index ? { ...r, sendCopyOf: next } : r);
+                                                        setFormData({ ...formData, adjusterEmails: nextRecipients });
+                                                      }} className="w-3 h-3 rounded border-gray-300 text-primary focus:ring-primary" />
+                                                      <span className="text-[10px] text-gray-700 dark:text-gray-300 capitalize">{opt === "all" ? "All" : opt.charAt(0).toUpperCase() + opt.slice(1)}</span>
+                                                    </label>
+                                                  );
+                                                })}
+                                              </div>
+                                            </div>
+
+                                            <button type="button" onClick={() => {
+                                              const nextRecipients = formData.adjusterEmails.filter((_, i) => i !== index);
+                                              setFormData({ ...formData, adjusterEmails: nextRecipients });
+                                              const { errors } = validateAdjusterEmails(nextRecipients);
+                                              setAdjusterEmailErrors(errors);
+                                            }} className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-semibold text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors">
+                                              <X className="w-3 h-3" />
+                                              Remove
+                                            </button>
+                                          </div>
+                                        </div>
+                                      );
+                                    })}
+                                    <div className="flex justify-end">
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          if (formData.adjusterEmails.length >= MAX_ADJ_EMAILS) return;
+                                          const nextRecipients: AdjusterEmail[] = [...formData.adjusterEmails, { email: "", sendCopyOf: ["all", "report", "invoice", "notifications"] }];
+                                          setFormData({ ...formData, adjusterEmails: nextRecipients });
+                                          const { errors } = validateAdjusterEmails(nextRecipients);
+                                          setAdjusterEmailErrors(errors);
+                                          setAdjusterSectionError("");
+                                          const index = nextRecipients.length - 1;
+                                          setTimeout(() => { const el = document.getElementById(`adj-recipient-${index}`); if (el) el.scrollIntoView({ behavior: "smooth", block: "center" }); }, 100);
+                                        }}
+                                        disabled={formData.adjusterEmails.length >= MAX_ADJ_EMAILS}
+                                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-bold bg-primary text-white hover:bg-primary-dark disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-sm hover:shadow-md active:scale-95"
+                                      >
+                                        <Plus className="w-3.5 h-3.5" />
+                                        Add Another Email
+                                      </button>
+                                    </div>
+                                    {adjusterSectionError && (<p className="text-xs text-gray-900 font-black bg-gray-200/80 backdrop-blur-sm px-2 py-1 rounded-md border border-gray-300/50 mt-1 inline-block">{adjusterSectionError}</p>)}
+                                    {formData.adjusterEmails.length >= MAX_ADJ_EMAILS && (<p className="text-[11px] text-gray-500 dark:text-gray-400">Maximum of {MAX_ADJ_EMAILS} additional emails reached.</p>)}
+                                  </div>
                                 </div>
                                 <div className="space-y-1">
                                   <label htmlFor="adjusterComments" className="text-[11px] font-bold text-gray-700 dark:text-gray-300 flex items-center gap-1.5">
                                     <MessageSquare className="text-primary dark:text-accent w-3.5 h-3.5" />
                                     Adjuster&apos;s Comments
                                   </label>
-                                  <textarea id="adjusterComments" name="adjusterComments" value={formData.adjusterComments} onChange={handleChange} rows={3} placeholder="Any additional comments from the adjuster..." className="w-full bg-gray-50 dark:bg-background-dark border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-primary dark:focus:ring-accent focus:border-transparent resize-none transition-all" />
+                                  <textarea 
+                                    id="adjusterComments" 
+                                    name="adjusterComments" 
+                                    value={formData.adjusterComments} 
+                                    onChange={handleChange} 
+                                    rows={1} 
+                                    placeholder="Any additional comments from the adjuster..." 
+                                    className="w-full bg-gray-50 dark:bg-background-dark border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-primary dark:focus:ring-accent focus:border-transparent resize-none overflow-hidden transition-all min-h-[80px]" 
+                                  />
                                 </div>
                               </div>
                             </div>
@@ -1345,16 +1757,16 @@ export default function SubmitInspectionPage() {
                                     }}
                                     onFocus={() => {
                                       setInsuranceCompanyOpen(true);
-                                      if (insuranceCompanyQuery) searchInsuranceCompanies(insuranceCompanyQuery);
+                                      searchInsuranceCompanies(insuranceCompanyQuery || "");
                                     }}
                                     onBlur={() => {
                                       setTimeout(() => setInsuranceCompanyOpen(false), 200);
                                       commitInsuranceCompanyValue(insuranceCompanyQuery);
                                     }}
-                                    placeholder=" Search or type a company..."
+                                    placeholder="Search or type a company..."
                                     className={`w-full bg-gray-50 dark:bg-background-dark border rounded-lg px-2.5 py-1.5 text-xs text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:border-transparent transition-all ${fieldErrors.insuranceCompany
-                                      ? "border-red-500 focus:ring-red-500 dark:border-red-400 dark:focus:ring-red-400"
-                                      : "border-gray-200 focus:ring-primary dark:border-gray-700 dark:focus:ring-accent"
+                                    ? "border-gray-300 focus:ring-gray-300 dark:border-gray-600 dark:focus:ring-gray-600"
+                                    : "border-gray-200 focus:ring-primary dark:border-gray-700 dark:focus:ring-accent"
                                       }`}
                                   />
                                   {insuranceSearchLoading && (
@@ -1364,7 +1776,7 @@ export default function SubmitInspectionPage() {
                                   )}
                                 </div>
                                 {fieldErrors.insuranceCompany && (
-                                  <p className="text-[10px] text-red-500 font-semibold -mt-0.5">{fieldErrors.insuranceCompany}</p>
+                                  <p className="text-[10px] text-gray-900 font-black -mt-0.5">{fieldErrors.insuranceCompany}</p>
                                 )}
                                 {insuranceCompanyOpen && (
                                   <div className="absolute z-20 mt-1 w-full max-h-64 overflow-auto rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-section-dark shadow-lg">
@@ -1422,60 +1834,181 @@ export default function SubmitInspectionPage() {
                                       ))
                                     ) : insuranceCompanyQuery && !insuranceSearchLoading && (
                                       <div className="p-3 text-center text-gray-500 text-[10px]">
-                                        No matches found.
+                                            No matches found.
                                       </div>
                                     )}
                                   </div>
                                 )}
                               </div>
-                              <InputField label="Claim Number" name="claimNumber" value={formData.claimNumber} onChange={handleChange} placeholder="CLM-123456" required icon={Tag} invalid={!!fieldErrors.claimNumber} error={fieldErrors.claimNumber} />
+                              <InputField label="Claim Number" name="claimNumber" value={formData.claimNumber} onChange={handleChange} onBlur={handleBlur} placeholder="CLM-123456" required icon={Tag} invalid={!!fieldErrors.claimNumber} error={fieldErrors.claimNumber} />
                             </div>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3">
                               <InputField label="Policy Number" name="policyNumber" value={formData.policyNumber} onChange={handleChange} placeholder="POL-789012" icon={Hash} invalid={!!fieldErrors.policyNumber} error={fieldErrors.policyNumber} />
                               <div className="space-y-0.5">
-                                <label htmlFor="dateOfLoss" className="text-[11px] font-semibold text-gray-700 dark:text-gray-300 flex items-center gap-1">
-                                  <Calendar className="text-primary dark:text-accent w-3 h-3" />
-                                  Date of Loss <span className="text-gray-400 font-normal"></span>
-                                </label>
-                                <input
-                                  type="date"
-                                  id="dateOfLoss"
+                                <InputField
+                                  label="Date of Loss"
                                   name="dateOfLoss"
+                                  type="date"
                                   value={formData.dateOfLoss}
                                   onChange={handleChange}
-                                  className={`w-full bg-gray-50 dark:bg-background-dark border rounded-lg px-2.5 py-1.5 text-xs text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:border-transparent transition-all ${fieldErrors.dateOfLoss ? "border-red-500 focus:ring-red-500" : "border-gray-200 focus:ring-primary dark:border-gray-700 dark:focus:ring-accent"}`}
+                                  icon={Calendar}
+                                  invalid={!!fieldErrors.dateOfLoss}
+                                  error={fieldErrors.dateOfLoss}
                                 />
-                                {fieldErrors.dateOfLoss && <p className="text-[10px] text-red-500 font-semibold">{fieldErrors.dateOfLoss}</p>}
                               </div>
                             </div>
                           </div>
 
                           {/* RIGHT COLUMN — Adjuster */}
                           <div className="bg-gray-50 dark:bg-background-dark rounded-lg p-2 border border-gray-200 dark:border-gray-700 space-y-2">
-                            <SectionHeader title="Adjuster Details" />
+                            <SectionHeader title={formData.isIAClaim ? "Carrier Adjuster Details" : "Adjuster Details"} />
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                               <InputField label="Adjuster Company Name" name="adjusterCompany" value={formData.adjusterCompany} onChange={handleChange} placeholder="Company Name" icon={Building2} />
                             </div>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                              <InputField label="First Name" name="adjusterFirstName" value={formData.adjusterFirstName} onChange={handleChange} placeholder="First Name" icon={UserRound} />
-                              <InputField label="Last Name" name="adjusterLastName" value={formData.adjusterLastName} onChange={handleChange} placeholder="Last Name" icon={UserRound} />
+                              <InputField label="First Name" name="adjusterFirstName" value={formData.adjusterFirstName} onChange={handleChange} onBlur={handleBlur} placeholder="First Name" required icon={UserRound} invalid={!!fieldErrors.adjusterFirstName} error={fieldErrors.adjusterFirstName} />
+                              <InputField label="Last Name" name="adjusterLastName" value={formData.adjusterLastName} onChange={handleChange} onBlur={handleBlur} placeholder="Last Name" required icon={UserRound} invalid={!!fieldErrors.adjusterLastName} error={fieldErrors.adjusterLastName} />
                             </div>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                              <PhoneInputField label="Adjuster Phone" name="adjusterPhone" value={formData.adjusterPhone} onChange={handleChange} required invalid={!!fieldErrors.adjusterPhone} error={fieldErrors.adjusterPhone} />
+                              <PhoneInputField label="Adjuster Phone" name="adjusterPhone" value={formData.adjusterPhone} onChange={handleChange} onBlur={handleBlur} required invalid={!!fieldErrors.adjusterPhone} error={fieldErrors.adjusterPhone} />
                               <InputField label="Phone Extension" name="adjusterPhoneExt" value={formData.adjusterPhoneExt} onChange={handleChange} placeholder="Ext. 123" icon={Hash} invalid={!!fieldErrors.adjusterPhoneExt} error={fieldErrors.adjusterPhoneExt} />
                             </div>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                              <InputField label="Adjuster Email" name="adjusterEmail" value={formData.adjusterEmail} onChange={handleChange} type="email" placeholder="adjuster@insurance.com" required icon={Mail} invalid={!!fieldErrors.adjusterEmail} error={fieldErrors.adjusterEmail} />
-                              {formData.adjusterEmail && (
-                                <InputField label="Second Email" name="secondEmailForReport" value={formData.secondEmailForReport} onChange={handleChange} type="email" placeholder="optional@email.com" icon={Mail} invalid={!!fieldErrors.secondEmailForReport} error={fieldErrors.secondEmailForReport} />
-                              )}
+                            <div className="grid grid-cols-1">
+                              <InputField label="Adjuster Email" name="adjusterEmail" value={formData.adjusterEmails[0]?.email || ""} onChange={handleChange} onBlur={handleBlur} type="email" placeholder="adjuster@insurance.com" required icon={Mail} invalid={!!fieldErrors.adjusterEmail} error={fieldErrors.adjusterEmail} />
                             </div>
+                            
+                            {/* Send copy of for primary Adjuster */}
+                            <div className="mt-1 ml-1">
+                              <p className="text-[10px] font-semibold text-gray-600 dark:text-gray-300 mb-1">Send copy of</p>
+                              <div className="flex flex-wrap gap-2">
+                                {SEND_COPY_OPTIONS.map((opt) => {
+                                  const checked = formData.adjusterEmails[0]?.sendCopyOf.includes(opt);
+                                  return (
+                                    <label key={opt} className="flex items-center gap-1 cursor-pointer select-none">
+                                      <input type="checkbox" checked={checked} onChange={() => {
+                                        let next: string[];
+                                        if (opt === "all") {
+                                          next = checked ? [] : ["all", "report", "invoice", "notifications"];
+                                        } else {
+                                          if (checked) {
+                                            next = formData.adjusterEmails[0].sendCopyOf.filter((o) => o !== opt && o !== "all");
+                                          } else {
+                                            next = [...formData.adjusterEmails[0].sendCopyOf.filter((o) => o !== "all"), opt];
+                                            if (next.includes("report") && next.includes("invoice") && next.includes("notifications")) {
+                                              next = ["all", ...next];
+                                            }
+                                          }
+                                        }
+                                        const nextEmails = [...formData.adjusterEmails];
+                                        nextEmails[0] = { ...nextEmails[0], sendCopyOf: next };
+                                        setFormData({ ...formData, adjusterEmails: nextEmails });
+                                      }} className="w-3 h-3 rounded border-gray-300 text-primary focus:ring-primary" />
+                                      <span className="text-[10px] text-gray-700 dark:text-gray-300 capitalize">{opt === "all" ? "All" : opt.charAt(0).toUpperCase() + opt.slice(1)}</span>
+                                    </label>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                            
+                            {/* Additional Adjuster Emails */}
+                                <div className="space-y-2 pt-2 border-t border-gray-200 dark:border-gray-700 mt-3">
+                                  <div className="space-y-2">
+                                    {formData.adjusterEmails.slice(1).map((recipient, idx) => {
+                                      const index = idx + 1;
+                                      return (
+                                        <div key={index} id={`adj-recipient-${index}`} className={`rounded-lg border p-1.5 bg-gray-50 dark:bg-background-dark/60 ${adjusterEmailErrors[index] ? "border-gray-400 bg-gray-100/60 dark:bg-gray-800/20" : "border-gray-200 dark:border-gray-700"}`}>
+                                          <div className="space-y-2">
+                                            <InputField label={`Additional Adjuster Email ${formData.adjusterEmails.length > 1 ? `#${index}` : ""}`} name={`adjRecipientEmail_${index}`} value={recipient.email} onChange={(e) => {
+                                              const nextRecipients = formData.adjusterEmails.map((r, i) => i === index ? { ...r, email: e.target.value } : r);
+                                              setFormData({ ...formData, adjusterEmails: nextRecipients });
+                                              const { errors } = validateAdjusterEmails(nextRecipients);
+                                              setAdjusterEmailErrors(errors);
+                                              setAdjusterSectionError("");
+                                            }} type="email" placeholder="additional@company.com" icon={Mail} />
+
+                                            {/* Send copy of — multi-select checkboxes */}
+                                            <div>
+                                              <p className="text-[10px] font-semibold text-gray-600 dark:text-gray-300 mb-1">Send copy of</p>
+                                              <div className="flex flex-wrap gap-2">
+                                                {SEND_COPY_OPTIONS.map((opt) => {
+                                                  const checked = recipient.sendCopyOf.includes(opt);
+                                                  return (
+                                                    <label key={opt} className="flex items-center gap-1 cursor-pointer select-none">
+                                                      <input type="checkbox" checked={checked} onChange={() => {
+                                                        let next: string[];
+                                                        if (opt === "all") {
+                                                          next = checked ? [] : ["all", "report", "invoice", "notifications"];
+                                                        } else {
+                                                          if (checked) {
+                                                            next = recipient.sendCopyOf.filter((o) => o !== opt && o !== "all");
+                                                          } else {
+                                                            next = [...recipient.sendCopyOf.filter((o) => o !== "all"), opt];
+                                                            if (next.includes("report") && next.includes("invoice") && next.includes("notifications")) {
+                                                              next = ["all", ...next];
+                                                            }
+                                                          }
+                                                        }
+                                                        const nextRecipients = formData.adjusterEmails.map((r, i) => i === index ? { ...r, sendCopyOf: next } : r);
+                                                        setFormData({ ...formData, adjusterEmails: nextRecipients });
+                                                      }} className="w-3 h-3 rounded border-gray-300 text-primary focus:ring-primary" />
+                                                      <span className="text-[10px] text-gray-700 dark:text-gray-300 capitalize">{opt === "all" ? "All" : opt.charAt(0).toUpperCase() + opt.slice(1)}</span>
+                                                    </label>
+                                                  );
+                                                })}
+                                              </div>
+                                            </div>
+
+                                            <button type="button" onClick={() => {
+                                              const nextRecipients = formData.adjusterEmails.filter((_, i) => i !== index);
+                                              setFormData({ ...formData, adjusterEmails: nextRecipients });
+                                              const { errors } = validateAdjusterEmails(nextRecipients);
+                                              setAdjusterEmailErrors(errors);
+                                            }} className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-semibold text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors">
+                                              <X className="w-3 h-3" />
+                                              Remove
+                                            </button>
+                                          </div>
+                                        </div>
+                                      );
+                                    })}
+                                    <div className="flex justify-end">
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          if (formData.adjusterEmails.length >= MAX_ADJ_EMAILS) return;
+                                          const nextRecipients: AdjusterEmail[] = [...formData.adjusterEmails, { email: "", sendCopyOf: ["all", "report", "invoice", "notifications"] }];
+                                          setFormData({ ...formData, adjusterEmails: nextRecipients });
+                                          const { errors } = validateAdjusterEmails(nextRecipients);
+                                          setAdjusterEmailErrors(errors);
+                                          setAdjusterSectionError("");
+                                          const index = nextRecipients.length - 1;
+                                          setTimeout(() => { const el = document.getElementById(`adj-recipient-${index}`); if (el) el.scrollIntoView({ behavior: "smooth", block: "center" }); }, 100);
+                                        }}
+                                        disabled={formData.adjusterEmails.length >= MAX_ADJ_EMAILS}
+                                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-bold bg-primary text-white hover:bg-primary-dark disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-sm hover:shadow-md active:scale-95"
+                                      >
+                                        <Plus className="w-3.5 h-3.5" />
+                                        Add Another Email
+                                      </button>
+                                    </div>
+                                    {adjusterSectionError && (<p className="text-xs text-gray-900 font-black bg-red-50/50 backdrop-blur-sm px-2 py-1 rounded-md border border-red-200/30 mt-1 inline-block">{adjusterSectionError}</p>)}
+                                    {formData.adjusterEmails.length >= MAX_ADJ_EMAILS && (<p className="text-[11px] text-gray-500 dark:text-gray-400">Maximum of {MAX_ADJ_EMAILS} additional emails reached.</p>)}
+                                  </div>
+                                </div>
                             <div className="space-y-1">
                               <label htmlFor="adjusterComments" className="text-[11px] font-bold text-gray-700 dark:text-gray-300 flex items-center gap-1.5">
                                 <MessageSquare className="text-primary dark:text-accent w-3.5 h-3.5" />
                                 Adjuster&apos;s Comments
                               </label>
-                              <textarea id="adjusterComments" name="adjusterComments" value={formData.adjusterComments} onChange={handleChange} rows={3} placeholder="Any additional comments from the adjuster..." className="w-full bg-gray-50 dark:bg-background-dark border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-primary dark:focus:ring-accent focus:border-transparent resize-none transition-all" />
+                              <textarea 
+                                id="adjusterComments" 
+                                name="adjusterComments" 
+                                value={formData.adjusterComments} 
+                                onChange={handleChange} 
+                                rows={1} 
+                                placeholder="Any additional comments from the adjuster..." 
+                                className="w-full bg-gray-50 dark:bg-background-dark border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-primary dark:focus:ring-accent focus:border-transparent resize-none overflow-hidden transition-all min-h-[80px]" 
+                              />
                             </div>
                           </div>
                         </div>
@@ -1494,19 +2027,57 @@ export default function SubmitInspectionPage() {
                       <div className="bg-gray-50 dark:bg-background-dark rounded-lg p-2 border border-gray-200 dark:border-gray-700 space-y-2">
                         <SectionHeader title="Property Contact (Policyholder)" />
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                          <InputField label="First Name" name="policyholderFirstName" value={formData.policyholderFirstName} onChange={handleChange} placeholder="First Name" required icon={UserRound} invalid={!!fieldErrors.policyholderFirstName} error={fieldErrors.policyholderFirstName} />
-                          <InputField label="Last Name" name="policyholderLastName" value={formData.policyholderLastName} onChange={handleChange} placeholder="Last Name" required icon={UserRound} invalid={!!fieldErrors.policyholderLastName} error={fieldErrors.policyholderLastName} />
+                          <InputField label="First Name" name="policyholderFirstName" value={formData.policyholderFirstName} onChange={handleChange} onBlur={handleBlur} placeholder="First Name" required icon={UserRound} invalid={!!fieldErrors.policyholderFirstName} error={fieldErrors.policyholderFirstName} />
+                          <InputField label="Last Name" name="policyholderLastName" value={formData.policyholderLastName} onChange={handleChange} onBlur={handleBlur} placeholder="Last Name" required icon={UserRound} invalid={!!fieldErrors.policyholderLastName} error={fieldErrors.policyholderLastName} />
                         </div>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                          <PhoneInputField label="Phone 1" name="policyholderPhone1" value={formData.policyholderPhone1} onChange={handleChange} required invalid={!!fieldErrors.policyholderPhone1} error={fieldErrors.policyholderPhone1} />
-                          <PhoneInputField label="Phone 2" name="policyholderPhone2" value={formData.policyholderPhone2} onChange={handleChange} invalid={!!fieldErrors.policyholderPhone2} error={fieldErrors.policyholderPhone2} placeholder="Optional" />
+                        
+                        <div className="space-y-3">
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            <InputField label="Property Contact Email" name="propertyContactEmail" value={formData.propertyContactEmail} onChange={handleChange} type="email" placeholder="contact@email.com" icon={Mail} />
+                            <div className="space-y-1">
+                              <PhoneInputField label="Primary Phone" name="policyholderPhone1" value={formData.policyholderPhone1} onChange={handleChange} invalid={!!fieldErrors.policyholderPhone1} error={fieldErrors.policyholderPhone1} />
+                            </div>
+                          </div>
+                          
+                          {/* DISABLED: Add Another Phone + secondary phone input — uncomment to restore
+                          {(showPrimaryPhone2 || formData.policyholderPhone1Extra) && (
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 animate-in slide-in-from-top-1 duration-200">
+                              <div className="space-y-1 relative group">
+                                <PhoneInputField label="Primary Phone 2" name="policyholderPhone1Extra" value={formData.policyholderPhone1Extra} onChange={handleChange} placeholder="Additional Phone" />
+                                <button type="button" onClick={() => { setFormData({ ...formData, policyholderPhone1Extra: "" }); if (!formData.policyholderPhone1Extra) setShowPrimaryPhone2(false); }} className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-semibold text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors mt-0.5">
+                                  <X className="w-3 h-3" />
+                                  Remove
+                                </button>
+                              </div>
+                            </div>
+                          )}
+
+                          {!showPrimaryPhone2 && !formData.policyholderPhone1Extra && (
+                            <div className="flex justify-end pr-0">
+                                <button
+                                  type="button"
+                                  onClick={() => setShowPrimaryPhone2(true)}
+                                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-bold bg-primary text-white hover:bg-primary-dark transition-all shadow-sm hover:shadow-md active:scale-95"
+                                >
+                                  <Plus className="w-3.5 h-3.5" />
+                                  Add Another Phone
+                                </button>
+                            </div>
+                          )}
+                          */}
                         </div>
-                        <div className="pt-2 border-t border-gray-200 dark:border-gray-700">
+
+                        <div className="pt-2 border-t border-gray-200 dark:border-gray-700 space-y-2">
                           <SectionHeader title="Secondary Contact" icon={User} />
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                             <InputField label="First Name" name="spouseFirstName" value={formData.spouseFirstName} onChange={handleChange} placeholder="First Name" icon={UserRound} />
                             <InputField label="Last Name" name="spouseLastName" value={formData.spouseLastName} onChange={handleChange} placeholder="Last Name" icon={UserRound} />
                           </div>
+                          {/* DISABLED: Secondary Contact Phone — uncomment to restore
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            <PhoneInputField label="Secondary Contact Phone" name="policyholderPhone2" value={formData.policyholderPhone2} onChange={handleChange} invalid={!!fieldErrors.policyholderPhone2} error={fieldErrors.policyholderPhone2} placeholder="Optional" />
+                          </div>
+                          */}
                         </div>
                       </div>
 
@@ -1519,6 +2090,7 @@ export default function SubmitInspectionPage() {
                           state={formData.state}
                           zip={formData.zip}
                           onChange={handleChange}
+                          onBlur={handleBlur}
                           errors={fieldErrors}
                         />
                       </div>
@@ -1541,7 +2113,7 @@ export default function SubmitInspectionPage() {
                         </div>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                           <PhoneInputField label="Roofer Phone" name="rooferPhone" value={formData.rooferPhone} onChange={handleChange} invalid={!!fieldErrors.rooferPhone} error={fieldErrors.rooferPhone} />
-                          <InputField label="Inspection Name" name="inspectionName" value={formData.inspectionName} onChange={handleChange} placeholder="Inspection Name" icon={ClipboardList} />
+                          <InputField label="Roofer Email" name="rooferEmail" value={formData.rooferEmail} onChange={handleChange} type="email" placeholder="roofer@company.com" icon={Mail} />
                         </div>
                       </div>
 
@@ -1566,30 +2138,21 @@ export default function SubmitInspectionPage() {
                 {/* ================================================ */}
                 {currentStep === 4 && (
                   <FormSection>
-                    <div className="space-y-3 animate-fadeIn">
-
-                      {/* ── ROW 1: Inspection & Property ── */}
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                        {/* LEFT — Inspection Type */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-start animate-fadeIn">
+                      
+                      {/* ── LEFT COLUMN ── */}
+                      <div className="space-y-4">
                         <ReviewBlock title="Inspection Type" icon={ClipboardList} onEdit={() => goToStep(0)}>
                           <ReviewRow label="Inspection Type" value={formData.inspectionType} />
                         </ReviewBlock>
-                        {/* RIGHT — Building Type */}
-                        <ReviewBlock title="Building Type" icon={Building2} onEdit={() => goToStep(0)} optional>
-                          <ReviewRow label="Building Type" value={formData.buildingType} />
-                        </ReviewBlock>
-                      </div>
 
-                      {/* ── ROW 2: Insurance & Adjuster ── */}
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                        {/* LEFT — IA Information (conditional) or Insurance Carrier */}
                         {formData.isIAClaim ? (
                           <ReviewBlock title="IA Information" icon={Shield} onEdit={() => goToStep(1)}>
                             <ReviewRow label="IA Company" value={formData.iaCompany} />
                             <ReviewRow label="IA Name" value={`${formData.iaFirstName} ${formData.iaLastName}`.trim()} />
                             <ReviewRow label="IA Phone" value={formData.iaPhone} />
                             {formData.iaRecipients.map((r, i) => (
-                              <ReviewRow key={i} label={`IA Email ${i + 1}`} value={r.email} />
+                              <ReviewRow key={i} label={`IA Email ${i + 1}`} value={r.email ? `${r.email}${r.notificationType.length > 0 ? ` (${formatPreferences(r.notificationType)})` : ''}` : ""} />
                             ))}
                           </ReviewBlock>
                         ) : (
@@ -1601,38 +2164,62 @@ export default function SubmitInspectionPage() {
                           </ReviewBlock>
                         )}
 
-                        {/* RIGHT — Insurance Carrier (when IA) + Adjuster */}
-                        <div className="space-y-3">
-                          {formData.isIAClaim && (
-                            <ReviewBlock title="Insurance Carrier" icon={Shield} onEdit={() => goToStep(1)}>
-                              <ReviewRow label="Insurance Company" value={formData.insuranceCompany} />
-                              <ReviewRow label="Claim Number" value={formData.claimNumber} />
-                              {formData.policyNumber && <ReviewRow label="Policy Number" value={formData.policyNumber} />}
-                              {formData.dateOfLoss && <ReviewRow label="Date of Loss" value={formData.dateOfLoss} />}
-                            </ReviewBlock>
+                        <ReviewBlock title="Property Contact (Policyholder)" icon={User} onEdit={() => goToStep(2)}>
+                          <ReviewRow label="Primary Name" value={`${formData.policyholderFirstName} ${formData.policyholderLastName}`.trim()} />
+                          <ReviewRow label="Primary Phone" value={formData.policyholderPhone1} />
+                          {formData.policyholderPhone1Extra && <ReviewRow label="Primary Phone 2" value={formData.policyholderPhone1Extra} />}
+                          {formData.propertyContactEmail && <ReviewRow label="Email" value={formData.propertyContactEmail} />}
+                          {(formData.spouseFirstName || formData.spouseLastName || formData.policyholderPhone2) && (
+                            <div className="pt-4 mt-1 border-t border-gray-100 dark:border-gray-800 col-span-full">
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-5">
+                                <ReviewRow label="Secondary Name" value={`${formData.spouseFirstName} ${formData.spouseLastName}`.trim()} />
+                                {formData.policyholderPhone2 && <ReviewRow label="Secondary Phone" value={formData.policyholderPhone2} />}
+                              </div>
+                            </div>
                           )}
-                          <ReviewBlock title="Adjuster Details" icon={Gavel} onEdit={() => goToStep(1)}>
-                            <ReviewRow label="Adjuster Company" value={formData.adjusterCompany} />
-                            <ReviewRow label="Adjuster Name" value={`${formData.adjusterFirstName} ${formData.adjusterLastName}`.trim()} />
-                            <ReviewRow label="Email" value={formData.adjusterEmail} />
-                            <ReviewRow label="Phone" value={formData.adjusterPhone} />
-                            {formData.adjusterPhoneExt && <ReviewRow label="Extension" value={formData.adjusterPhoneExt} />}
-                            {formData.secondEmailForReport && <ReviewRow label="Second Email" value={formData.secondEmailForReport} />}
-                            {formData.adjusterComments && <ReviewRow label="Comments" value={formData.adjusterComments} fullWidth />}
-                          </ReviewBlock>
-                        </div>
+                        </ReviewBlock>
+
+                        <ReviewBlock title="Roofer Information" icon={Home} onEdit={() => goToStep(3)} optional>
+                          {!(formData.rooferName || formData.rooferCompany || formData.rooferPhone || formData.rooferEmail) ? (
+                            <div className="col-span-full text-[13px] italic text-gray-300 dark:text-gray-600 self-center">No Roofer Provided</div>
+                          ) : (
+                            <>
+                              <ReviewRow label="Name" value={formData.rooferName} />
+                              <ReviewRow label="Company" value={formData.rooferCompany} />
+                              <ReviewRow label="Phone" value={formData.rooferPhone} />
+                              <ReviewRow label="Email" value={formData.rooferEmail} />
+                            </>
+                          )}
+                        </ReviewBlock>
                       </div>
 
-                      {/* ── ROW 3: Policyholder & Address ── */}
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                        {/* LEFT — Policyholder */}
-                        <ReviewBlock title="Property Contact (Policyholder)" icon={User} onEdit={() => goToStep(2)}>
-                          <ReviewRow label="Name" value={`${formData.policyholderFirstName} ${formData.policyholderLastName}`.trim()} />
-                          <ReviewRow label="Phone 1" value={formData.policyholderPhone1} />
-                          {formData.policyholderPhone2 && <ReviewRow label="Phone 2" value={formData.policyholderPhone2} />}
-                          {(formData.spouseFirstName || formData.spouseLastName) && <ReviewRow label="Secondary Contact" value={`${formData.spouseFirstName} ${formData.spouseLastName}`.trim()} />}
+                      {/* ── RIGHT COLUMN ── */}
+                      <div className="space-y-4">
+                        <ReviewBlock title="Building Type" icon={Building2} onEdit={() => goToStep(0)} optional>
+                          <ReviewRow label="Building Type" value={formData.buildingType} />
                         </ReviewBlock>
-                        {/* RIGHT — Property Address */}
+
+                        {formData.isIAClaim && (
+                          <ReviewBlock title="Insurance Carrier" icon={Shield} onEdit={() => goToStep(1)}>
+                            <ReviewRow label="Insurance Company" value={formData.insuranceCompany} />
+                            <ReviewRow label="Claim Number" value={formData.claimNumber} />
+                            {formData.policyNumber && <ReviewRow label="Policy Number" value={formData.policyNumber} />}
+                            {formData.dateOfLoss && <ReviewRow label="Date of Loss" value={formData.dateOfLoss} />}
+                          </ReviewBlock>
+                        )}
+
+                        <ReviewBlock title={formData.isIAClaim ? "Carrier Adjuster Details" : "Adjuster Details"} icon={Gavel} onEdit={() => goToStep(1)}>
+                          <ReviewRow label="Adjuster Company" value={formData.adjusterCompany} />
+                          <ReviewRow label="Adjuster Name" value={`${formData.adjusterFirstName} ${formData.adjusterLastName}`.trim()} />
+                          <ReviewRow label="Email" value={formData.adjusterEmails[0] ? `${formData.adjusterEmails[0].email}${formData.adjusterEmails[0].sendCopyOf.length > 0 ? ` (${formatPreferences(formData.adjusterEmails[0].sendCopyOf)})` : ''}` : ""} />
+                          <ReviewRow label="Phone" value={formData.adjusterPhone} />
+                          {formData.adjusterPhoneExt && <ReviewRow label="Extension" value={formData.adjusterPhoneExt} />}
+                          {formData.adjusterEmails.slice(1).map((r, i) => (
+                            <ReviewRow key={i} label={`Additional Email ${i + 1}`} value={r.email ? `${r.email}${r.sendCopyOf.length > 0 ? ` (${formatPreferences(r.sendCopyOf)})` : ''}` : ""} />
+                          ))}
+                          {formData.adjusterComments && <ReviewRow label="Comments" value={formData.adjusterComments} fullWidth />}
+                        </ReviewBlock>
+
                         <ReviewBlock title="Property Address" icon={MapPin} onEdit={() => goToStep(2)}>
                           <ReviewRow label="Street Address" value={formData.streetAddress} />
                           {formData.addressLine2 && <ReviewRow label="Apt/Suite" value={formData.addressLine2} />}
@@ -1640,23 +2227,18 @@ export default function SubmitInspectionPage() {
                           <ReviewRow label="State" value={formData.state} />
                           <ReviewRow label="Zip Code" value={formData.zip} />
                         </ReviewBlock>
-                      </div>
 
-                      {/* ── ROW 4: Roofer & Public Adjuster ── */}
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                        {/* LEFT — Roofer */}
-                        <ReviewBlock title="Roofer Information" icon={Home} onEdit={() => goToStep(3)} optional>
-                          <ReviewRow label="Name" value={formData.rooferName} />
-                          <ReviewRow label="Company" value={formData.rooferCompany} />
-                          <ReviewRow label="Phone" value={formData.rooferPhone} />
-                          <ReviewRow label="Inspection Name" value={formData.inspectionName} />
-                        </ReviewBlock>
-                        {/* RIGHT — Public Adjuster */}
                         <ReviewBlock title="Public Adjuster Details" icon={Hand} onEdit={() => goToStep(3)} optional>
-                          <ReviewRow label="Name" value={formData.publicAdjusterName} />
-                          <ReviewRow label="Company" value={formData.publicAdjusterCompany} />
-                          <ReviewRow label="Phone" value={formData.publicAdjusterPhone} />
-                          <ReviewRow label="Email" value={formData.publicAdjusterEmail} />
+                          {!(formData.publicAdjusterName || formData.publicAdjusterCompany || formData.publicAdjusterPhone || formData.publicAdjusterEmail) ? (
+                            <div className="col-span-full text-[13px] italic text-gray-300 dark:text-gray-600 self-center">No Public Adjuster Provided</div>
+                          ) : (
+                            <>
+                              <ReviewRow label="Name" value={formData.publicAdjusterName} />
+                              <ReviewRow label="Company" value={formData.publicAdjusterCompany} />
+                              <ReviewRow label="Phone" value={formData.publicAdjusterPhone} />
+                              <ReviewRow label="Email" value={formData.publicAdjusterEmail} />
+                            </>
+                          )}
                         </ReviewBlock>
                       </div>
 
@@ -1685,13 +2267,13 @@ export default function SubmitInspectionPage() {
                       onClick={handleNext}
                       className="inline-flex items-center gap-1 bg-primary hover:bg-primary-dark dark:bg-accent dark:hover:bg-accent-light text-white px-4 py-1.5 rounded-lg font-bold text-xs transition-all shadow-md hover:shadow-lg hover:scale-[1.02] active:scale-[0.98]"
                     >
-                      Next
+                      {currentStep === 3 && isStep3FieldsEmpty() ? "Skip" : "Next"}
                       <ArrowRight className="w-4 h-4" />
                     </button>
                   ) : (
                     <div className="flex flex-col items-end gap-2">
                       {submitError && (
-                        <div className="text-red-500 text-sm font-semibold max-w-md text-right bg-red-50 dark:bg-red-900/20 p-2 rounded-lg border border-red-200 dark:border-red-800">
+                        <div className="text-gray-900 text-sm font-black max-w-md text-right bg-gray-200/80 backdrop-blur-md p-2.5 rounded-lg border border-gray-300/60 shadow-sm">
                           {submitError}
                         </div>
                       )}
@@ -1716,6 +2298,81 @@ export default function SubmitInspectionPage() {
           </div>
         </div>
       </main>
+
+      {/* ── Custom Validation Modal for Step 3 ── */}
+      {isValidationModalOpen && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-navy/40 backdrop-blur-md px-4 p-6 animate-fadeIn">
+          <div className="bg-white dark:bg-section-dark w-full max-w-sm rounded-2xl shadow-xl border border-gray-100 dark:border-gray-800 transition-all scale-100">
+            <div className="p-8 pb-6 flex flex-col items-center text-center">
+              <div className="mb-4 p-3 bg-amber-50 dark:bg-amber-900/10 rounded-xl">
+                <AlertTriangle className="w-6 h-6 text-amber-500 dark:text-amber-400" />
+              </div>
+              <h3 className="text-xl font-bold text-gray-900 dark:text-white tracking-tight">Requirement Check</h3>
+              <p className="mt-2 text-sm leading-relaxed text-gray-500 dark:text-gray-400">
+                {validationModalConfig.message}
+              </p>
+            </div>
+            
+            <div className="px-8 pb-8 flex flex-col gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  const currentType = validationQueue[0];
+                  const config = getStep3ValidationConfig(currentType);
+                  
+                  // Close modal and clear queue immediately (Strict: No automatic switching)
+                  setIsValidationModalOpen(false);
+                  setValidationQueue([]);
+
+                  // The fieldErrors were already set when the modal opened, 
+                  // but we ensure showErrors is true for visibility.
+                  setShowErrors(true);
+
+                  // Scroll and focus
+                  if (config.missingFields.length > 0) {
+                    const firstField = config.missingFields[0];
+                    setTimeout(() => scrollToField(firstField), 100);
+                  }
+                }}
+                className="w-full bg-primary hover:bg-primary-dark dark:bg-accent dark:hover:bg-accent-light text-white py-2.5 px-6 rounded-xl font-bold text-xs transition-all shadow-md active:scale-[0.98]"
+              >
+                Update Details
+              </button>
+              
+              <button
+                type="button"
+                onClick={() => {
+                  const type = validationQueue[0];
+                  if (type === 'adjuster') {
+                    setSkipAdjusterValidation(true);
+                    setFormData(prev => ({ ...prev, publicAdjusterPhone: "", publicAdjusterEmail: "" }));
+                  } else if (type === 'roofer') {
+                    setSkipRooferValidation(true);
+                    setFormData(prev => ({ ...prev, rooferPhone: "" }));
+                  }
+
+                  const isLastItem = validationQueue.length === 1;
+                  setIsValidationModalOpen(false);
+                  setValidationQueue([]);
+
+                  if (isLastItem) {
+                    // Navigate if it was the only/last issue
+                    setCurrentStep(4);
+                    setMaxCompletedStep((prev) => Math.max(prev, 4));
+                    window.scrollTo({ top: 0, behavior: "smooth" });
+                  } else {
+                    // Stay on step 3 if more issues exist (will re-trigger on next click)
+                    console.info("[Validation] Partial bypass. Modal closed. Re-trigger required for remaining items.");
+                  }
+                }}
+                className="w-full bg-white dark:bg-background-dark text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 font-bold py-2.5 px-6 rounded-xl transition-all border-2 border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 flex items-center justify-center gap-2 text-xs active:scale-[0.98]"
+              >
+                Proceed Without
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {isAddCompanyModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm px-4">
@@ -1755,16 +2412,22 @@ export default function SubmitInspectionPage() {
                 </select>
               </div>
               {createCompanyMessage && (
-                <div className={`text-[11px] p-2 rounded-lg border ${createCompanyMessage.type === 'success' ? 'bg-green-50 border-green-200 text-green-700 dark:bg-green-900/20 dark:border-green-800' : 'bg-red-50 border-red-200 text-red-700 dark:bg-red-900/20 dark:border-red-800'}`}>
+                <div className={`text-[11px] p-2 rounded-lg border ${createCompanyMessage.type === 'success' ? 'bg-green-50 border-green-200 text-green-700 dark:bg-green-900/20 dark:border-green-800' : 'bg-gray-100 border-gray-300 text-gray-900 font-black dark:bg-gray-800/40 dark:border-gray-700'}`}>
                   {createCompanyMessage.text}
                 </div>
               )}
               <div className="flex items-center justify-end gap-2 pt-2.5 border-t border-gray-100 dark:border-gray-800">
-                <button type="button" disabled={isCreatingCompany} onClick={handleAddNewCompanyReset} className="px-3 py-1 rounded-lg text-[11px] font-bold text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800 transition-colors disabled:opacity-50">Reset</button>
-                <button type="submit" disabled={isCreatingCompany} className="px-3.5 py-1 rounded-lg text-[11px] font-bold text-white bg-primary hover:bg-primary-dark transition-colors shadow-sm disabled:opacity-50 flex items-center gap-1.5">
-                  {isCreatingCompany && <Loader2 className="w-3 h-3 animate-spin" />}
-                  {isCreatingCompany ? "Creating..." : "Add Company"}
-                </button>
+                <button type="button" disabled={isCreatingCompany || hasSentCompany} onClick={handleAddNewCompanyReset} className="px-3 py-1 rounded-lg text-[11px] font-bold text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800 transition-colors disabled:opacity-50">Reset</button>
+                {hasSentCompany ? (
+                  <div className="px-3.5 py-1 rounded-lg text-[11px] font-bold text-white bg-primary/70 flex items-center gap-1.5 shadow-sm">
+                    <Loader2 className="w-3 h-3 animate-spin" />
+                    Adding...
+                  </div>
+                ) : (
+                  <button type="submit" className="px-3.5 py-1 rounded-lg text-[11px] font-bold text-white bg-primary hover:bg-primary-dark transition-colors shadow-sm flex items-center gap-1.5">
+                    Add Company
+                  </button>
+                )}
               </div>
             </form>
           </div>
@@ -1808,19 +2471,22 @@ function ReviewBlock({
   children: React.ReactNode;
 }) {
   return (
-    <div className="bg-gray-50 dark:bg-background-dark rounded-lg p-3 border border-gray-200 dark:border-gray-700">
-      <div className="flex items-center justify-between mb-2">
-        <SectionHeader title={title} icon={Icon as any} optional={optional} />
+    <div className="bg-white dark:bg-section-dark rounded-xl p-4 shadow-sm border border-gray-200 dark:border-gray-800 border-l-4 border-l-primary dark:border-l-accent hover:shadow-md transition-all duration-200">
+      <div className="flex items-center justify-between mb-3 shrink-0">
+        <div className="flex items-center gap-1.5">
+          <Icon className="w-3.5 h-3.5 text-primary dark:text-accent opacity-70" />
+          <h4 className="text-[10px] font-black text-gray-900 dark:text-gray-100 uppercase tracking-widest">{title}</h4>
+        </div>
         <button
           type="button"
           onClick={onEdit}
-          className="inline-flex items-center gap-0.5 text-[10px] font-bold text-primary dark:text-accent hover:underline transition-all -mt-5"
+          className="inline-flex items-center gap-1 px-1.5 py-1 rounded text-[10px] font-bold text-primary dark:text-accent hover:bg-primary/5 dark:hover:bg-accent/10 transition-all opacity-80"
         >
-          <Edit2 className="w-3 h-3" />
+          <Edit2 className="w-2.5 h-2.5" />
           Edit
         </button>
       </div>
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-8 text-xs">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-3.5">
         {children}
       </div>
     </div>
@@ -1829,11 +2495,16 @@ function ReviewBlock({
 
 function ReviewRow({ label, value, fullWidth = false }: { label: string; value: string; fullWidth?: boolean }) {
   return (
-    <div className={fullWidth ? "col-span-full" : ""}>
-      <p className="text-gray-500 dark:text-gray-400 text-[10px] mb-0">{label}</p>
-      <p className="font-semibold text-xs text-gray-900 dark:text-white break-words" style={{ wordBreak: "break-word" }}>
-        {value || <span className="text-gray-400 dark:text-gray-500 italic font-normal">Not provided</span>}
-      </p>
+    <div className={`${fullWidth ? "col-span-full" : ""} flex flex-col gap-0.5 overflow-hidden`}>
+      <span className="text-[9px] font-bold uppercase tracking-widest text-gray-400 dark:text-gray-500">{label}</span>
+      <span className="text-[13px] font-semibold text-gray-800 dark:text-gray-200 break-words whitespace-pre-wrap leading-tight" style={{ wordBreak: "break-word" }}>
+        {value || <span className="text-gray-300 dark:text-gray-600 italic font-normal">Not provided</span>}
+      </span>
     </div>
   );
 }
+
+const formatPreferences = (prefs: string[]) => {
+  if (prefs.includes('all')) return "All";
+  return prefs.map(p => p.charAt(0).toUpperCase() + p.slice(1)).join(", ");
+};

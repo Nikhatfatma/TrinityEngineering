@@ -7,6 +7,7 @@ interface SectionHeaderProps {
   title: string;
   icon?: LucideIcon;
   optional?: boolean;
+  required?: boolean;
 }
 
 /**
@@ -17,6 +18,7 @@ export default function SectionHeader({
   title,
   icon: Icon,
   optional = false,
+  required = false,
 }: SectionHeaderProps) {
   return (
     <div className="mb-5 flex flex-col gap-1.5 animate-fadeIn">
@@ -31,6 +33,9 @@ export default function SectionHeader({
             <span className="bg-clip-text text-transparent bg-gradient-to-r from-gray-900 via-gray-700 to-primary dark:from-white dark:via-gray-200 dark:to-accent">
               {title}
             </span>
+            {required && (
+              <span className="text-red-500 font-black text-lg -mt-1" title="Required Field">*</span>
+            )}
             {optional && (
               <span className="text-[9px] font-black bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 px-2 py-0.5 rounded-full uppercase tracking-tighter border border-gray-200 dark:border-gray-700">
                 Optional

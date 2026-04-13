@@ -1,13 +1,75 @@
 const catalyst = require('zcatalyst-sdk-node');
 
+// Helper to transform multi-select options for Zoho Creator
+const formatSendCopy = (prefs = []) => {
+    console.log("[formatSendCopy] INPUT:", prefs);
+    
+    if (!Array.isArray(prefs)) {
+        console.log("[formatSendCopy] Warning: prefs is not an array:", prefs);
+        return [];
+    }
+
+    const mapping = {
+        "report": "Report",
+        "invoice": "Invoice",
+        "notifications": "Notifications",
+        "notification": "Notifications" 
+    };
+
+    const normalized = prefs.map(p => String(p).toLowerCase());
+    
+    // Expand "all" into individual options as Zoho Creator expects actual values
+    if (normalized.includes("all")) {
+        const out = ["Report", "Invoice", "Notifications"];
+        console.log("[formatSendCopy] OUTPUT (all):", out);
+        return out;
+    }
+
+    // Filter, map to correct capitalization, and ensure unique values
+    const values = normalized
+        .filter(p => p !== "all")
+        .map(p => mapping[p] || (p.charAt(0).toUpperCase() + p.slice(1)))
+        .filter(Boolean);
+
+    const out = [...new Set(values)];
+    console.log("[formatSendCopy] OUTPUT:", out);
+    return out;
+};
+
 function mapFormDataToCreator(data) {
+
+    // IA Subform: uses notificationType array, outputs array for Zoho Creator multi-select
+    const iaSubform = (data.iaRecipients || []).filter(r => r.email).map((r, i) => {
+        const formatted = formatSendCopy(r.notificationType || []);
+        console.log(`[iaSubform ${i}] RAW notificationType:`, r.notificationType);
+        console.log(`[iaSubform ${i}] FORMATTED Send_Copy_Of:`, formatted);
+        return {
+            "Email": r.email,
+            "Send_Copy_Of": formatted
+        };
+    });
+
+    // Adjuster Subform: uses sendCopyOf array, MUST output IDENTICAL format as IA (array)
+    const adjSubform = (data.adjusterEmails || []).filter(r => r.email).map((r, i) => {
+        const formatted = formatSendCopy(r.sendCopyOf || []);
+        console.log(`[adjSubform ${i}] RAW sendCopyOf:`, r.sendCopyOf);
+        console.log(`[adjSubform ${i}] FORMATTED Send_Copy_Of:`, formatted);
+        return {
+            "Email": r.email,
+            "Send_Copy_Of": formatted
+        };
+    });
+
+    const primaryAdjuster = (data.adjusterEmails && data.adjusterEmails[0]) || { email: "", sendCopyOf: [] };
+
     return {
         data: {
             Inspection_Type: data.inspectionType || "",
             Building_Type: data.buildingType || "",
             Claim_Number: data.claimNumber || "",
             Insurance_Company: data.insuranceCompany || "",
-            Adjuster_Email: data.adjusterEmail || "",
+            Adjuster_Email: primaryAdjuster.email || "",
+            Adjuster_Send_Copy_Of: formatSendCopy(data.adjusterEmails?.[0]?.sendCopyOf || []),
             Adjuster_First_Name: data.adjusterFirstName || "",
             Adjuster_Last_Name: data.adjusterLastName || "",
             Adjuster_Phone: data.adjusterPhone || "",
@@ -19,10 +81,12 @@ function mapFormDataToCreator(data) {
             IA_Last_Name: data.iaLastName || "",
             IA_Phone: data.iaPhone || "",
             IA_Company: data.iaCompany || "",
-            IA_Secondary_Recipients: (data.iaRecipients || []).map(r => r.email).filter(Boolean).join(", "),
+            IA_Emails_Subform: iaSubform,
+            Adjuster_Emails_Subform: adjSubform,
             Policyholder_First_Name: data.policyholderFirstName || "",
             Policyholder_Last_Name: data.policyholderLastName || "",
-            Policyholder_Phone_1: data.policyholderPhone1 || "",
+            Policyholder_Phone_1: [data.policyholderPhone1, data.policyholderPhone1Extra].filter(Boolean).join(", "),
+            Property_Contact_Email: data.propertyContactEmail || "",
             Spouse_or_Second_Policyholder_First_Name: data.spouseFirstName || "",
             Spouse_or_Second_Policyholder_Last_Name: data.spouseLastName || "",
             Policyholder_Phone_2: data.policyholderPhone2 || "",
@@ -37,7 +101,7 @@ function mapFormDataToCreator(data) {
             Roofer_Name: data.rooferName || "",
             Roofer_Company: data.rooferCompany || "",
             Roofer_Phone: data.rooferPhone || "",
-            Inspection_Name: data.inspectionName || "",
+            Roofer_Email: data.rooferEmail || "",
             Public_Adjuster_Name: data.publicAdjusterName || "",
             Public_Adjuster_Company: data.publicAdjusterCompany || "",
             Public_Adjuster_Phone: data.publicAdjusterPhone || "",
@@ -94,7 +158,7 @@ module.exports = async (context, basicIO) => {
     try {
         const action = basicIO.getArgument('action');
         const catalystApp = catalyst.initialize(context);
-        
+
         console.log("Environment Variable Keys:", Object.keys(process.env).filter(k => k.startsWith('ZOHO_')));
 
         // Removed ineffective manual CORS header assignment for BasicIO function
@@ -102,6 +166,9 @@ module.exports = async (context, basicIO) => {
 
         if (action === 'submitInspection') {
             const data = basicIO.getArgument('data');
+
+            // STEP 1: Incoming Form Data
+            console.log("STEP 1: Incoming Form Data:", JSON.stringify(data, null, 2));
 
             // 1. Strict Backend Validation
             if (!data) {
@@ -111,12 +178,18 @@ module.exports = async (context, basicIO) => {
             }
 
             const requiredFields = [
-                'inspectionType', 'claimNumber', 'adjusterEmail',
+                'inspectionType', 'claimNumber',
                 'policyholderFirstName', 'policyholderLastName',
                 'streetAddress', 'city', 'state', 'zip'
             ];
 
             const missingFields = requiredFields.filter(field => !data[field] || String(data[field]).trim() === "");
+
+            // Primary Adjuster Email check
+            const primaryEmail = data.adjusterEmails && data.adjusterEmails[0] && data.adjusterEmails[0].email;
+            if (!primaryEmail || primaryEmail.trim() === "") {
+                missingFields.push('adjusterEmail (adjusterEmails[0])');
+            }
 
             if (missingFields.length > 0) {
                 basicIO.write(JSON.stringify({
@@ -152,7 +225,110 @@ module.exports = async (context, basicIO) => {
                 console.error("Duplicate check skipped (table may not exist yet or ZCQL error):", err.message);
             }
 
+            // FIX: Added DB → Zoho → Create fallback for Insurance_Company
+            if (data.insuranceCompany && data.insuranceCompany.trim()) {
+                const companyName = data.insuranceCompany.trim();
+                let resolvedId = null;
+
+                // STEP 1: Check local Catalyst DB
+                try {
+                    const zcqlResolve = catalystApp.zcql();
+                    const safeCompanyName = companyName.replace(/'/g, "''");
+                    const resolveQuery = `SELECT ROWID, name, zoho_creator_id, status FROM InsuranceCompanies WHERE name = '${safeCompanyName}'`;
+                    const resolveResult = await zcqlResolve.executeZCQLQuery(resolveQuery);
+                    if (resolveResult && resolveResult.length > 0) {
+                        const activeRecord = resolveResult.find(r => r.InsuranceCompanies.status === 'Active') || resolveResult[0];
+                        resolvedId = activeRecord.InsuranceCompanies.zoho_creator_id || null;
+                        if (resolvedId) console.log("[Insurance Resolve] DB HIT | ID:", resolvedId);
+                    }
+                } catch (dbErr) {
+                    console.error("[Insurance Resolve] DB lookup failed:", dbErr.message);
+                }
+
+                // STEP 2: If not found in DB → search Zoho Creator (All_Companies report)
+                if (!resolvedId) {
+                    try {
+                        let resolveToken = await getNewAccessToken();
+                        const resolveOwner = (process.env.ZOHO_CREATOR_ACCOUNT_OWNER || 'owner').replace(/['\"]/g, '').trim();
+                        const resolveApp = (process.env.ZOHO_CREATOR_APP_NAME || 'inspection-app').replace(/['\"]/g, '').trim();
+                        const reportUrl = `https://creator.zoho.com/api/v2/${resolveOwner}/${resolveApp}/report/All_Companies?criteria=(Insurance_Company_Name=="${companyName}")`;
+                        let creatorSearchRes = await fetch(reportUrl, { method: 'GET', headers: { 'Authorization': `Zoho-oauthtoken ${resolveToken}` } });
+                        // Handle token expiry
+                        if (creatorSearchRes.status === 401) {
+                            cachedToken = null; tokenExpiry = 0;
+                            resolveToken = await getNewAccessToken();
+                            creatorSearchRes = await fetch(reportUrl, { method: 'GET', headers: { 'Authorization': `Zoho-oauthtoken ${resolveToken}` } });
+                        }
+                        const creatorSearchData = await creatorSearchRes.json();
+                        if (creatorSearchData.data && creatorSearchData.data.length > 0) {
+                            const found = creatorSearchData.data.find(c => c.Status === 'Active') || creatorSearchData.data[0];
+                            resolvedId = String(found.ID);
+                            console.log("[Insurance Resolve] CREATOR HIT | ID:", resolvedId);
+                            // Cache in local DB for future lookups
+                            try {
+                                const icTable = catalystApp.datastore().table('InsuranceCompanies');
+                                await icTable.insertRow({ name: found.Insurance_Company_Name || companyName, zoho_creator_id: resolvedId, status: found.Status || 'Active' });
+                            } catch (cacheErr) { console.error("[Insurance Resolve] Failed to cache in DB:", cacheErr.message); }
+                        }
+                    } catch (creatorErr) {
+                        console.error("[Insurance Resolve] Creator search failed:", creatorErr.message);
+                    }
+                }
+
+                // STEP 3: If still not found → create new company in Zoho Creator
+                if (!resolvedId) {
+                    try {
+                        let resolveToken = await getNewAccessToken();
+                        const resolveOwner = (process.env.ZOHO_CREATOR_ACCOUNT_OWNER || 'owner').replace(/['\"]/g, '').trim();
+                        const resolveApp = (process.env.ZOHO_CREATOR_APP_NAME || 'inspection-app').replace(/['\"]/g, '').trim();
+                        const createUrl = `https://creator.zoho.com/api/v2/${resolveOwner}/${resolveApp}/form/All_Companies1`;
+                        const createPayload = { data: { Insurance_Company_Name: companyName, Status: 'Pending' } };
+                        let createRes = await fetch(createUrl, { method: 'POST', headers: { 'Authorization': `Zoho-oauthtoken ${resolveToken}`, 'Content-Type': 'application/json' }, body: JSON.stringify(createPayload) });
+                        // Handle token expiry
+                        if (createRes.status === 401) {
+                            cachedToken = null; tokenExpiry = 0;
+                            resolveToken = await getNewAccessToken();
+                            createRes = await fetch(createUrl, { method: 'POST', headers: { 'Authorization': `Zoho-oauthtoken ${resolveToken}`, 'Content-Type': 'application/json' }, body: JSON.stringify(createPayload) });
+                        }
+                        const createData = await createRes.json();
+                        if (createData.code === 3000 && createData.data && createData.data.ID) {
+                            resolvedId = String(createData.data.ID);
+                            console.log("[Insurance Resolve] CREATED NEW | ID:", resolvedId);
+                            // Cache in local DB
+                            try {
+                                const icTable = catalystApp.datastore().table('InsuranceCompanies');
+                                await icTable.insertRow({ name: companyName, zoho_creator_id: resolvedId, status: 'Pending' });
+                            } catch (cacheErr) { console.error("[Insurance Resolve] Failed to cache new company in DB:", cacheErr.message); }
+                        } else {
+                            console.error("[Insurance Resolve] Creation failed:", JSON.stringify(createData));
+                        }
+                    } catch (createErr) {
+                        console.error("[Insurance Resolve] Creator create failed:", createErr.message);
+                    }
+                }
+
+                // STEP 4: Replace company name with resolved ID, or throw if all steps failed
+                if (!resolvedId) {
+                    throw new Error(`[Insurance Resolve] FAILED: Could not resolve or create Insurance Company "${companyName}" in Zoho Creator.`);
+                }
+                console.log("[Creator API] Resolved Insurance Company ID:", resolvedId);
+                data.insuranceCompany = resolvedId;
+            }
+
+            console.log("Adjuster sendCopyOf RAW:", data.adjusterEmails);
+            console.log("Formatted Send Copy:", formatSendCopy(data.adjusterEmails?.[0]?.sendCopyOf));
+
             const creatorPayload = mapFormDataToCreator(data);
+
+            // FINAL PAYLOAD LOGGING (VERY IMPORTANT FOR DEBUGGING)
+            console.log("FINAL CREATOR PAYLOAD:", JSON.stringify(creatorPayload, null, 2));
+            console.log("IA Send_Copy_Of payload:", JSON.stringify((creatorPayload.data.IA_Emails_Subform || []).map(s => s.Send_Copy_Of)));
+            console.log("Adjuster Send_Copy_Of payload:", JSON.stringify((creatorPayload.data.Adjuster_Emails_Subform || []).map(s => s.Send_Copy_Of)));
+
+            // Check if Adjuster_Send_Copy_Of is empty or undefined
+            if (!creatorPayload.data.Adjuster_Send_Copy_Of || creatorPayload.data.Adjuster_Send_Copy_Of.length === 0) {
+                console.warn("WARNING: Adjuster_Send_Copy_Of is empty or not being set properly");
+            }
 
             try {
                 let token = await getNewAccessToken();
@@ -165,6 +341,9 @@ module.exports = async (context, basicIO) => {
 
                     console.log(`[Creator API] Submitting to URL: ${creatorUrl}`);
                     console.log(`[Creator API] Form Name used: ${formName}`);
+
+                    // FIX: Improved logging for debugging
+                    console.log("[Creator API] Payload:", JSON.stringify(creatorPayload, null, 2));
 
                     return fetch(creatorUrl, {
                         method: 'POST',
@@ -179,6 +358,12 @@ module.exports = async (context, basicIO) => {
                 let response = await submitToCreator(token);
                 let responseData = await response.json();
 
+                // STEP 6: Zoho Response
+                console.log("STEP 6: Zoho Response:", JSON.stringify(responseData, null, 2));
+
+                // FIX: Log response for debugging
+                // console.log("[Creator API] Response Data:", JSON.stringify(responseData, null, 2)); // Duplicate of Step 6
+
                 // 3. Token Refresh Logic
                 // If token is rejected by Zoho despite cache validity, force a hard refresh
                 if (response.status === 401 || (responseData.code && [1030, 2945].includes(responseData.code)) || JSON.stringify(responseData).includes("INVALID_OAUTH")) {
@@ -188,10 +373,12 @@ module.exports = async (context, basicIO) => {
                     token = await getNewAccessToken();
                     response = await submitToCreator(token);
                     responseData = await response.json();
+                    console.log("[Creator API] Retry Response Data:", JSON.stringify(responseData, null, 2));
                 }
 
-                if (!response.ok) {
-                    throw new Error(`Creator API Error: ${JSON.stringify(responseData)}`);
+                // FIX: Added Zoho response code validation (3000 = success)
+                if (!response.ok || (responseData.code && responseData.code !== 3000)) {
+                    throw new Error(`Creator API Error (HTTP ${response.status}): ${JSON.stringify(responseData)}`);
                 }
 
                 // Success - Log to ProcessedClaims to prevent future duplicates
@@ -278,6 +465,10 @@ module.exports = async (context, basicIO) => {
                     const creatorUrl = `https://creator.zoho.com/api/v2/${owner}/${appName}/form/${formName}`;
                     console.log(`[Creator API Retry] Submitting to URL: ${creatorUrl}`);
                     console.log(`[Creator API Retry] Form Name used: ${formName}`);
+
+                    // FIX: Improved logging for debugging
+                    console.log("[Creator API Retry] Payload:", JSON.stringify(creatorPayload, null, 2));
+
                     return fetch(creatorUrl, {
                         method: 'POST',
                         headers: { 'Authorization': `Zoho-oauthtoken ${accessToken}`, 'Content-Type': 'application/json' },
@@ -288,6 +479,9 @@ module.exports = async (context, basicIO) => {
                 let response = await submitToCreator(token);
                 let responseData = await response.json();
 
+                // FIX: Log response for debugging
+                console.log("[Creator API Retry] Response Data:", JSON.stringify(responseData, null, 2));
+
                 // Retry specific Token Refresh logic
                 if (response.status === 401 || (responseData.code && [1030, 2945].includes(responseData.code)) || JSON.stringify(responseData).includes("INVALID_OAUTH")) {
                     console.log("Token rejected on retry, forcing hard refresh...");
@@ -296,11 +490,13 @@ module.exports = async (context, basicIO) => {
                     token = await getNewAccessToken();
                     response = await submitToCreator(token);
                     responseData = await response.json();
+                    console.log("[Creator API Retry] Retry Response Data:", JSON.stringify(responseData, null, 2));
                 }
 
-                if (!response.ok || responseData.code !== 3000) {
+                // FIX: Improved error message for consistency
+                if (!response.ok || (responseData.code && responseData.code !== 3000)) {
                     await table.updateRow({ ROWID: rowId, ErrorDetails: JSON.stringify(responseData) });
-                    throw new Error(`Retry failed: ${JSON.stringify(responseData)}`);
+                    throw new Error(`Retry failed (HTTP ${response.status}): ${JSON.stringify(responseData)}`);
                 }
 
                 // If successful, log to ProcessedClaims and mark Resolved
@@ -326,18 +522,16 @@ module.exports = async (context, basicIO) => {
         } else if (action === 'searchInsuranceCompanies') {
             const search = (basicIO.getArgument('search') || '').trim();
 
-            if (!search) {
-                basicIO.write(JSON.stringify({ success: true, results: [], matchedBy: 'name' }));
-                context.close();
-                return;
-            }
-
             const zcql = catalystApp.zcql();
             // ZCQL LIKE is case-sensitive and ZCQL does NOT support LOWER()/UPPER().
             // Fix: fetch all active rows and filter in JS for case-insensitive matching.
             const searchLower = search.toLowerCase();
 
             try {
+                let results = [];
+                let nameFound = false;
+                let aliasFound = false;
+
                 // 1. Fetch all active companies and filter in JS (case-insensitive)
                 const nameQuery = `SELECT ROWID, name, zoho_creator_id, status FROM InsuranceCompanies WHERE status = 'Active'`;
                 console.log(`[ZCQL Name Search] Executing query: ${nameQuery}`);
@@ -351,17 +545,15 @@ module.exports = async (context, basicIO) => {
                 console.log(`[ZCQL Name Search] Matches for "${search}": ${nameMatches.length}`);
 
                 if (nameMatches.length > 0) {
-                    const results = nameMatches.map(row => ({
+                    nameFound = true;
+                    results = nameMatches.map(row => ({
                         id: row.InsuranceCompanies.ROWID,
                         name: row.InsuranceCompanies.name,
                         zoho_creator_id: row.InsuranceCompanies.zoho_creator_id
                     }));
-                    basicIO.write(JSON.stringify({ success: true, results, matchedBy: 'name' }));
-                    context.close();
-                    return;
                 }
 
-                // 2. If no name match, fetch all aliases and filter in JS (case-insensitive)
+                // 2. Fetch all aliases and filter in JS (case-insensitive)
                 const aliasQuery = `SELECT ROWID, alias, company_id FROM InsuranceAliases`;
                 console.log(`[ZCQL Alias Search] Executing query: ${aliasQuery}`);
                 let aliasMatches = [];
@@ -380,16 +572,22 @@ module.exports = async (context, basicIO) => {
                 if (aliasMatches.length > 0) {
                     // Get the company details for each alias match
                     const companyIds = [...new Set(aliasMatches.map(r => r.InsuranceAliases.company_id))];
-                    const results = [];
 
                     for (const companyId of companyIds) {
                         try {
+                            // Check if company already added by name match to avoid duplicates
+                            if (results.some(r => String(r.id) === String(companyId))) {
+                                aliasFound = true;
+                                continue;
+                            }
+
                             // ROWID is numeric BigInt — do not wrap in single quotes
                             const companyQuery = `SELECT ROWID, name, zoho_creator_id, status FROM InsuranceCompanies WHERE ROWID = ${companyId} AND status = 'Active'`;
                             console.log(`[ZCQL Company Lookup] Query: ${companyQuery}`);
                             const companyResult = await zcql.executeZCQLQuery(companyQuery);
                             console.log(`[ZCQL Company Lookup] Result: ${companyResult ? companyResult.length : 0}`);
                             if (companyResult && companyResult.length > 0) {
+                                aliasFound = true;
                                 results.push({
                                     id: companyResult[0].InsuranceCompanies.ROWID,
                                     name: companyResult[0].InsuranceCompanies.name,
@@ -400,14 +598,14 @@ module.exports = async (context, basicIO) => {
                             console.error("Company lookup for alias failed:", lookupErr.message);
                         }
                     }
-
-                    basicIO.write(JSON.stringify({ success: true, results, matchedBy: 'alias' }));
-                    context.close();
-                    return;
                 }
 
-                // 3. No matches at all
-                basicIO.write(JSON.stringify({ success: true, results: [], matchedBy: 'name' }));
+                // Determine matchedBy
+                let matchedBy = 'name';
+                if (nameFound && aliasFound) matchedBy = 'both';
+                else if (aliasFound) matchedBy = 'alias';
+
+                basicIO.write(JSON.stringify({ success: true, results, matchedBy }));
                 context.close();
 
             } catch (err) {
@@ -799,6 +997,79 @@ module.exports = async (context, basicIO) => {
                 basicIO.write(JSON.stringify({ success: false, error: err.message }));
                 context.close();
             }
+
+            // ================================================================
+            // ACTION: webhookUpdateCompany
+            // Real-time update triggered by Zoho Creator On Success Workflow
+            // ================================================================
+        } else if (action === 'webhookUpdateCompany') {
+            try {
+                let creatorId = String(basicIO.getArgument('zoho_creator_id') || '').trim();
+                let status = basicIO.getArgument('status');
+                let name = String(basicIO.getArgument('name') || '').trim();
+
+                console.log("[WEBHOOK] Incoming:", { creatorId, status, name });
+
+                // ❌ Block invalid ID
+                if (!creatorId) {
+                    basicIO.write(JSON.stringify({ success: false, error: 'zoho_creator_id is required' }));
+                    context.close();
+                    return;
+                }
+
+                // ✅ IMPORTANT FIX: prevent null/empty overwrite
+                if (!status || status === "null") {
+                    console.log("[WEBHOOK] Skipped due to empty status");
+                    basicIO.write(JSON.stringify({ success: true, skipped: true }));
+                    context.close();
+                    return;
+                }
+
+                status = String(status).trim();
+
+                const zcql = catalystApp.zcql();
+                const table = catalystApp.datastore().table('InsuranceCompanies');
+
+                const query = `SELECT ROWID FROM InsuranceCompanies WHERE zoho_creator_id = '${creatorId}'`;
+                const existing = await zcql.executeZCQLQuery(query);
+
+                if (existing && existing.length > 0) {
+                    // ✅ UPDATE
+                    await table.updateRow({
+                        ROWID: existing[0].InsuranceCompanies.ROWID,
+                        name: name,
+                        status: status,
+                        zoho_creator_id: creatorId // ✅ IMPORTANT
+                    });
+
+                    console.log("[WEBHOOK] UPDATED:", creatorId);
+
+                    basicIO.write(JSON.stringify({
+                        success: true,
+                        message: 'Successfully updated record'
+                    }));
+                } else {
+                    // ✅ INSERT
+                    await table.insertRow({
+                        name: name,
+                        status: status,
+                        zoho_creator_id: creatorId
+                    });
+
+                    console.log("[WEBHOOK] CREATED:", creatorId);
+
+                    basicIO.write(JSON.stringify({
+                        success: true,
+                        message: 'Record created from webhook'
+                    }));
+                }
+
+            } catch (err) {
+                console.error("webhookUpdateCompany Error:", err);
+                basicIO.write(JSON.stringify({ success: false, error: err.message }));
+            }
+
+            context.close();
 
         } else {
             basicIO.write(JSON.stringify({ success: false, error: 'Invalid or missing action parameter' }));

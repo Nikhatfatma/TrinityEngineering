@@ -1,0 +1,12 @@
+﻿Creator API Error (HTTP 200): {"code":3002,"error":{"Adjuster_Last_Name":"Enter a value for Adjuster Last Name","Adjuster_First_Name":"Enter a value for Adjuster First Name","Adjuster_Phone":"Enter a value for Adjuster_Phone"}}
+Creator API Error (HTTP 200): {"code":3002,"error":{"Property_Contact_Email":"Enter a valid email address for Property Contact Email"}}
+Creator API Error (HTTP 200): {"code":3002,"error":{"Adjuster_Last_Name":"Enter a value for Adjuster Last Name","Adjuster_First_Name":"Enter a value for Adjuster First Name"}}
+Creator API Error (HTTP 200): {"code":3001,"error":["Invalid column value \"Nationwide Insurance\" specified"]}
+Creator API Error: {"code":2893,"message":"No form named inspection_form found. Please check and try again."}
+Creator API Error: {"code":2893,"message":"No form named inspection_form found. Please check and try again."}
+Creator API Error: {"code":2893,"message":"No form named inspection_form found. Please check and try again."}
+Creator API Error: {"code":2893,"message":"No form named inspection_form found. Please check and try again."}
+Creator API Error: {"code":2893,"message":"No form named inspection_form found. Please check and try again."}
+Creator API Error: {"code":2893,"message":"No form named inspection_form found. Please check and try again."}
+Creator API Error: {"code":1000,"description":"Invalid API URL format."}
+{"code":3001,"error":["Invalid column value for Inspection_Type"]}

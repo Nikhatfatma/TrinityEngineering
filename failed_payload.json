@@ -1,0 +1,59 @@
+{
+  "inspectionType": "Structural Loss",
+  "buildingType": "",
+  "claimNumber": "11",
+  "insuranceCompany": "",
+  "dateOfLoss": "",
+  "policyNumber": "33333",
+  "adjusterCompany": "KHAN",
+  "adjusterEmail": "bbb@gmail.com",
+  "adjusterFirstName": "rrr",
+  "adjusterLastName": "rrr",
+  "adjusterPhone": "+15555555555",
+  "adjusterPhoneExt": "",
+  "secondEmailForReport": "",
+  "adjusterEmails": [
+    {
+      "email": "KHNAn@gmail.com",
+      "sendCopy": {
+        "report": true,
+        "invoice": false,
+        "notification": true
+      }
+    }
+  ],
+  "adjusterNotificationType": [
+    "all",
+    "report",
+    "invoice",
+    "notifications"
+  ],
+  "adjusterComments": "",
+  "isIAClaim": false,
+  "iaFirstName": "",
+  "iaLastName": "",
+  "iaPhone": "",
+  "iaCompany": "",
+  "iaRecipients": [],
+  "policyholderFirstName": "rrr",
+  "policyholderLastName": "rrr",
+  "policyholderPhone1": "",
+  "policyholderPhone1Extra": "",
+  "propertyContactEmail": "KHNAn@gmail.com",
+  "spouseFirstName": "rrr",
+  "spouseLastName": "rrr",
+  "policyholderPhone2": "",
+  "streetAddress": "5555 Ponce de Leon Boulevard",
+  "addressLine2": "ddddddddd",
+  "city": "Coral Gables",
+  "state": "IA",
+  "zip": "33146",
+  "rooferName": "",
+  "rooferCompany": "",
+  "rooferPhone": "",
+  "rooferEmail": "",
+  "publicAdjusterName": "",
+  "publicAdjusterCompany": "",
+  "publicAdjusterPhone": "",
+  "publicAdjusterEmail": ""
+}
