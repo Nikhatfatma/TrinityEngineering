@@ -18,6 +18,7 @@ import {
   Home,
   Hand,
   CheckCircle,
+  ShieldCheck,
   Tag,
   Building2,
   UserRound,
@@ -38,9 +39,11 @@ import {
   MapPin,
   Loader2,
   AlertTriangle,
-  Calendar
+  Calendar,
+  UserCheck
 } from "lucide-react";
-import { isValidEmail, isValidPhoneNumber, isValidZipCode, validateIaRecipients, type IaRecipient, validateAdjusterEmails, type AdjusterEmail } from "@/lib/utils/validation";
+import { isValidEmail, isValidPhoneNumber, isValidZipCode, validateIaRecipients, type IaRecipient, validateAdjusterEmails, type AdjusterEmail, isValidMMDDYYYY, type ContactEmail, validateContactEmails } from "@/lib/utils/validation";
+import { DatePicker } from "@/components/inspection-form/DatePicker";
 
 /* ------------------------------------------------------------------ */
 /*  Data Constants                                                     */
@@ -90,7 +93,7 @@ const WIZARD_STEPS = [
  * JS object key order.
  */
 const STEP_FIELD_ORDER: Record<number, string[]> = {
-  1: ["claimNumber", "adjusterFirstName", "adjusterLastName", "adjusterPhone", "adjusterEmail" as any, "iaCompany", "iaFirstName", "iaLastName", "iaPhone"],
+  1: ["primaryClientType", "claimNumber", "adjusterFirstName", "adjusterLastName", "adjusterPhone", "adjusterEmail" as any, "iaCompany", "iaFirstName", "iaLastName", "iaPhone"],
   2: ["policyholderFirstName", "policyholderLastName", "streetAddress", "city", "state", "zip"],
 };
 
@@ -112,14 +115,14 @@ interface FormData {
   adjusterPhone: string;
   adjusterPhoneExt: string;
   secondEmailForReport: string;
-  adjusterEmails: AdjusterEmail[];
   adjusterComments: string;
   isIAClaim: boolean;
   iaFirstName: string;
   iaLastName: string;
   iaPhone: string;
   iaCompany: string;
-  iaRecipients: IaRecipient[];
+  contactEmails: ContactEmail[];
+  primaryClientType: "Adjuster (Carrier)" | "Independent Adjuster" | "";
   // Step 2 - Policy & Address
   policyholderFirstName: string;
   policyholderLastName: string;
@@ -159,14 +162,14 @@ const INITIAL_FORM_DATA: FormData = {
   adjusterPhone: "",
   adjusterPhoneExt: "",
   secondEmailForReport: "",
-  adjusterEmails: [{ email: "", sendCopyOf: ["all", "report", "invoice", "notifications"] }],
   adjusterComments: "",
   isIAClaim: false,
   iaFirstName: "",
   iaLastName: "",
   iaPhone: "",
   iaCompany: "",
-  iaRecipients: [],
+  contactEmails: [{ email: "", contactType: "Adjuster (Carrier)", sendCopy: ["all", "report", "invoice", "notifications"] }],
+  primaryClientType: "",
   policyholderFirstName: "",
   policyholderLastName: "",
   policyholderPhone1: "",
@@ -223,7 +226,7 @@ export default function SubmitInspectionPage() {
   const [createCompanyMessage, setCreateCompanyMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
   // DISABLED: Secondary primary phone feature — uncomment to restore
   // const [showPrimaryPhone2, setShowPrimaryPhone2] = useState(false);
-  
+
   const [skipRooferValidation, setSkipRooferValidation] = useState(false);
   const [skipAdjusterValidation, setSkipAdjusterValidation] = useState(false);
   const [lastButtonState, setLastButtonState] = useState("Next");
@@ -241,7 +244,7 @@ export default function SubmitInspectionPage() {
       const missing = [];
       if (!formData.publicAdjusterEmail.trim()) missing.push("publicAdjusterEmail");
       if (isPhoneEmpty(formData.publicAdjusterPhone)) missing.push("publicAdjusterPhone");
-      
+
       return {
         message: "If a public adjuster is involved, please provide both their phone number and email for scheduling",
         missingFields: missing
@@ -280,26 +283,16 @@ export default function SubmitInspectionPage() {
   /** Debounced API call to search insurance companies */
   const searchInsuranceCompanies = useCallback((query: string) => {
     const trimmed = query.trim();
-    
+
     // Clear any pending debounce
     if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
 
-    // If master list is already loaded, filter locally for instant results
-    if (masterInsuranceList.length > 0) {
-      setInsuranceSearchLoading(true);
-      searchTimeoutRef.current = setTimeout(() => {
-        if (!trimmed) {
-          setInsuranceSearchResults(masterInsuranceList);
-        } else {
-          const lowerQuery = trimmed.toLowerCase();
-          const filtered = masterInsuranceList.filter(c => 
-            c.name.toLowerCase().includes(lowerQuery)
-          );
-          setInsuranceSearchResults(filtered);
-        }
-        setAliasMatch(null); // Local search doesn't support sophisticated alias mapping yet
-        setInsuranceSearchLoading(false);
-      }, 50); // Minimal debounce for local filtering
+    // Use local master list ONLY for empty query to show full dropdown instantly.
+    // Real search must go through cache or API to support 'alias' mapping correctly.
+    if (!trimmed && masterInsuranceList.length > 0) {
+      setInsuranceSearchResults(masterInsuranceList);
+      setAliasMatch(null);
+      setInsuranceSearchLoading(false);
       return;
     }
 
@@ -332,7 +325,7 @@ export default function SubmitInspectionPage() {
         if (data.success) {
           const results = data.results || [];
           setInsuranceSearchResults(results);
-          
+
           // Cache the results locally
           insuranceCacheRef.current[trimmed] = { results, matchedBy: data.matchedBy };
 
@@ -359,11 +352,11 @@ export default function SubmitInspectionPage() {
   /* ── Step 3 Helper Logic ── */
   const isStep3FieldsEmpty = useCallback(() => {
     try {
-      const { 
-        rooferName, rooferCompany, rooferPhone, rooferEmail, 
-        publicAdjusterName, publicAdjusterCompany, publicAdjusterPhone, publicAdjusterEmail 
+      const {
+        rooferName, rooferCompany, rooferPhone, rooferEmail,
+        publicAdjusterName, publicAdjusterCompany, publicAdjusterPhone, publicAdjusterEmail
       } = formData;
-      
+
       return (
         !rooferName.trim() && !rooferCompany.trim() && isPhoneEmpty(rooferPhone) && !rooferEmail.trim() &&
         !publicAdjusterName.trim() && !publicAdjusterCompany.trim() && isPhoneEmpty(publicAdjusterPhone) && !publicAdjusterEmail.trim()
@@ -392,7 +385,7 @@ export default function SubmitInspectionPage() {
   const handleAddNewCompanySubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (isCreatingCompany || hasSentCompany) return;
-    
+
     setHasSentCompany(true);
     if (!newCompanyData.name.trim()) {
       setCreateCompanyMessage({ type: 'error', text: "Company Name is required." });
@@ -450,7 +443,7 @@ export default function SubmitInspectionPage() {
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
   ) => {
     const { name, value } = e.target;
-    
+
     // Auto-resize textarea for Adjuster Comments
     if (name === "adjusterComments") {
       const target = e.target as HTMLTextAreaElement;
@@ -464,16 +457,26 @@ export default function SubmitInspectionPage() {
 
     setFormData((prev) => {
       let next = { ...prev, [name]: value };
-      
-      // Special routing for adjusterEmail -> adjusterEmails[0]
+
+      // Special routing for adjusterEmail -> contactEmails[0] (Carrier Adjuster)
       if (name === "adjusterEmail") {
-        const nextEmails = [...prev.adjusterEmails];
-        if (nextEmails.length === 0) {
-          nextEmails.push({ email: value, sendCopyOf: ["all", "report", "invoice", "notifications"] });
+        const index = prev.contactEmails.findIndex(c => c.contactType === "Adjuster (Carrier)");
+        const nextEmails = [...prev.contactEmails];
+        if (index > -1) {
+          nextEmails[index] = { ...nextEmails[index], email: value };
         } else {
-          nextEmails[0] = { ...nextEmails[0], email: value };
+          nextEmails.unshift({ email: value, contactType: "Adjuster (Carrier)", sendCopy: ["all", "report", "invoice", "notifications"] });
         }
-        next = { ...next, adjusterEmails: nextEmails };
+        next = { ...next, contactEmails: nextEmails };
+      }
+
+      // Auto-format Date of Loss (MM/DD/YYYY)
+      if (name === "dateOfLoss") {
+        let v = value.replace(/\D/g, "");
+        if (v.length > 8) v = v.slice(0, 8);
+        if (v.length > 4) v = `${v.slice(0, 2)}/${v.slice(2, 4)}/${v.slice(4)}`;
+        else if (v.length > 2) v = `${v.slice(0, 2)}/${v.slice(2)}`;
+        next = { ...prev, [name]: v };
       }
 
       setFieldErrors((prevErrors) => {
@@ -519,11 +522,11 @@ export default function SubmitInspectionPage() {
     const orderedKeys =
       step !== undefined && STEP_FIELD_ORDER[step]
         ? [
-            ...STEP_FIELD_ORDER[step].filter((k) => errors[k]),
-            ...Object.keys(errors).filter(
-              (k) => !STEP_FIELD_ORDER[step].includes(k)
-            ),
-          ]
+          ...STEP_FIELD_ORDER[step].filter((k) => errors[k]),
+          ...Object.keys(errors).filter(
+            (k) => !STEP_FIELD_ORDER[step].includes(k)
+          ),
+        ]
         : Object.keys(errors);
 
     // Focus first field with an error
@@ -594,7 +597,8 @@ export default function SubmitInspectionPage() {
       let hasStepErrors = Object.keys(errors).length > 0;
 
       // Validate Adjuster extra emails
-      const { errors: adjErrs } = validateAdjusterEmails(formData.adjusterEmails);
+      const adjRecipients = formData.contactEmails.filter(c => c.contactType === "Adjuster (Carrier)");
+      const { errors: adjErrs } = validateContactEmails(adjRecipients);
       setAdjusterEmailErrors(adjErrs);
       // Secondary adjuster recipients start from index 1. Index 0 is the primary adjuster.
       const hasSecondaryAdjusterError = adjErrs.slice(1).some(e => e !== "");
@@ -607,13 +611,13 @@ export default function SubmitInspectionPage() {
       }
 
       if (formData.isIAClaim) {
-        const recipients = formData.iaRecipients;
-        if (!recipients || recipients.length === 0) {
+        const iaRecipients = formData.contactEmails.filter(c => c.contactType === "IA");
+        if (iaRecipients.length === 0) {
           setIaEmailErrors([]);
           setIaSectionError("At least one IA email is required.");
           hasStepErrors = true;
         } else {
-          const { errors: iaErrs, hasError } = validateIaRecipients(recipients);
+          const { errors: iaErrs, hasError } = validateContactEmails(iaRecipients);
           setIaEmailErrors(iaErrs);
           if (hasError) {
             const hasDuplicate = iaErrs.some(e => e === "Duplicate email.");
@@ -631,12 +635,12 @@ export default function SubmitInspectionPage() {
       if (hasStepErrors) {
         scrollToFirstInvalidField(
           errors,
-          formData.isIAClaim ? formData.iaRecipients.map((_, i) => {
-            const { errors: iaErrs } = validateIaRecipients(formData.iaRecipients);
+          formData.isIAClaim ? formData.contactEmails.filter(c => c.contactType === "IA").map((_, i) => {
+            const { errors: iaErrs } = validateContactEmails(formData.contactEmails.filter(c => c.contactType === "IA"));
             return iaErrs[i] || "";
           }) : [],
-          formData.adjusterEmails.map((_, i) => {
-            const { errors: aErrs } = validateAdjusterEmails(formData.adjusterEmails);
+          formData.contactEmails.filter(c => c.contactType === "Adjuster (Carrier)").map((_, i) => {
+            const { errors: aErrs } = validateContactEmails(formData.contactEmails.filter(c => c.contactType === "Adjuster (Carrier)"));
             return aErrs[i] || "";
           }),
           1 // step index for priority ordering
@@ -683,7 +687,7 @@ export default function SubmitInspectionPage() {
 
         if (queue.length > 0) {
           console.info("[Step 3] Validation required. Queue initialized:", queue);
-          
+
           // Set field errors immediately so they appear when the user is sent back
           const newErrors: Record<string, string> = { ...fieldErrors };
           queue.forEach(type => {
@@ -710,7 +714,7 @@ export default function SubmitInspectionPage() {
         const rooferErrors = validateRooferStep(formData);
         const paErrors = validatePublicAdjusterStep(formData);
         const errors = { ...rooferErrors, ...paErrors };
-        
+
         setFieldErrors(errors);
         if (Object.keys(errors).length > 0) {
           console.info("[Step 3] Formatting errors detected:", errors);
@@ -773,12 +777,12 @@ export default function SubmitInspectionPage() {
 
       // Validate IA recipients
       if (formData.isIAClaim) {
-        const recipients = formData.iaRecipients;
-        if (!recipients || recipients.length === 0) {
+        const iaRecipients = formData.contactEmails.filter(c => c.contactType === "IA");
+        if (iaRecipients.length === 0) {
           setIaSectionError("At least one IA email is required.");
           hasErrors = true;
         } else {
-          const { errors: iaErrors, hasError } = validateIaRecipients(recipients);
+          const { errors: iaErrors, hasError } = validateContactEmails(iaRecipients);
           iaErrs = iaErrors;
           setIaEmailErrors(iaErrors);
           if (hasError) {
@@ -790,7 +794,8 @@ export default function SubmitInspectionPage() {
       }
 
       // Validate Adjuster extra emails
-      const { errors: aErrors } = validateAdjusterEmails(formData.adjusterEmails);
+      const adjRecipients = formData.contactEmails.filter(c => c.contactType === "Adjuster (Carrier)");
+      const { errors: aErrors } = validateContactEmails(adjRecipients);
       adjErrs = aErrors;
       setAdjusterEmailErrors(aErrors);
       // Secondary adjuster recipients start from index 1. Index 0 is the primary adjuster.
@@ -811,19 +816,24 @@ export default function SubmitInspectionPage() {
 
       // 4. Submission Payload Preparation
       const functionUrl = '/api/submit-inspection';
-      let submissionData = { ...formData };
+      let submissionData = { 
+        ...formData,
+        Primary_Client_Type: formData.primaryClientType,
+        contactEmails: formData.contactEmails.map(c => ({
+          ...c,
+          sendCopy: c.sendCopy.filter(opt => opt !== "all")
+        }))
+      };
 
-      // Format Date of Loss for Zoho Creator (MM/dd/yyyy)
-      if (submissionData.dateOfLoss && submissionData.dateOfLoss.includes("-")) {
-        try {
-          const [y, m, d] = submissionData.dateOfLoss.split("-");
-          if (y && m && d && y.length === 4) {
-            submissionData.dateOfLoss = `${m.padStart(2, "0")}/${d.padStart(2, "0")}/${y}`;
-          }
-        } catch (e) {
-          console.warn("[Submission Prep] Failed to reformat date:", e);
-        }
+      // Ensure Zoho Creator IDs are passed for lookup fields instead of raw strings
+      const matchedComp = masterInsuranceList.find(c => c.name.toLowerCase() === (submissionData.insuranceCompany || "").toLowerCase());
+      if (matchedComp && matchedComp.zoho_creator_id) {
+          (submissionData as any).insuranceCompanyName = submissionData.insuranceCompany;
+          submissionData.insuranceCompany = matchedComp.zoho_creator_id;
       }
+
+      // Date of Loss is already in MM/DD/YYYY format as requested
+      console.group("Form Submission Triggered");
 
       console.group("Form Submission Triggered");
       console.log("Payload:", submissionData);
@@ -929,10 +939,12 @@ export default function SubmitInspectionPage() {
     switch (name) {
       case "claimNumber":
         return v ? "" : "Claim Number is required.";
+      case "primaryClientType":
+        return ""; // Optional field
       case "insuranceCompany":
         return ""; // Optional field — no validation needed
       case "adjusterEmail": {
-        const email = data.adjusterEmails[0]?.email || "";
+        const email = data.contactEmails.find(c => c.contactType === "Adjuster (Carrier)")?.email || "";
         if (!email.trim()) return "Adjuster Email is required.";
         return isValidEmail(email) ? "" : "Enter a valid email address.";
       }
@@ -1027,6 +1039,9 @@ export default function SubmitInspectionPage() {
       case "publicAdjusterEmail":
         if (!v) return "";
         return isValidEmail(v) ? "" : "Enter a valid email address.";
+      case "dateOfLoss":
+        if (!v) return "";
+        return isValidMMDDYYYY(v) ? "" : "Enter a valid date (MM/DD/YYYY).";
       default:
         return "";
     }
@@ -1088,14 +1103,14 @@ export default function SubmitInspectionPage() {
       const err = validateField("rooferPhone", data.rooferPhone, data);
       if (err) errors.rooferPhone = err;
     }
-    
+
     return errors;
   };
 
   const validatePublicAdjusterStep = (data: FormData) => {
     const errors: Record<string, string> = {};
     if (skipAdjusterValidation) return errors;
-    
+
     const isNameEntered = !!data.publicAdjusterName.trim();
     const isPhoneEntered = !isPhoneEmpty(data.publicAdjusterPhone);
     const isEmailEntered = !!data.publicAdjusterEmail.trim();
@@ -1131,30 +1146,30 @@ export default function SubmitInspectionPage() {
   /* ================================================================ */
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-background-dark">
+    <div className={`bg-gray-50 dark:bg-background-dark ${isSubmitted ? "h-screen overflow-hidden" : "min-h-screen"}`}>
       {/* ── Navbar ── */}
       <div className="z-50">
         <Navbar />
       </div>
 
-      <main className="pt-16 pb-8">
-        <div className={`${isSubmitted ? "max-w-xl" : "max-w-5xl"} mx-auto px-6`}>
+      <main className={`${isSubmitted ? "h-[calc(100vh-64px)] flex items-start justify-center pt-24" : "pt-16 pb-8"}`}>
+        <div className={`${isSubmitted ? "max-w-xl" : "max-w-5xl"} mx-auto ${currentStep === 4 ? "px-12" : "px-6"}`}>
 
-          {/* ── Sticky Wrapper to prevent scrolling content from showing through the gap ── */}
-          <div className="sticky top-16 z-40 bg-gray-50 dark:bg-background-dark pt-2 pb-4 mb-2 -mx-6 px-6">
-            <div className={`bg-white dark:bg-section-dark px-1 py-0 shadow-md rounded-full border border-gray-200 dark:border-gray-800 flex flex-col justify-center ${isSubmitted ? "max-w-xl" : "max-w-5xl"} mx-auto w-full`}>
-              <div className="text-center mb-0.5 flex justify-center items-center gap-2">
-                {(() => {
-                  const Icon = WIZARD_STEPS[currentStep]?.icon;
-                  return !isSubmitted && Icon ? <Icon className="w-4 h-4 md:w-5 md:h-5 text-primary dark:text-accent" /> : null;
-                })()}
-                <h1 className="text-base md:text-lg font-black text-gray-900 dark:text-white mb-0">
-                  {isSubmitted ? "Submission Successful" : WIZARD_STEPS[currentStep].title}
-                </h1>
-              </div>
+          {/* ── Sticky Wrapper – Only visible for Wizard Steps ── */}
+          {!isSubmitted && (
+            <div className="sticky top-16 z-40 bg-gray-50 dark:bg-background-dark pt-2 pb-4 mb-2 -mx-6 px-6 transition-all duration-500">
+              <div className="bg-white dark:bg-section-dark px-1 py-0 shadow-md rounded-full border border-gray-200 dark:border-gray-800 flex flex-col justify-center max-w-5xl mx-auto w-full">
+                <div className="text-center mb-0.5 flex justify-center items-center gap-2">
+                  {(() => {
+                    const Icon = WIZARD_STEPS[currentStep]?.icon;
+                    return Icon ? <Icon className="w-4 h-4 md:w-5 md:h-5 text-primary dark:text-accent" /> : null;
+                  })()}
+                  <h1 className="text-base md:text-lg font-black text-gray-900 dark:text-white mb-0">
+                    {WIZARD_STEPS[currentStep].title}
+                  </h1>
+                </div>
 
-              {/* ── Progress Bar ── */}
-              {!isSubmitted && (
+                {/* ── Progress Bar ── */}
                 <StepProgressBar
                   steps={WIZARD_STEPS}
                   currentStep={currentStep}
@@ -1162,12 +1177,12 @@ export default function SubmitInspectionPage() {
                     if (s <= maxCompletedStep) goToStep(s);
                   }}
                 />
-              )}
+              </div>
             </div>
-          </div>
+          )}
 
           {/* ── Form Card ── */}
-          <div className={`bg-white dark:bg-section-dark rounded-xl border border-gray-200 dark:border-gray-800 ${isSubmitted ? "p-0" : "p-3"} shadow-md overflow-hidden`}>
+          <div className={`${isSubmitted ? "bg-transparent border-none shadow-none overflow-visible" : "bg-white dark:bg-section-dark rounded-xl border border-gray-200 dark:border-gray-800 p-3 shadow-md overflow-hidden"}`}>
             {isSubmitted ? (
               <SuccessMessage onReset={handleReset} />
             ) : (
@@ -1255,26 +1270,15 @@ export default function SubmitInspectionPage() {
                       {/* IA Toggle — at the top */}
                       <div className="bg-gray-50 dark:bg-background-dark rounded-lg p-3 border border-gray-200 dark:border-gray-700">
                         <CheckboxToggle
-                          label="This claim is being submitted by an IA"
+                          label="There is an IA for this project"
                           checked={formData.isIAClaim}
                           onChange={(checked) => {
                             setFormData((prev) => ({
                               ...prev,
                               isIAClaim: checked,
-                              ...(checked
-                                ? {
-                                  iaRecipients:
-                                    prev.iaRecipients.length === 0
-                                      ? [{ email: "", notificationType: ["all"] }]
-                                      : prev.iaRecipients,
-                                }
-                                : {
-                                  iaFirstName: "",
-                                  iaLastName: "",
-                                  iaPhone: "",
-                                  iaCompany: "",
-                                  iaRecipients: [],
-                                }),
+                              contactEmails: (checked && !prev.contactEmails.some(c => c.contactType === "IA"))
+                                ? [...prev.contactEmails, { email: "", contactType: "IA", sendCopy: ["all", "report", "invoice", "notifications"] }]
+                                : prev.contactEmails,
                             }));
                             if (!checked) {
                               setIaEmailErrors([]);
@@ -1284,6 +1288,7 @@ export default function SubmitInspectionPage() {
                         />
                       </div>
 
+
                       {/* Conditional Layout based on IA toggle */}
                       {formData.isIAClaim ? (
                         <div className="space-y-3">
@@ -1292,6 +1297,46 @@ export default function SubmitInspectionPage() {
                             {/* LEFT COLUMN — IA Information */}
                             <div className="bg-primary/5 dark:bg-accent/5 rounded-lg p-2 border border-primary/20 dark:border-accent/20 space-y-3">
                               <SectionHeader title="IA Information" />
+
+                              {/* Who is the primary client — INSIDE IA INFO */}
+                              <div className="bg-white/50 dark:bg-background-dark/50 rounded-lg p-1.5 border border-primary/10 dark:border-accent/10 space-y-1.5">
+                                <SectionHeader title="Who is the primary client for this project?" icon={UserCheck} small />
+                                <div className={`grid grid-cols-1 sm:grid-cols-2 gap-1.5 transition-all`}>
+                                  {[
+                                    { id: "Independent Adjuster", title: "Independent Adjuster", icon: Shield },
+                                    { id: "Adjuster (Carrier)", title: "Adjuster (Carrier)", icon: Building2 },
+                                  ].map((opt) => {
+                                    const selected = formData.primaryClientType === opt.id;
+                                    return (
+                                      <button
+                                        key={opt.id}
+                                        type="button"
+                                        id={`primaryClient-${opt.id.replace(/\s+/g, '')}`}
+                                        onClick={() => {
+                                          setFormData({ ...formData, primaryClientType: opt.id as any });
+                                          setFieldErrors(prev => {
+                                            const next = { ...prev };
+                                            delete next.primaryClientType;
+                                            return next;
+                                          });
+                                        }}
+                                        className={`flex items-center gap-1.5 p-1.5 rounded-lg border transition-all text-left ${
+                                          selected
+                                            ? "border-primary bg-primary/5 dark:bg-accent/5 ring-1 ring-primary shadow-sm"
+                                            : "border-gray-200 dark:border-gray-700 bg-white dark:bg-background-dark hover:border-gray-300 hover:shadow-sm"
+                                        }`}
+                                      >
+                                        <div className={`p-1 rounded-full shrink-0 ${selected ? "bg-primary text-white" : "bg-gray-100 dark:bg-gray-800 text-gray-500"}`}>
+                                          <opt.icon className="w-3 h-3" />
+                                        </div>
+                                        <span className={`text-[10px] font-black leading-tight ${selected ? "text-primary dark:text-accent" : "text-gray-700 dark:text-gray-300"}`}>
+                                          {opt.title}
+                                        </span>
+                                      </button>
+                                    );
+                                  })}
+                                </div>
+                              </div>
 
                               {/* Row 1: IA Company Name (full width) */}
                               <div className="grid grid-cols-1">
@@ -1353,77 +1398,84 @@ export default function SubmitInspectionPage() {
                               <div className="space-y-2 pt-2 border-t border-primary/10 dark:border-accent/10">
                                 <SectionHeader title="Primary IA Email" />
                                 <div className="space-y-2">
-                                  {formData.iaRecipients.map((recipient, index) => (
-                                    <div key={index} id={`ia-recipient-${index}`} className={`rounded-lg border p-1.5 bg-gray-50 dark:bg-background-dark/60 ${iaEmailErrors[index] ? "border-gray-400 bg-gray-100/60 dark:bg-gray-800/20" : "border-gray-200 dark:border-gray-700"}`}>
-                                      <div className="space-y-2">
-                                        <InputField label={`IA Email ${formData.iaRecipients.length > 1 ? `#${index + 1}` : ""}`} name={`iaRecipientEmail_${index}`} value={recipient.email} onChange={(e) => {
-                                          const nextRecipients = formData.iaRecipients.map((r, i) => i === index ? { ...r, email: e.target.value } : r);
-                                          setFormData({ ...formData, iaRecipients: nextRecipients });
-                                          const { errors } = validateIaRecipients(nextRecipients);
-                                          setIaEmailErrors(errors);
-                                          setIaSectionError("");
-                                        }} type="email" placeholder="ia@company.com" icon={Mail} />
+                                  {formData.contactEmails.filter(c => c.contactType === "IA").map((recipient, localIndex) => {
+                                    const absoluteIndex = formData.contactEmails.findIndex((c, i) => 
+                                      c.contactType === "IA" && formData.contactEmails.filter((cc, ii) => cc.contactType === "IA" && ii < i).length === localIndex
+                                    );
+                                    return (
+                                      <div key={localIndex} id={`ia-recipient-${localIndex}`} className={`rounded-lg border p-1.5 bg-gray-50 dark:bg-background-dark/60 ${iaEmailErrors[localIndex] ? "border-gray-400 bg-gray-100/60 dark:bg-gray-800/20" : "border-gray-200 dark:border-gray-700"}`}>
+                                        <div className="space-y-2">
+                                          <InputField label={`IA Email ${formData.contactEmails.filter(c => c.contactType === "IA").length > 1 ? `#${localIndex + 1}` : ""}`} name={`iaRecipientEmail_${localIndex}`} value={recipient.email} onChange={(e) => {
+                                            const nextEmails = [...formData.contactEmails];
+                                            nextEmails[absoluteIndex] = { ...nextEmails[absoluteIndex], email: e.target.value };
+                                            setFormData({ ...formData, contactEmails: nextEmails });
+                                            const { errors } = validateContactEmails(nextEmails.filter(c => c.contactType === "IA"));
+                                            setIaEmailErrors(errors);
+                                            setIaSectionError("");
+                                          }} type="email" placeholder="ia@company.com" icon={Mail} />
 
-                                        {/* Send copy of — multi-select checkboxes */}
-                                        <div>
-                                          <p className="text-[10px] font-semibold text-gray-600 dark:text-gray-300 mb-1">Send copy of</p>
-                                          <div className="flex flex-wrap gap-2">
-                                            {SEND_COPY_OPTIONS.map((opt) => {
-                                              const checked = recipient.notificationType.includes(opt);
-                                              return (
-                                                <label key={opt} className="flex items-center gap-1 cursor-pointer select-none">
-                                                  <input type="checkbox" checked={checked} onChange={() => {
-                                                    let next: string[];
-                                                    if (opt === "all") {
-                                                      next = checked ? [] : ["all", "report", "invoice", "notifications"];
-                                                    } else {
-                                                      if (checked) {
-                                                        next = recipient.notificationType.filter((o) => o !== opt && o !== "all");
+                                          {/* Send copy of — multi-select checkboxes */}
+                                          <div>
+                                            <p className="text-[10px] font-semibold text-gray-600 dark:text-gray-300 mb-1">Send copy of</p>
+                                            <div className="flex flex-wrap gap-2">
+                                              {SEND_COPY_OPTIONS.map((opt) => {
+                                                const checked = recipient.sendCopy.includes(opt);
+                                                return (
+                                                  <label key={opt} className="flex items-center gap-1 cursor-pointer select-none">
+                                                    <input type="checkbox" checked={checked} onChange={() => {
+                                                      let next: string[];
+                                                      if (opt === "all") {
+                                                        next = checked ? [] : ["all", "report", "invoice", "notifications"];
                                                       } else {
-                                                        next = [...recipient.notificationType.filter((o) => o !== "all"), opt];
-                                                        if (next.includes("report") && next.includes("invoice") && next.includes("notifications")) {
-                                                          next = ["all", ...next];
+                                                        if (checked) {
+                                                          next = recipient.sendCopy.filter((o) => o !== opt && o !== "all");
+                                                        } else {
+                                                          next = [...recipient.sendCopy.filter((o) => o !== "all"), opt];
+                                                          if (next.includes("report") && next.includes("invoice") && next.includes("notifications")) {
+                                                            next = ["all", ...next];
+                                                          }
                                                         }
                                                       }
-                                                    }
-                                                    const nextRecipients = formData.iaRecipients.map((r, i) => i === index ? { ...r, notificationType: next } : r);
-                                                    setFormData({ ...formData, iaRecipients: nextRecipients });
-                                                  }} className="w-3 h-3 rounded border-gray-300 text-primary focus:ring-primary" />
-                                                  <span className="text-[10px] text-gray-700 dark:text-gray-300 capitalize">{opt === "all" ? "All" : opt.charAt(0).toUpperCase() + opt.slice(1)}</span>
-                                                </label>
-                                              );
-                                            })}
+                                                      const nextEmails = [...formData.contactEmails];
+                                                      nextEmails[absoluteIndex] = { ...nextEmails[absoluteIndex], sendCopy: next };
+                                                      setFormData({ ...formData, contactEmails: nextEmails });
+                                                    }} className="w-3 h-3 rounded border-gray-300 text-primary focus:ring-primary" />
+                                                    <span className="text-[10px] text-gray-700 dark:text-gray-300 capitalize">{opt === "all" ? "All" : opt.charAt(0).toUpperCase() + opt.slice(1)}</span>
+                                                  </label>
+                                                );
+                                              })}
+                                            </div>
                                           </div>
-                                        </div>
 
-                                        {formData.iaRecipients.length > 1 && (
-                                          <button type="button" onClick={() => {
-                                            const nextRecipients = formData.iaRecipients.filter((_, i) => i !== index);
-                                            setFormData({ ...formData, iaRecipients: nextRecipients });
-                                            const { errors } = validateIaRecipients(nextRecipients);
-                                            setIaEmailErrors(errors);
-                                          }} className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-semibold text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors">
-                                            <X className="w-3 h-3" />
-                                            Remove
-                                          </button>
-                                        )}
+                                          {formData.contactEmails.filter(c => c.contactType === "IA").length > 1 && localIndex !== 0 && (
+                                            <button type="button" onClick={() => {
+                                              const nextEmails = formData.contactEmails.filter((_, i) => i !== absoluteIndex);
+                                              setFormData({ ...formData, contactEmails: nextEmails });
+                                              const { errors } = validateContactEmails(nextEmails.filter(c => c.contactType === "IA"));
+                                              setIaEmailErrors(errors);
+                                            }} className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-semibold text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors">
+                                              <X className="w-3 h-3" />
+                                              Remove
+                                            </button>
+                                          )}
+                                        </div>
                                       </div>
-                                    </div>
-                                  ))}
+                                    );
+                                  })}
                                   <div className="flex justify-end">
                                     <button
                                       type="button"
                                       onClick={() => {
-                                        if (formData.iaRecipients.length >= MAX_IA_EMAILS) return;
-                                        const nextRecipients: IaRecipient[] = [...formData.iaRecipients, { email: "", notificationType: ["all"] }];
-                                        setFormData({ ...formData, iaRecipients: nextRecipients });
-                                        const { errors } = validateIaRecipients(nextRecipients);
+                                        if (formData.contactEmails.filter(c => c.contactType === "IA").length >= MAX_IA_EMAILS) return;
+                                        const nextEmails: ContactEmail[] = [...formData.contactEmails, { email: "", contactType: "IA", sendCopy: ["all", "report", "invoice", "notifications"] }];
+                                        setFormData({ ...formData, contactEmails: nextEmails });
+                                        const { errors } = validateContactEmails(nextEmails.filter(c => c.contactType === "IA"));
                                         setIaEmailErrors(errors);
                                         setIaSectionError("");
-                                        const index = nextRecipients.length - 1;
+                                        const index = nextEmails.filter(c => c.contactType === "IA").length - 1;
                                         setTimeout(() => { const el = document.getElementById(`ia-recipient-${index}`); if (el) el.scrollIntoView({ behavior: "smooth", block: "center" }); }, 0);
                                       }}
-                                      disabled={formData.iaRecipients.length >= MAX_IA_EMAILS}
+                                      disabled={formData.contactEmails.filter(c => c.contactType === "IA").length >= MAX_IA_EMAILS}
                                       className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-bold bg-primary text-white hover:bg-primary-dark disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-sm hover:shadow-md active:scale-95"
                                     >
                                       <Plus className="w-3.5 h-3.5" />
@@ -1431,7 +1483,7 @@ export default function SubmitInspectionPage() {
                                     </button>
                                   </div>
                                   {iaSectionError && (<p className="text-xs text-gray-900 font-black bg-gray-200/80 backdrop-blur-sm px-2 py-1 rounded-md border border-gray-300/50 mt-1 inline-block">{iaSectionError}</p>)}
-                                  {formData.iaRecipients.length >= MAX_IA_EMAILS && (<p className="text-[11px] text-gray-500 dark:text-gray-400">Maximum of {MAX_IA_EMAILS} IA email recipients reached.</p>)}
+                                  {formData.contactEmails.filter(c => c.contactType === "IA").length >= MAX_IA_EMAILS && (<p className="text-[11px] text-gray-500 dark:text-gray-400">Maximum of {MAX_IA_EMAILS} IA email recipients reached.</p>)}
                                 </div>
                               </div>
                             </div>
@@ -1467,9 +1519,10 @@ export default function SubmitInspectionPage() {
                                           setInsuranceCompanyOpen(true);
                                           searchInsuranceCompanies(next);
                                         }}
-                                        onFocus={() => {
+                                        onFocus={(e) => {
+                                          e.target.select();
                                           setInsuranceCompanyOpen(true);
-                                          searchInsuranceCompanies(insuranceCompanyQuery || "");
+                                          searchInsuranceCompanies("");
                                         }}
                                         onBlur={() => {
                                           setTimeout(() => setInsuranceCompanyOpen(false), 200);
@@ -1556,15 +1609,14 @@ export default function SubmitInspectionPage() {
                                 </div>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3">
                                   <InputField label="Policy Number" name="policyNumber" value={formData.policyNumber} onChange={handleChange} placeholder="POL-789012" icon={Hash} invalid={!!fieldErrors.policyNumber} error={fieldErrors.policyNumber} />
-                                  <InputField
+                                  <DatePicker
                                     label="Date of Loss"
                                     name="dateOfLoss"
-                                    type="date"
                                     value={formData.dateOfLoss}
                                     onChange={handleChange}
-                                    icon={Calendar}
                                     invalid={!!fieldErrors.dateOfLoss}
                                     error={fieldErrors.dateOfLoss}
+                                    required
                                   />
                                 </div>
                               </div>
@@ -1583,34 +1635,59 @@ export default function SubmitInspectionPage() {
                                   <InputField label="Phone Extension" name="adjusterPhoneExt" value={formData.adjusterPhoneExt} onChange={handleChange} placeholder="Ext. 123" icon={Hash} invalid={!!fieldErrors.adjusterPhoneExt} error={fieldErrors.adjusterPhoneExt} />
                                 </div>
                                 <div className="grid grid-cols-1">
-                                  <InputField label="Adjuster Email" name="adjusterEmail" value={formData.adjusterEmails[0]?.email || ""} onChange={handleChange} onBlur={handleBlur} type="email" placeholder="adjuster@insurance.com" required icon={Mail} invalid={!!fieldErrors.adjusterEmail} error={fieldErrors.adjusterEmail} />
+                                  <InputField
+                                    label={`Adjuster Email ${formData.contactEmails.filter(c => c.contactType === "Adjuster (Carrier)").length > 1 ? "#1" : ""}`}
+                                    name="adjusterEmail"
+                                    value={formData.contactEmails.find(c => c.contactType === "Adjuster (Carrier)")?.email || ""}
+                                    onChange={(e) => {
+                                      const index = formData.contactEmails.findIndex(c => c.contactType === "Adjuster (Carrier)");
+                                      const nextEmails = [...formData.contactEmails];
+                                      if (index > -1) {
+                                        nextEmails[index] = { ...nextEmails[index], email: e.target.value };
+                                      } else {
+                                        nextEmails.unshift({ email: e.target.value, contactType: "Adjuster (Carrier)", sendCopy: ["all", "report", "invoice", "notifications"] });
+                                      }
+                                      setFormData({ ...formData, contactEmails: nextEmails });
+                                    }}
+                                    onBlur={handleBlur}
+                                    type="email"
+                                    placeholder="adjuster@insurance.com"
+                                    required
+                                    icon={Mail}
+                                    invalid={!!fieldErrors.adjusterEmail}
+                                    error={fieldErrors.adjusterEmail}
+                                  />
                                 </div>
-                                
+
                                 {/* Send copy of for primary Adjuster */}
                                 <div className="mt-1 ml-1">
                                   <p className="text-[10px] font-semibold text-gray-600 dark:text-gray-300 mb-1">Send copy of</p>
                                   <div className="flex flex-wrap gap-2">
                                     {SEND_COPY_OPTIONS.map((opt) => {
-                                      const checked = formData.adjusterEmails[0]?.sendCopyOf.includes(opt);
+                                      const primaryAdjuster = formData.contactEmails.find(c => c.contactType === "Adjuster (Carrier)");
+                                      const checked = primaryAdjuster?.sendCopy.includes(opt) || false;
                                       return (
                                         <label key={opt} className="flex items-center gap-1 cursor-pointer select-none">
                                           <input type="checkbox" checked={checked} onChange={() => {
+                                            const index = formData.contactEmails.findIndex(c => c.contactType === "Adjuster (Carrier)");
+                                            if (index === -1) return;
+                                            
                                             let next: string[];
                                             if (opt === "all") {
                                               next = checked ? [] : ["all", "report", "invoice", "notifications"];
                                             } else {
                                               if (checked) {
-                                                next = formData.adjusterEmails[0].sendCopyOf.filter((o) => o !== opt && o !== "all");
+                                                next = formData.contactEmails[index].sendCopy.filter((o) => o !== opt && o !== "all");
                                               } else {
-                                                next = [...formData.adjusterEmails[0].sendCopyOf.filter((o) => o !== "all"), opt];
+                                                next = [...formData.contactEmails[index].sendCopy.filter((o) => o !== "all"), opt];
                                                 if (next.includes("report") && next.includes("invoice") && next.includes("notifications")) {
                                                   next = ["all", ...next];
                                                 }
                                               }
                                             }
-                                            const nextEmails = [...formData.adjusterEmails];
-                                            nextEmails[0] = { ...nextEmails[0], sendCopyOf: next };
-                                            setFormData({ ...formData, adjusterEmails: nextEmails });
+                                            const nextEmails = [...formData.contactEmails];
+                                            nextEmails[index] = { ...nextEmails[index], sendCopy: next };
+                                            setFormData({ ...formData, contactEmails: nextEmails });
                                           }} className="w-3 h-3 rounded border-gray-300 text-primary focus:ring-primary" />
                                           <span className="text-[10px] text-gray-700 dark:text-gray-300 capitalize">{opt === "all" ? "All" : opt.charAt(0).toUpperCase() + opt.slice(1)}</span>
                                         </label>
@@ -1618,82 +1695,91 @@ export default function SubmitInspectionPage() {
                                     })}
                                   </div>
                                 </div>
-                                
+
                                 {/* Additional Adjuster Emails */}
                                 <div className="space-y-2 pt-2 border-t border-gray-200 dark:border-gray-700 mt-3">
                                   <div className="space-y-2">
-                                    {formData.adjusterEmails.slice(1).map((recipient, idx) => {
-                                      const index = idx + 1;
-                                      return (
-                                        <div key={index} id={`adj-recipient-${index}`} className={`rounded-lg border p-1.5 bg-gray-50 dark:bg-background-dark/60 ${adjusterEmailErrors[index] ? "border-gray-400 bg-gray-100/60 dark:bg-gray-800/20" : "border-gray-200 dark:border-gray-700"}`}>
-                                          <div className="space-y-2">
-                                            <InputField label={`Additional Adjuster Email ${formData.adjusterEmails.length > 1 ? `#${index}` : ""}`} name={`adjRecipientEmail_${index}`} value={recipient.email} onChange={(e) => {
-                                              const nextRecipients = formData.adjusterEmails.map((r, i) => i === index ? { ...r, email: e.target.value } : r);
-                                              setFormData({ ...formData, adjusterEmails: nextRecipients });
-                                              const { errors } = validateAdjusterEmails(nextRecipients);
-                                              setAdjusterEmailErrors(errors);
-                                              setAdjusterSectionError("");
-                                            }} type="email" placeholder="additional@company.com" icon={Mail} />
+                                    {(() => {
+                                      const adjRecipients = formData.contactEmails.filter(c => c.contactType === "Adjuster (Carrier)");
+                                      return adjRecipients.slice(1).map((recipient, localIdx) => {
+                                        const localIndex = localIdx + 1; // local index in filtered Adjuster array
+                                        const absoluteIndex = formData.contactEmails.findIndex((c, i) => 
+                                          c.contactType === "Adjuster (Carrier)" && formData.contactEmails.filter((cc, ii) => cc.contactType === "Adjuster (Carrier)" && ii < i).length === localIndex
+                                        );
+                                        
+                                        return (
+                                          <div key={localIndex} id={`adj-recipient-${localIndex}`} className={`rounded-lg border p-1.5 bg-gray-50 dark:bg-background-dark/60 ${adjusterEmailErrors[localIndex] ? "border-gray-400 bg-gray-100/60 dark:bg-gray-800/20" : "border-gray-200 dark:border-gray-700"}`}>
+                                            <div className="space-y-2">
+                                              <InputField label={`Adjuster Email ${adjRecipients.length > 1 ? `#${localIndex + 1}` : ""}`} name={`adjRecipientEmail_${localIndex}`} value={recipient.email} onChange={(e) => {
+                                                const nextEmails = [...formData.contactEmails];
+                                                nextEmails[absoluteIndex] = { ...nextEmails[absoluteIndex], email: e.target.value };
+                                                setFormData({ ...formData, contactEmails: nextEmails });
+                                                const { errors } = validateContactEmails(nextEmails.filter(c => c.contactType === "Adjuster (Carrier)"));
+                                                setAdjusterEmailErrors(errors);
+                                                setAdjusterSectionError("");
+                                              }} type="email" placeholder="additional@company.com" icon={Mail} />
 
-                                            {/* Send copy of — multi-select checkboxes */}
-                                            <div>
-                                              <p className="text-[10px] font-semibold text-gray-600 dark:text-gray-300 mb-1">Send copy of</p>
-                                              <div className="flex flex-wrap gap-2">
-                                                {SEND_COPY_OPTIONS.map((opt) => {
-                                                  const checked = recipient.sendCopyOf.includes(opt);
-                                                  return (
-                                                    <label key={opt} className="flex items-center gap-1 cursor-pointer select-none">
-                                                      <input type="checkbox" checked={checked} onChange={() => {
-                                                        let next: string[];
-                                                        if (opt === "all") {
-                                                          next = checked ? [] : ["all", "report", "invoice", "notifications"];
-                                                        } else {
-                                                          if (checked) {
-                                                            next = recipient.sendCopyOf.filter((o) => o !== opt && o !== "all");
+                                              {/* Send copy of — multi-select checkboxes */}
+                                              <div>
+                                                <p className="text-[10px] font-semibold text-gray-600 dark:text-gray-300 mb-1">Send copy of</p>
+                                                <div className="flex flex-wrap gap-2">
+                                                  {SEND_COPY_OPTIONS.map((opt) => {
+                                                    const checked = recipient.sendCopy.includes(opt);
+                                                    return (
+                                                      <label key={opt} className="flex items-center gap-1 cursor-pointer select-none">
+                                                        <input type="checkbox" checked={checked} onChange={() => {
+                                                          let next: string[];
+                                                          if (opt === "all") {
+                                                            next = checked ? [] : ["all", "report", "invoice", "notifications"];
                                                           } else {
-                                                            next = [...recipient.sendCopyOf.filter((o) => o !== "all"), opt];
-                                                            if (next.includes("report") && next.includes("invoice") && next.includes("notifications")) {
-                                                              next = ["all", ...next];
+                                                            if (checked) {
+                                                              next = recipient.sendCopy.filter((o) => o !== opt && o !== "all");
+                                                            } else {
+                                                              next = [...recipient.sendCopy.filter((o) => o !== "all"), opt];
+                                                              if (next.includes("report") && next.includes("invoice") && next.includes("notifications")) {
+                                                                next = ["all", ...next];
+                                                              }
                                                             }
                                                           }
-                                                        }
-                                                        const nextRecipients = formData.adjusterEmails.map((r, i) => i === index ? { ...r, sendCopyOf: next } : r);
-                                                        setFormData({ ...formData, adjusterEmails: nextRecipients });
-                                                      }} className="w-3 h-3 rounded border-gray-300 text-primary focus:ring-primary" />
-                                                      <span className="text-[10px] text-gray-700 dark:text-gray-300 capitalize">{opt === "all" ? "All" : opt.charAt(0).toUpperCase() + opt.slice(1)}</span>
-                                                    </label>
-                                                  );
-                                                })}
+                                                          const nextEmails = [...formData.contactEmails];
+                                                          nextEmails[absoluteIndex] = { ...nextEmails[absoluteIndex], sendCopy: next };
+                                                          setFormData({ ...formData, contactEmails: nextEmails });
+                                                        }} className="w-3 h-3 rounded border-gray-300 text-primary focus:ring-primary" />
+                                                        <span className="text-[10px] text-gray-700 dark:text-gray-300 capitalize">{opt === "all" ? "All" : opt.charAt(0).toUpperCase() + opt.slice(1)}</span>
+                                                      </label>
+                                                    );
+                                                  })}
+                                                </div>
                                               </div>
-                                            </div>
 
-                                            <button type="button" onClick={() => {
-                                              const nextRecipients = formData.adjusterEmails.filter((_, i) => i !== index);
-                                              setFormData({ ...formData, adjusterEmails: nextRecipients });
-                                              const { errors } = validateAdjusterEmails(nextRecipients);
-                                              setAdjusterEmailErrors(errors);
-                                            }} className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-semibold text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors">
-                                              <X className="w-3 h-3" />
-                                              Remove
-                                            </button>
+                                              <button type="button" onClick={() => {
+                                                const nextEmails = formData.contactEmails.filter((_, i) => i !== absoluteIndex);
+                                                setFormData({ ...formData, contactEmails: nextEmails });
+                                                const { errors } = validateContactEmails(nextEmails.filter(c => c.contactType === "Adjuster (Carrier)"));
+                                                setAdjusterEmailErrors(errors);
+                                              }} className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-semibold text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors">
+                                                <X className="w-3 h-3" />
+                                                Remove
+                                              </button>
+                                            </div>
                                           </div>
-                                        </div>
-                                      );
-                                    })}
+                                        );
+                                      });
+                                    })()}
                                     <div className="flex justify-end">
                                       <button
                                         type="button"
                                         onClick={() => {
-                                          if (formData.adjusterEmails.length >= MAX_ADJ_EMAILS) return;
-                                          const nextRecipients: AdjusterEmail[] = [...formData.adjusterEmails, { email: "", sendCopyOf: ["all", "report", "invoice", "notifications"] }];
-                                          setFormData({ ...formData, adjusterEmails: nextRecipients });
-                                          const { errors } = validateAdjusterEmails(nextRecipients);
+                                          if (formData.contactEmails.filter(c => c.contactType === "Adjuster (Carrier)").length >= MAX_ADJ_EMAILS) return;
+                                          const nextEmails: ContactEmail[] = [...formData.contactEmails, { email: "", contactType: "Adjuster (Carrier)", sendCopy: ["all", "report", "invoice", "notifications"] }];
+                                          setFormData({ ...formData, contactEmails: nextEmails });
+                                          const { errors } = validateContactEmails(nextEmails.filter(c => c.contactType === "Adjuster (Carrier)"));
                                           setAdjusterEmailErrors(errors);
                                           setAdjusterSectionError("");
-                                          const index = nextRecipients.length - 1;
+                                          const index = nextEmails.filter(c => c.contactType === "Adjuster (Carrier)").length - 1;
                                           setTimeout(() => { const el = document.getElementById(`adj-recipient-${index}`); if (el) el.scrollIntoView({ behavior: "smooth", block: "center" }); }, 100);
                                         }}
-                                        disabled={formData.adjusterEmails.length >= MAX_ADJ_EMAILS}
+                                        disabled={formData.contactEmails.filter(c => c.contactType === "Adjuster (Carrier)").length >= MAX_ADJ_EMAILS}
                                         className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-bold bg-primary text-white hover:bg-primary-dark disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-sm hover:shadow-md active:scale-95"
                                       >
                                         <Plus className="w-3.5 h-3.5" />
@@ -1701,7 +1787,7 @@ export default function SubmitInspectionPage() {
                                       </button>
                                     </div>
                                     {adjusterSectionError && (<p className="text-xs text-gray-900 font-black bg-gray-200/80 backdrop-blur-sm px-2 py-1 rounded-md border border-gray-300/50 mt-1 inline-block">{adjusterSectionError}</p>)}
-                                    {formData.adjusterEmails.length >= MAX_ADJ_EMAILS && (<p className="text-[11px] text-gray-500 dark:text-gray-400">Maximum of {MAX_ADJ_EMAILS} additional emails reached.</p>)}
+                                    {formData.contactEmails.filter(c => c.contactType === "Adjuster (Carrier)").length >= MAX_ADJ_EMAILS && (<p className="text-[11px] text-gray-500 dark:text-gray-400">Maximum of {MAX_ADJ_EMAILS} additional emails reached.</p>)}
                                   </div>
                                 </div>
                                 <div className="space-y-1">
@@ -1709,14 +1795,14 @@ export default function SubmitInspectionPage() {
                                     <MessageSquare className="text-primary dark:text-accent w-3.5 h-3.5" />
                                     Adjuster&apos;s Comments
                                   </label>
-                                  <textarea 
-                                    id="adjusterComments" 
-                                    name="adjusterComments" 
-                                    value={formData.adjusterComments} 
-                                    onChange={handleChange} 
-                                    rows={1} 
-                                    placeholder="Any additional comments from the adjuster..." 
-                                    className="w-full bg-gray-50 dark:bg-background-dark border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-primary dark:focus:ring-accent focus:border-transparent resize-none overflow-hidden transition-all min-h-[80px]" 
+                                  <textarea
+                                    id="adjusterComments"
+                                    name="adjusterComments"
+                                    value={formData.adjusterComments}
+                                    onChange={handleChange}
+                                    rows={1}
+                                    placeholder="Any additional comments from the adjuster..."
+                                    className="w-full bg-gray-50 dark:bg-background-dark border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-primary dark:focus:ring-accent focus:border-transparent resize-none overflow-hidden transition-all min-h-[80px]"
                                   />
                                 </div>
                               </div>
@@ -1765,8 +1851,8 @@ export default function SubmitInspectionPage() {
                                     }}
                                     placeholder="Search or type a company..."
                                     className={`w-full bg-gray-50 dark:bg-background-dark border rounded-lg px-2.5 py-1.5 text-xs text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:border-transparent transition-all ${fieldErrors.insuranceCompany
-                                    ? "border-gray-300 focus:ring-gray-300 dark:border-gray-600 dark:focus:ring-gray-600"
-                                    : "border-gray-200 focus:ring-primary dark:border-gray-700 dark:focus:ring-accent"
+                                      ? "border-gray-300 focus:ring-gray-300 dark:border-gray-600 dark:focus:ring-gray-600"
+                                      : "border-gray-200 focus:ring-primary dark:border-gray-700 dark:focus:ring-accent"
                                       }`}
                                   />
                                   {insuranceSearchLoading && (
@@ -1834,7 +1920,7 @@ export default function SubmitInspectionPage() {
                                       ))
                                     ) : insuranceCompanyQuery && !insuranceSearchLoading && (
                                       <div className="p-3 text-center text-gray-500 text-[10px]">
-                                            No matches found.
+                                        No matches found.
                                       </div>
                                     )}
                                   </div>
@@ -1845,15 +1931,14 @@ export default function SubmitInspectionPage() {
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3">
                               <InputField label="Policy Number" name="policyNumber" value={formData.policyNumber} onChange={handleChange} placeholder="POL-789012" icon={Hash} invalid={!!fieldErrors.policyNumber} error={fieldErrors.policyNumber} />
                               <div className="space-y-0.5">
-                                <InputField
+                                <DatePicker
                                   label="Date of Loss"
                                   name="dateOfLoss"
-                                  type="date"
                                   value={formData.dateOfLoss}
                                   onChange={handleChange}
-                                  icon={Calendar}
                                   invalid={!!fieldErrors.dateOfLoss}
                                   error={fieldErrors.dateOfLoss}
+                                  required
                                 />
                               </div>
                             </div>
@@ -1874,34 +1959,59 @@ export default function SubmitInspectionPage() {
                               <InputField label="Phone Extension" name="adjusterPhoneExt" value={formData.adjusterPhoneExt} onChange={handleChange} placeholder="Ext. 123" icon={Hash} invalid={!!fieldErrors.adjusterPhoneExt} error={fieldErrors.adjusterPhoneExt} />
                             </div>
                             <div className="grid grid-cols-1">
-                              <InputField label="Adjuster Email" name="adjusterEmail" value={formData.adjusterEmails[0]?.email || ""} onChange={handleChange} onBlur={handleBlur} type="email" placeholder="adjuster@insurance.com" required icon={Mail} invalid={!!fieldErrors.adjusterEmail} error={fieldErrors.adjusterEmail} />
+                              <InputField
+                                label="Adjuster Email"
+                                name="adjusterEmail"
+                                value={formData.contactEmails.find(c => c.contactType === "Adjuster (Carrier)")?.email || ""}
+                                onChange={(e) => {
+                                  const index = formData.contactEmails.findIndex(c => c.contactType === "Adjuster (Carrier)");
+                                  const nextEmails = [...formData.contactEmails];
+                                  if (index > -1) {
+                                    nextEmails[index] = { ...nextEmails[index], email: e.target.value };
+                                  } else {
+                                    nextEmails.unshift({ email: e.target.value, contactType: "Adjuster (Carrier)", sendCopy: ["all", "report", "invoice", "notifications"] });
+                                  }
+                                  setFormData({ ...formData, contactEmails: nextEmails });
+                                }}
+                                onBlur={handleBlur}
+                                type="email"
+                                placeholder="adjuster@insurance.com"
+                                required
+                                icon={Mail}
+                                invalid={!!fieldErrors.adjusterEmail}
+                                error={fieldErrors.adjusterEmail}
+                              />
                             </div>
-                            
+
                             {/* Send copy of for primary Adjuster */}
                             <div className="mt-1 ml-1">
                               <p className="text-[10px] font-semibold text-gray-600 dark:text-gray-300 mb-1">Send copy of</p>
                               <div className="flex flex-wrap gap-2">
                                 {SEND_COPY_OPTIONS.map((opt) => {
-                                  const checked = formData.adjusterEmails[0]?.sendCopyOf.includes(opt);
+                                  const primaryAdjuster = formData.contactEmails.find(c => c.contactType === "Adjuster (Carrier)");
+                                  const checked = primaryAdjuster?.sendCopy.includes(opt) || false;
                                   return (
                                     <label key={opt} className="flex items-center gap-1 cursor-pointer select-none">
                                       <input type="checkbox" checked={checked} onChange={() => {
+                                        const index = formData.contactEmails.findIndex(c => c.contactType === "Adjuster (Carrier)");
+                                        if (index === -1) return;
+                                        
                                         let next: string[];
                                         if (opt === "all") {
                                           next = checked ? [] : ["all", "report", "invoice", "notifications"];
                                         } else {
                                           if (checked) {
-                                            next = formData.adjusterEmails[0].sendCopyOf.filter((o) => o !== opt && o !== "all");
+                                            next = formData.contactEmails[index].sendCopy.filter((o) => o !== opt && o !== "all");
                                           } else {
-                                            next = [...formData.adjusterEmails[0].sendCopyOf.filter((o) => o !== "all"), opt];
+                                            next = [...formData.contactEmails[index].sendCopy.filter((o) => o !== "all"), opt];
                                             if (next.includes("report") && next.includes("invoice") && next.includes("notifications")) {
                                               next = ["all", ...next];
                                             }
                                           }
                                         }
-                                        const nextEmails = [...formData.adjusterEmails];
-                                        nextEmails[0] = { ...nextEmails[0], sendCopyOf: next };
-                                        setFormData({ ...formData, adjusterEmails: nextEmails });
+                                        const nextEmails = [...formData.contactEmails];
+                                        nextEmails[index] = { ...nextEmails[index], sendCopy: next };
+                                        setFormData({ ...formData, contactEmails: nextEmails });
                                       }} className="w-3 h-3 rounded border-gray-300 text-primary focus:ring-primary" />
                                       <span className="text-[10px] text-gray-700 dark:text-gray-300 capitalize">{opt === "all" ? "All" : opt.charAt(0).toUpperCase() + opt.slice(1)}</span>
                                     </label>
@@ -1909,105 +2019,114 @@ export default function SubmitInspectionPage() {
                                 })}
                               </div>
                             </div>
-                            
-                            {/* Additional Adjuster Emails */}
-                                <div className="space-y-2 pt-2 border-t border-gray-200 dark:border-gray-700 mt-3">
-                                  <div className="space-y-2">
-                                    {formData.adjusterEmails.slice(1).map((recipient, idx) => {
-                                      const index = idx + 1;
-                                      return (
-                                        <div key={index} id={`adj-recipient-${index}`} className={`rounded-lg border p-1.5 bg-gray-50 dark:bg-background-dark/60 ${adjusterEmailErrors[index] ? "border-gray-400 bg-gray-100/60 dark:bg-gray-800/20" : "border-gray-200 dark:border-gray-700"}`}>
-                                          <div className="space-y-2">
-                                            <InputField label={`Additional Adjuster Email ${formData.adjusterEmails.length > 1 ? `#${index}` : ""}`} name={`adjRecipientEmail_${index}`} value={recipient.email} onChange={(e) => {
-                                              const nextRecipients = formData.adjusterEmails.map((r, i) => i === index ? { ...r, email: e.target.value } : r);
-                                              setFormData({ ...formData, adjusterEmails: nextRecipients });
-                                              const { errors } = validateAdjusterEmails(nextRecipients);
-                                              setAdjusterEmailErrors(errors);
-                                              setAdjusterSectionError("");
-                                            }} type="email" placeholder="additional@company.com" icon={Mail} />
 
-                                            {/* Send copy of — multi-select checkboxes */}
-                                            <div>
-                                              <p className="text-[10px] font-semibold text-gray-600 dark:text-gray-300 mb-1">Send copy of</p>
-                                              <div className="flex flex-wrap gap-2">
-                                                {SEND_COPY_OPTIONS.map((opt) => {
-                                                  const checked = recipient.sendCopyOf.includes(opt);
-                                                  return (
-                                                    <label key={opt} className="flex items-center gap-1 cursor-pointer select-none">
-                                                      <input type="checkbox" checked={checked} onChange={() => {
-                                                        let next: string[];
-                                                        if (opt === "all") {
-                                                          next = checked ? [] : ["all", "report", "invoice", "notifications"];
+                            {/* Additional Adjuster Emails */}
+                            <div className="space-y-2 pt-2 border-t border-gray-200 dark:border-gray-700 mt-3">
+                              <div className="space-y-2">
+                                {(() => {
+                                  const adjRecipients = formData.contactEmails.filter(c => c.contactType === "Adjuster (Carrier)");
+                                  return adjRecipients.slice(1).map((recipient, localIdx) => {
+                                    const localIndex = localIdx + 1; // local index in filtered Adjuster array
+                                    const absoluteIndex = formData.contactEmails.findIndex((c, i) => 
+                                      c.contactType === "Adjuster (Carrier)" && formData.contactEmails.filter((cc, ii) => cc.contactType === "Adjuster (Carrier)" && ii < i).length === localIndex
+                                    );
+                                    
+                                    return (
+                                      <div key={localIndex} id={`adj-recipient-${localIndex}`} className={`rounded-lg border p-1.5 bg-gray-50 dark:bg-background-dark/60 ${adjusterEmailErrors[localIndex] ? "border-gray-400 bg-gray-100/60 dark:bg-gray-800/20" : "border-gray-200 dark:border-gray-700"}`}>
+                                        <div className="space-y-2">
+                                          <InputField label={`Additional Adjuster Email ${adjRecipients.length > 1 ? `#${localIndex}` : ""}`} name={`adjRecipientEmail_${localIndex}`} value={recipient.email} onChange={(e) => {
+                                            const nextEmails = [...formData.contactEmails];
+                                            nextEmails[absoluteIndex] = { ...nextEmails[absoluteIndex], email: e.target.value };
+                                            setFormData({ ...formData, contactEmails: nextEmails });
+                                            const { errors } = validateContactEmails(nextEmails.filter(c => c.contactType === "Adjuster (Carrier)"));
+                                            setAdjusterEmailErrors(errors);
+                                            setAdjusterSectionError("");
+                                          }} type="email" placeholder="additional@company.com" icon={Mail} />
+
+                                          {/* Send copy of — multi-select checkboxes */}
+                                          <div>
+                                            <p className="text-[10px] font-semibold text-gray-600 dark:text-gray-300 mb-1">Send copy of</p>
+                                            <div className="flex flex-wrap gap-2">
+                                              {SEND_COPY_OPTIONS.map((opt) => {
+                                                const checked = recipient.sendCopy.includes(opt);
+                                                return (
+                                                  <label key={opt} className="flex items-center gap-1 cursor-pointer select-none">
+                                                    <input type="checkbox" checked={checked} onChange={() => {
+                                                      let next: string[];
+                                                      if (opt === "all") {
+                                                        next = checked ? [] : ["all", "report", "invoice", "notifications"];
+                                                      } else {
+                                                        if (checked) {
+                                                          next = recipient.sendCopy.filter((o) => o !== opt && o !== "all");
                                                         } else {
-                                                          if (checked) {
-                                                            next = recipient.sendCopyOf.filter((o) => o !== opt && o !== "all");
-                                                          } else {
-                                                            next = [...recipient.sendCopyOf.filter((o) => o !== "all"), opt];
-                                                            if (next.includes("report") && next.includes("invoice") && next.includes("notifications")) {
-                                                              next = ["all", ...next];
-                                                            }
+                                                          next = [...recipient.sendCopy.filter((o) => o !== "all"), opt];
+                                                          if (next.includes("report") && next.includes("invoice") && next.includes("notifications")) {
+                                                            next = ["all", ...next];
                                                           }
                                                         }
-                                                        const nextRecipients = formData.adjusterEmails.map((r, i) => i === index ? { ...r, sendCopyOf: next } : r);
-                                                        setFormData({ ...formData, adjusterEmails: nextRecipients });
-                                                      }} className="w-3 h-3 rounded border-gray-300 text-primary focus:ring-primary" />
-                                                      <span className="text-[10px] text-gray-700 dark:text-gray-300 capitalize">{opt === "all" ? "All" : opt.charAt(0).toUpperCase() + opt.slice(1)}</span>
-                                                    </label>
-                                                  );
-                                                })}
-                                              </div>
+                                                      }
+                                                      const nextEmails = [...formData.contactEmails];
+                                                      nextEmails[absoluteIndex] = { ...nextEmails[absoluteIndex], sendCopy: next };
+                                                      setFormData({ ...formData, contactEmails: nextEmails });
+                                                    }} className="w-3 h-3 rounded border-gray-300 text-primary focus:ring-primary" />
+                                                    <span className="text-[10px] text-gray-700 dark:text-gray-300 capitalize">{opt === "all" ? "All" : opt.charAt(0).toUpperCase() + opt.slice(1)}</span>
+                                                  </label>
+                                                );
+                                              })}
                                             </div>
-
-                                            <button type="button" onClick={() => {
-                                              const nextRecipients = formData.adjusterEmails.filter((_, i) => i !== index);
-                                              setFormData({ ...formData, adjusterEmails: nextRecipients });
-                                              const { errors } = validateAdjusterEmails(nextRecipients);
-                                              setAdjusterEmailErrors(errors);
-                                            }} className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-semibold text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors">
-                                              <X className="w-3 h-3" />
-                                              Remove
-                                            </button>
                                           </div>
+
+                                          <button type="button" onClick={() => {
+                                            const nextEmails = formData.contactEmails.filter((_, i) => i !== absoluteIndex);
+                                            setFormData({ ...formData, contactEmails: nextEmails });
+                                            const { errors } = validateContactEmails(nextEmails.filter(c => c.contactType === "Adjuster (Carrier)"));
+                                            setAdjusterEmailErrors(errors);
+                                          }} className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-semibold text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors">
+                                            <X className="w-3 h-3" />
+                                            Remove
+                                          </button>
                                         </div>
-                                      );
-                                    })}
-                                    <div className="flex justify-end">
-                                      <button
-                                        type="button"
-                                        onClick={() => {
-                                          if (formData.adjusterEmails.length >= MAX_ADJ_EMAILS) return;
-                                          const nextRecipients: AdjusterEmail[] = [...formData.adjusterEmails, { email: "", sendCopyOf: ["all", "report", "invoice", "notifications"] }];
-                                          setFormData({ ...formData, adjusterEmails: nextRecipients });
-                                          const { errors } = validateAdjusterEmails(nextRecipients);
-                                          setAdjusterEmailErrors(errors);
-                                          setAdjusterSectionError("");
-                                          const index = nextRecipients.length - 1;
-                                          setTimeout(() => { const el = document.getElementById(`adj-recipient-${index}`); if (el) el.scrollIntoView({ behavior: "smooth", block: "center" }); }, 100);
-                                        }}
-                                        disabled={formData.adjusterEmails.length >= MAX_ADJ_EMAILS}
-                                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-bold bg-primary text-white hover:bg-primary-dark disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-sm hover:shadow-md active:scale-95"
-                                      >
-                                        <Plus className="w-3.5 h-3.5" />
-                                        Add Another Email
-                                      </button>
-                                    </div>
-                                    {adjusterSectionError && (<p className="text-xs text-gray-900 font-black bg-red-50/50 backdrop-blur-sm px-2 py-1 rounded-md border border-red-200/30 mt-1 inline-block">{adjusterSectionError}</p>)}
-                                    {formData.adjusterEmails.length >= MAX_ADJ_EMAILS && (<p className="text-[11px] text-gray-500 dark:text-gray-400">Maximum of {MAX_ADJ_EMAILS} additional emails reached.</p>)}
-                                  </div>
+                                      </div>
+                                    );
+                                  });
+                                })()}
+                                <div className="flex justify-end">
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      if (formData.contactEmails.filter(c => c.contactType === "Adjuster (Carrier)").length >= MAX_ADJ_EMAILS) return;
+                                      const nextEmails: ContactEmail[] = [...formData.contactEmails, { email: "", contactType: "Adjuster (Carrier)", sendCopy: ["all", "report", "invoice", "notifications"] }];
+                                      setFormData({ ...formData, contactEmails: nextEmails });
+                                      const { errors } = validateContactEmails(nextEmails.filter(c => c.contactType === "Adjuster (Carrier)"));
+                                      setAdjusterEmailErrors(errors);
+                                      setAdjusterSectionError("");
+                                      const index = nextEmails.filter(c => c.contactType === "Adjuster (Carrier)").length - 1;
+                                      setTimeout(() => { const el = document.getElementById(`adj-recipient-${index}`); if (el) el.scrollIntoView({ behavior: "smooth", block: "center" }); }, 100);
+                                    }}
+                                    disabled={formData.contactEmails.filter(c => c.contactType === "Adjuster (Carrier)").length >= MAX_ADJ_EMAILS}
+                                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-bold bg-primary text-white hover:bg-primary-dark disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-sm hover:shadow-md active:scale-95"
+                                  >
+                                    <Plus className="w-3.5 h-3.5" />
+                                    Add Another Email
+                                  </button>
                                 </div>
+                                {adjusterSectionError && (<p className="text-xs text-gray-900 font-black bg-red-50/50 backdrop-blur-sm px-2 py-1 rounded-md border border-red-200/30 mt-1 inline-block">{adjusterSectionError}</p>)}
+                                {formData.contactEmails.filter(c => c.contactType === "Adjuster (Carrier)").length >= MAX_ADJ_EMAILS && (<p className="text-[11px] text-gray-500 dark:text-gray-400">Maximum of {MAX_ADJ_EMAILS} additional emails reached.</p>)}
+                              </div>
+                            </div>
                             <div className="space-y-1">
                               <label htmlFor="adjusterComments" className="text-[11px] font-bold text-gray-700 dark:text-gray-300 flex items-center gap-1.5">
                                 <MessageSquare className="text-primary dark:text-accent w-3.5 h-3.5" />
                                 Adjuster&apos;s Comments
                               </label>
-                              <textarea 
-                                id="adjusterComments" 
-                                name="adjusterComments" 
-                                value={formData.adjusterComments} 
-                                onChange={handleChange} 
-                                rows={1} 
-                                placeholder="Any additional comments from the adjuster..." 
-                                className="w-full bg-gray-50 dark:bg-background-dark border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-primary dark:focus:ring-accent focus:border-transparent resize-none overflow-hidden transition-all min-h-[80px]" 
+                              <textarea
+                                id="adjusterComments"
+                                name="adjusterComments"
+                                value={formData.adjusterComments}
+                                onChange={handleChange}
+                                rows={1}
+                                placeholder="Any additional comments from the adjuster..."
+                                className="w-full bg-gray-50 dark:bg-background-dark border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-primary dark:focus:ring-accent focus:border-transparent resize-none overflow-hidden transition-all min-h-[80px]"
                               />
                             </div>
                           </div>
@@ -2030,7 +2149,7 @@ export default function SubmitInspectionPage() {
                           <InputField label="First Name" name="policyholderFirstName" value={formData.policyholderFirstName} onChange={handleChange} onBlur={handleBlur} placeholder="First Name" required icon={UserRound} invalid={!!fieldErrors.policyholderFirstName} error={fieldErrors.policyholderFirstName} />
                           <InputField label="Last Name" name="policyholderLastName" value={formData.policyholderLastName} onChange={handleChange} onBlur={handleBlur} placeholder="Last Name" required icon={UserRound} invalid={!!fieldErrors.policyholderLastName} error={fieldErrors.policyholderLastName} />
                         </div>
-                        
+
                         <div className="space-y-3">
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                             <InputField label="Property Contact Email" name="propertyContactEmail" value={formData.propertyContactEmail} onChange={handleChange} type="email" placeholder="contact@email.com" icon={Mail} />
@@ -2038,7 +2157,7 @@ export default function SubmitInspectionPage() {
                               <PhoneInputField label="Primary Phone" name="policyholderPhone1" value={formData.policyholderPhone1} onChange={handleChange} invalid={!!fieldErrors.policyholderPhone1} error={fieldErrors.policyholderPhone1} />
                             </div>
                           </div>
-                          
+
                           {/* DISABLED: Add Another Phone + secondary phone input — uncomment to restore
                           {(showPrimaryPhone2 || formData.policyholderPhone1Extra) && (
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-3 animate-in slide-in-from-top-1 duration-200">
@@ -2073,11 +2192,11 @@ export default function SubmitInspectionPage() {
                             <InputField label="First Name" name="spouseFirstName" value={formData.spouseFirstName} onChange={handleChange} placeholder="First Name" icon={UserRound} />
                             <InputField label="Last Name" name="spouseLastName" value={formData.spouseLastName} onChange={handleChange} placeholder="Last Name" icon={UserRound} />
                           </div>
-                          {/* DISABLED: Secondary Contact Phone — uncomment to restore
+
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                            <PhoneInputField label="Secondary Contact Phone" name="policyholderPhone2" value={formData.policyholderPhone2} onChange={handleChange} invalid={!!fieldErrors.policyholderPhone2} error={fieldErrors.policyholderPhone2} placeholder="Optional" />
+                            <PhoneInputField label="Phone" name="policyholderPhone2" value={formData.policyholderPhone2} onChange={handleChange} invalid={!!fieldErrors.policyholderPhone2} error={fieldErrors.policyholderPhone2} placeholder="Optional" />
                           </div>
-                          */}
+
                         </div>
                       </div>
 
@@ -2134,117 +2253,113 @@ export default function SubmitInspectionPage() {
                 )}
 
                 {/* ================================================ */}
-                {/*  STEP 4 – Review & Submit (2-col layout)         */}
+                {/*  STEP 4 – Review & Submit                        */}
                 {/* ================================================ */}
                 {currentStep === 4 && (
-                  <FormSection>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-start animate-fadeIn">
-                      
-                      {/* ── LEFT COLUMN ── */}
+                  <div className="animate-fadeIn space-y-6">
+                    <FormSection>
                       <div className="space-y-4">
-                        <ReviewBlock title="Inspection Type" icon={ClipboardList} onEdit={() => goToStep(0)}>
-                          <ReviewRow label="Inspection Type" value={formData.inspectionType} />
-                        </ReviewBlock>
 
-                        {formData.isIAClaim ? (
-                          <ReviewBlock title="IA Information" icon={Shield} onEdit={() => goToStep(1)}>
+                      {/* 1. Inspection & Property */}
+                      <ReviewBlock stepNumber="1." title="Inspection & Property" icon={ClipboardList} onEdit={() => setCurrentStep(0)}>
+                        <ReviewRow label="Inspection Type" value={formData.inspectionType} />
+                        {formData.buildingType && <ReviewRow label="Building Type" value={formData.buildingType} />}
+                      </ReviewBlock>
+
+                      {/* 2. Insurance & Adjuster */}
+                      <ReviewBlock stepNumber="2." title="Insurance & Adjuster" icon={Shield} onEdit={() => setCurrentStep(1)}>
+                        {formData.isIAClaim && (
+                          <>
                             <ReviewRow label="IA Company" value={formData.iaCompany} />
                             <ReviewRow label="IA Name" value={`${formData.iaFirstName} ${formData.iaLastName}`.trim()} />
                             <ReviewRow label="IA Phone" value={formData.iaPhone} />
-                            {formData.iaRecipients.map((r, i) => (
-                              <ReviewRow key={i} label={`IA Email ${i + 1}`} value={r.email ? `${r.email}${r.notificationType.length > 0 ? ` (${formatPreferences(r.notificationType)})` : ''}` : ""} />
+                            {formData.contactEmails.filter(c => c.contactType === "IA").map((r, i) => (
+                              <ReviewRow key={`ia-${i}`} label={`IA Email ${i + 1}`} value={r.email ? `${r.email}${r.sendCopy.length > 0 ? ` (${formatPreferences(r.sendCopy)})` : ''}` : ""} />
                             ))}
-                          </ReviewBlock>
+                            <div className="col-span-full border-t-[2px] border-gray-200 dark:border-gray-700 mt-2 mb-2"></div>
+                          </>
+                        )}
+
+                        <ReviewRow label="Insurance Company" value={formData.insuranceCompany} />
+                        <ReviewRow label="Claim Number" value={formData.claimNumber} />
+                        {formData.policyNumber && <ReviewRow label="Policy Number" value={formData.policyNumber} />}
+                        {formData.dateOfLoss && <ReviewRow label="Date of Loss" value={formData.dateOfLoss} />}
+                        
+                        <div className="col-span-full border-t-[2px] border-gray-200 dark:border-gray-700 mt-2 mb-2"></div>
+
+                        <ReviewRow label="Adjuster Company" value={formData.adjusterCompany} />
+                        <ReviewRow label="Adjuster Name" value={`${formData.adjusterFirstName} ${formData.adjusterLastName}`.trim()} />
+                        {(() => {
+                          const adjEmails = formData.contactEmails.filter(c => c.contactType === "Adjuster (Carrier)");
+                          const primary = adjEmails[0];
+                          const secondary = adjEmails.slice(1);
+                          return (
+                            <>
+                              <ReviewRow label="Primary Email" value={primary?.email ? `${primary.email}${primary.sendCopy.length > 0 ? ` (${formatPreferences(primary.sendCopy)})` : ''}` : ""} />
+                              <ReviewRow label="Phone" value={formData.adjusterPhone} />
+                              {formData.adjusterPhoneExt && <ReviewRow label="Extension" value={formData.adjusterPhoneExt} />}
+                              {secondary.map((r, i) => (
+                                <ReviewRow key={`adj-${i}`} label={`Extra Email ${i + 1}`} value={r.email ? `${r.email}${r.sendCopy.length > 0 ? ` (${formatPreferences(r.sendCopy)})` : ''}` : ""} />
+                              ))}
+                            </>
+                          );
+                        })()}
+                        {formData.adjusterComments && <ReviewRow label="Comments" value={formData.adjusterComments} />}
+                        {formData.primaryClientType && <ReviewRow label="Primary Client" value={formData.primaryClientType} />}
+                      </ReviewBlock>
+
+                      {/* 3. Property Contact Info & Address */}
+                      <ReviewBlock stepNumber="3." title="Property Contact Info" icon={User} onEdit={() => setCurrentStep(2)}>
+                        <ReviewRow label="Primary Name" value={`${formData.policyholderFirstName} ${formData.policyholderLastName}`.trim()} />
+                        <ReviewRow label="Primary Phone" value={formData.policyholderPhone1} />
+                        {formData.policyholderPhone1Extra && <ReviewRow label="Primary Phone 2" value={formData.policyholderPhone1Extra} />}
+                        {formData.propertyContactEmail && <ReviewRow label="Email" value={formData.propertyContactEmail} />}
+                        <div className="col-span-full border-t-[2px] border-gray-200 dark:border-gray-700 mt-2 mb-2"></div>
+                        <ReviewRow label="Secondary Name" value={`${formData.spouseFirstName} ${formData.spouseLastName}`.trim()} />
+                        <ReviewRow label="Secondary Phone" value={formData.policyholderPhone2} />
+                        
+                        <div className="col-span-full border-t-[2px] border-gray-200 dark:border-gray-700 mt-2 mb-2"></div>
+                        
+                        <ReviewRow label="Street Address" value={formData.streetAddress} fullWidth={!formData.addressLine2} />
+                        {formData.addressLine2 && <ReviewRow label="Apt/Suite" value={formData.addressLine2} />}
+                        <ReviewRow label="City" value={formData.city} />
+                        <ReviewRow label="State" value={formData.state} />
+                        <ReviewRow label="Zip Code" value={formData.zip} />
+                      </ReviewBlock>
+
+                      {/* 4. Roofer & Public Adjuster */}
+                      <ReviewBlock stepNumber="4." title="Roofer & Public Adjuster" icon={Home} onEdit={() => setCurrentStep(3)} optional>
+                        {/* Roofer */}
+                        {!(formData.rooferName || formData.rooferCompany || formData.rooferPhone || formData.rooferEmail) ? (
+                          <div className="col-span-full text-[13px] italic text-gray-300 dark:text-gray-600 self-center">No Roofer Provided</div>
                         ) : (
-                          <ReviewBlock title="Insurance Carrier" icon={Shield} onEdit={() => goToStep(1)}>
-                            <ReviewRow label="Insurance Company" value={formData.insuranceCompany} />
-                            <ReviewRow label="Claim Number" value={formData.claimNumber} />
-                            {formData.policyNumber && <ReviewRow label="Policy Number" value={formData.policyNumber} />}
-                            {formData.dateOfLoss && <ReviewRow label="Date of Loss" value={formData.dateOfLoss} />}
-                          </ReviewBlock>
+                          <>
+                            <ReviewRow label="Roofer Name" value={formData.rooferName} />
+                            <ReviewRow label="Roofer Company" value={formData.rooferCompany} />
+                            <ReviewRow label="Roofer Phone" value={formData.rooferPhone} />
+                            <ReviewRow label="Roofer Email" value={formData.rooferEmail} />
+                          </>
                         )}
+                        
+                        <div className="col-span-full border-t-[2px] border-gray-200 dark:border-gray-700 mt-2 mb-2"></div>
 
-                        <ReviewBlock title="Property Contact (Policyholder)" icon={User} onEdit={() => goToStep(2)}>
-                          <ReviewRow label="Primary Name" value={`${formData.policyholderFirstName} ${formData.policyholderLastName}`.trim()} />
-                          <ReviewRow label="Primary Phone" value={formData.policyholderPhone1} />
-                          {formData.policyholderPhone1Extra && <ReviewRow label="Primary Phone 2" value={formData.policyholderPhone1Extra} />}
-                          {formData.propertyContactEmail && <ReviewRow label="Email" value={formData.propertyContactEmail} />}
-                          {(formData.spouseFirstName || formData.spouseLastName || formData.policyholderPhone2) && (
-                            <div className="pt-4 mt-1 border-t border-gray-100 dark:border-gray-800 col-span-full">
-                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-5">
-                                <ReviewRow label="Secondary Name" value={`${formData.spouseFirstName} ${formData.spouseLastName}`.trim()} />
-                                {formData.policyholderPhone2 && <ReviewRow label="Secondary Phone" value={formData.policyholderPhone2} />}
-                              </div>
-                            </div>
-                          )}
-                        </ReviewBlock>
-
-                        <ReviewBlock title="Roofer Information" icon={Home} onEdit={() => goToStep(3)} optional>
-                          {!(formData.rooferName || formData.rooferCompany || formData.rooferPhone || formData.rooferEmail) ? (
-                            <div className="col-span-full text-[13px] italic text-gray-300 dark:text-gray-600 self-center">No Roofer Provided</div>
-                          ) : (
-                            <>
-                              <ReviewRow label="Name" value={formData.rooferName} />
-                              <ReviewRow label="Company" value={formData.rooferCompany} />
-                              <ReviewRow label="Phone" value={formData.rooferPhone} />
-                              <ReviewRow label="Email" value={formData.rooferEmail} />
-                            </>
-                          )}
-                        </ReviewBlock>
-                      </div>
-
-                      {/* ── RIGHT COLUMN ── */}
-                      <div className="space-y-4">
-                        <ReviewBlock title="Building Type" icon={Building2} onEdit={() => goToStep(0)} optional>
-                          <ReviewRow label="Building Type" value={formData.buildingType} />
-                        </ReviewBlock>
-
-                        {formData.isIAClaim && (
-                          <ReviewBlock title="Insurance Carrier" icon={Shield} onEdit={() => goToStep(1)}>
-                            <ReviewRow label="Insurance Company" value={formData.insuranceCompany} />
-                            <ReviewRow label="Claim Number" value={formData.claimNumber} />
-                            {formData.policyNumber && <ReviewRow label="Policy Number" value={formData.policyNumber} />}
-                            {formData.dateOfLoss && <ReviewRow label="Date of Loss" value={formData.dateOfLoss} />}
-                          </ReviewBlock>
+                        {/* Public Adjuster */}
+                        {!(formData.publicAdjusterName || formData.publicAdjusterCompany || formData.publicAdjusterPhone || formData.publicAdjusterEmail) ? (
+                          <div className="col-span-full text-[13px] italic text-gray-300 dark:text-gray-600 self-center">No Public Adjuster Provided</div>
+                        ) : (
+                          <>
+                            <ReviewRow label="PA Name" value={formData.publicAdjusterName} />
+                            <ReviewRow label="PA Company" value={formData.publicAdjusterCompany} />
+                            <ReviewRow label="PA Phone" value={formData.publicAdjusterPhone} />
+                            <ReviewRow label="PA Email" value={formData.publicAdjusterEmail} />
+                          </>
                         )}
-
-                        <ReviewBlock title={formData.isIAClaim ? "Carrier Adjuster Details" : "Adjuster Details"} icon={Gavel} onEdit={() => goToStep(1)}>
-                          <ReviewRow label="Adjuster Company" value={formData.adjusterCompany} />
-                          <ReviewRow label="Adjuster Name" value={`${formData.adjusterFirstName} ${formData.adjusterLastName}`.trim()} />
-                          <ReviewRow label="Email" value={formData.adjusterEmails[0] ? `${formData.adjusterEmails[0].email}${formData.adjusterEmails[0].sendCopyOf.length > 0 ? ` (${formatPreferences(formData.adjusterEmails[0].sendCopyOf)})` : ''}` : ""} />
-                          <ReviewRow label="Phone" value={formData.adjusterPhone} />
-                          {formData.adjusterPhoneExt && <ReviewRow label="Extension" value={formData.adjusterPhoneExt} />}
-                          {formData.adjusterEmails.slice(1).map((r, i) => (
-                            <ReviewRow key={i} label={`Additional Email ${i + 1}`} value={r.email ? `${r.email}${r.sendCopyOf.length > 0 ? ` (${formatPreferences(r.sendCopyOf)})` : ''}` : ""} />
-                          ))}
-                          {formData.adjusterComments && <ReviewRow label="Comments" value={formData.adjusterComments} fullWidth />}
-                        </ReviewBlock>
-
-                        <ReviewBlock title="Property Address" icon={MapPin} onEdit={() => goToStep(2)}>
-                          <ReviewRow label="Street Address" value={formData.streetAddress} />
-                          {formData.addressLine2 && <ReviewRow label="Apt/Suite" value={formData.addressLine2} />}
-                          <ReviewRow label="City" value={formData.city} />
-                          <ReviewRow label="State" value={formData.state} />
-                          <ReviewRow label="Zip Code" value={formData.zip} />
-                        </ReviewBlock>
-
-                        <ReviewBlock title="Public Adjuster Details" icon={Hand} onEdit={() => goToStep(3)} optional>
-                          {!(formData.publicAdjusterName || formData.publicAdjusterCompany || formData.publicAdjusterPhone || formData.publicAdjusterEmail) ? (
-                            <div className="col-span-full text-[13px] italic text-gray-300 dark:text-gray-600 self-center">No Public Adjuster Provided</div>
-                          ) : (
-                            <>
-                              <ReviewRow label="Name" value={formData.publicAdjusterName} />
-                              <ReviewRow label="Company" value={formData.publicAdjusterCompany} />
-                              <ReviewRow label="Phone" value={formData.publicAdjusterPhone} />
-                              <ReviewRow label="Email" value={formData.publicAdjusterEmail} />
-                            </>
-                          )}
-                        </ReviewBlock>
-                      </div>
+                      </ReviewBlock>
 
                     </div>
                   </FormSection>
-                )}
+                </div>
+              )}
 
                 {/* ── Navigation Buttons ── */}
                 <div className="flex items-center justify-between pt-1.5 mt-2 border-t border-gray-200 dark:border-gray-800">
@@ -2312,14 +2427,14 @@ export default function SubmitInspectionPage() {
                 {validationModalConfig.message}
               </p>
             </div>
-            
+
             <div className="px-8 pb-8 flex flex-col gap-2">
               <button
                 type="button"
                 onClick={() => {
                   const currentType = validationQueue[0];
                   const config = getStep3ValidationConfig(currentType);
-                  
+
                   // Close modal and clear queue immediately (Strict: No automatic switching)
                   setIsValidationModalOpen(false);
                   setValidationQueue([]);
@@ -2338,7 +2453,7 @@ export default function SubmitInspectionPage() {
               >
                 Update Details
               </button>
-              
+
               <button
                 type="button"
                 onClick={() => {
@@ -2448,6 +2563,18 @@ export default function SubmitInspectionPage() {
         .animate-fadeIn {
           animation: fadeIn 0.45s ease-out;
         }
+        .perspective-1000 { perspective: 1000px; }
+        .transform-style-3d { transform-style: preserve-3d; }
+        .translate-z-10 { transform: translateZ(10px); }
+        .translate-z-20 { transform: translateZ(20px); }
+
+        @keyframes subtleFloat {
+          0%, 100% { transform: translateY(0) rotateX(0); }
+          50% { transform: translateY(-5px) rotateX(2deg); }
+        }
+        .animate-subtle-float {
+          animation: subtleFloat 4s ease-in-out infinite;
+        }
       `}</style>
     </div>
   );
@@ -2457,49 +2584,55 @@ export default function SubmitInspectionPage() {
 /*  Review sub-components                                              */
 /* ------------------------------------------------------------------ */
 
-function ReviewBlock({
-  title,
-  icon: Icon,
-  onEdit,
-  optional,
-  children,
-}: {
-  title: string;
-  icon: React.ElementType;
-  onEdit: () => void;
-  optional?: boolean;
-  children: React.ReactNode;
-}) {
+function ReviewBlock({ stepNumber, title, icon: Icon, onEdit, children, optional = false }: { stepNumber: string; title: string; icon: React.ElementType; onEdit: () => void; children: React.ReactNode; optional?: boolean }) {
   return (
-    <div className="bg-white dark:bg-section-dark rounded-xl p-4 shadow-sm border border-gray-200 dark:border-gray-800 border-l-4 border-l-primary dark:border-l-accent hover:shadow-md transition-all duration-200">
-      <div className="flex items-center justify-between mb-3 shrink-0">
-        <div className="flex items-center gap-1.5">
-          <Icon className="w-3.5 h-3.5 text-primary dark:text-accent opacity-70" />
-          <h4 className="text-[10px] font-black text-gray-900 dark:text-gray-100 uppercase tracking-widest">{title}</h4>
+    <div className="group space-y-0 animate-fadeIn mb-6 last:mb-0 bg-white dark:bg-section-dark rounded-xl shadow-sm border-y-[2px] border-x-[6px] border-primary dark:border-accent transition-all hover:shadow-md overflow-hidden">
+      <div className="bg-white dark:bg-background-dark py-3 px-5 flex items-center justify-between">
+        <div className="flex items-center gap-2.5">
+          <Icon className="w-4 h-4 text-primary dark:text-accent" />
+          <h3 className="text-[13px] font-bold text-primary dark:text-accent uppercase tracking-widest flex items-center gap-2">
+            {title}
+            {optional && (
+              <span className="text-[9px] font-bold px-1.5 py-0.5 bg-gray-100 dark:bg-gray-800 text-gray-500 rounded uppercase">Optional</span>
+            )}
+          </h3>
         </div>
+        
         <button
           type="button"
-          onClick={onEdit}
-          className="inline-flex items-center gap-1 px-1.5 py-1 rounded text-[10px] font-bold text-primary dark:text-accent hover:bg-primary/5 dark:hover:bg-accent/10 transition-all opacity-80"
+          onClick={() => {
+            onEdit();
+            window.scrollTo({ top: 0, behavior: "smooth" });
+          }}
+          className="flex items-center gap-1.5 text-primary dark:text-accent hover:opacity-80 transition-opacity text-[11px] font-bold tracking-wide"
         >
-          <Edit2 className="w-2.5 h-2.5" />
+          <Edit2 className="w-3 h-3" />
           Edit
         </button>
       </div>
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-3.5">
-        {children}
+      
+      <div className="p-4 md:p-5">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-x-4 gap-y-3">
+          {children}
+        </div>
       </div>
     </div>
   );
 }
 
 function ReviewRow({ label, value, fullWidth = false }: { label: string; value: string; fullWidth?: boolean }) {
+  const displayValue = value === "+" || value?.trim() === "" ? "" : value;
+  
   return (
-    <div className={`${fullWidth ? "col-span-full" : ""} flex flex-col gap-0.5 overflow-hidden`}>
-      <span className="text-[9px] font-bold uppercase tracking-widest text-gray-400 dark:text-gray-500">{label}</span>
-      <span className="text-[13px] font-semibold text-gray-800 dark:text-gray-200 break-words whitespace-pre-wrap leading-tight" style={{ wordBreak: "break-word" }}>
-        {value || <span className="text-gray-300 dark:text-gray-600 italic font-normal">Not provided</span>}
+    <div className={`${fullWidth ? "col-span-full" : ""} flex flex-col gap-1`}>
+      <span className="text-[10px] font-bold uppercase tracking-widest text-gray-400 dark:text-gray-500 pl-1">
+        {label}
       </span>
+      <div className="bg-white dark:bg-gray-800 border border-primary/20 dark:border-accent/20 rounded-lg p-2.5 shadow-sm">
+        <span className="text-[13px] font-medium text-gray-800 dark:text-gray-200 break-words whitespace-pre-wrap leading-tight" style={{ wordBreak: "break-word" }}>
+          {displayValue || <span className="text-gray-300 dark:text-gray-600 italic font-normal">Not provided</span>}
+        </span>
+      </div>
     </div>
   );
 }

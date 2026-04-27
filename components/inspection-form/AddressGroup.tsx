@@ -25,6 +25,7 @@ interface AddressGroupProps {
   onBlur?: (e: React.FocusEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => void;
   prefix?: string;
   errors?: Partial<Record<string, string>>;
+  hideErrorSMS?: boolean;
 }
 
 const libraries: ("places")[] = ["places"];
@@ -39,6 +40,7 @@ export default function AddressGroup({
   onBlur,
   prefix = "",
   errors = {},
+  hideErrorSMS = false,
 }: AddressGroupProps) {
   const namePrefix = prefix ? `${prefix}_` : "";
   const getError = (fieldName: string) => errors[`${namePrefix}${fieldName}`];
@@ -116,7 +118,7 @@ export default function AddressGroup({
               required
               icon={Home}
               invalid={!!getError("streetAddress")}
-              error={getError("streetAddress")}
+              error={!hideErrorSMS ? getError("streetAddress") : undefined}
               autoComplete="off"
             />
           </Autocomplete>
@@ -131,7 +133,7 @@ export default function AddressGroup({
             required
             icon={Home}
             invalid={!!getError("streetAddress")}
-            error={getError("streetAddress")}
+            error={!hideErrorSMS ? getError("streetAddress") : undefined}
             autoComplete="off"
           />
         )}
@@ -156,7 +158,7 @@ export default function AddressGroup({
           required
           icon={Building2}
           invalid={!!getError("city")}
-          error={getError("city")}
+          error={!hideErrorSMS ? getError("city") : undefined}
         />
 
         <div className="space-y-0.5">
@@ -187,7 +189,7 @@ export default function AddressGroup({
               </option>
             ))}
           </select>
-          {getError("state") && (
+          {!hideErrorSMS && getError("state") && (
             <p className="text-[10px] text-gray-900 font-black mt-0.5 inline-block bg-gray-200/80 backdrop-blur-sm px-1.5 py-0.5 rounded border border-gray-300/50">
               {getError("state")}
             </p>
@@ -204,7 +206,7 @@ export default function AddressGroup({
           required
           icon={MapPin}
           invalid={!!getError("zip")}
-          error={getError("zip")}
+          error={!hideErrorSMS ? getError("zip") : undefined}
         />
       </div>
       <style jsx global>{`

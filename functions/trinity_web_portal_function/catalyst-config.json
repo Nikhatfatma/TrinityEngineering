@@ -3,7 +3,17 @@
 		"name": "trinity_web_portal_function",
 		"stack": "node20",
 		"type": "basicio",
-		"env_variables": {}
+		"env_variables": {
+			"ZOHO_CLIENT_ID": "1000.E8FASHJGE81V5HA34B92EF69GWQGTR",
+			"ZOHO_CREATOR_APP_NAME": "inspection-app",
+			"ADMIN_PASSWORD": "T3am@Secure#2026",
+			"ZOHO_CREATOR_ACCOUNT_OWNER": "trinity5",
+			"ZOHO_CLIENT_SECRET": "d961fcb2c4670a764438906b30b85ce02ee8417f0e",
+			"ZOHO_CREATOR_FORM_NAME": "Inspection_Request_Public_Submission",
+			"NEXT_PUBLIC_GOOGLE_MAPS_API_KEY": "AIzaSyDaEos8OJSGoRSxoDVpc7q74rb3b45sVf4",
+			"ADMIN_USERNAME": "trinity_admin",
+			"ZOHO_REFRESH_TOKEN": "1000.b13fa0453d076b66bc2ac2c55f3988fa.5dc9706faeb8c150ec4c3d7fc49ff450"
+		}
 	},
 	"execution": {
 		"main": "index.js"

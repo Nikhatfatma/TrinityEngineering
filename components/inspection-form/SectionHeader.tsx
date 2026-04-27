@@ -8,6 +8,7 @@ interface SectionHeaderProps {
   icon?: LucideIcon;
   optional?: boolean;
   required?: boolean;
+  small?: boolean;
 }
 
 /**
@@ -19,6 +20,7 @@ export default function SectionHeader({
   icon: Icon,
   optional = false,
   required = false,
+  small = false,
 }: SectionHeaderProps) {
   return (
     <div className="mb-5 flex flex-col gap-1.5 animate-fadeIn">
@@ -29,7 +31,7 @@ export default function SectionHeader({
           </div>
         )}
         <div className="flex items-center gap-2 flex-wrap min-w-0">
-          <h3 className="text-sm font-black uppercase tracking-wider text-gray-800 dark:text-gray-100 flex items-center gap-2">
+          <h3 className={`${small ? "text-[11px]" : "text-sm"} font-black uppercase tracking-wider text-gray-800 dark:text-gray-100 flex items-center gap-2`}>
             <span className="bg-clip-text text-transparent bg-gradient-to-r from-gray-900 via-gray-700 to-primary dark:from-white dark:via-gray-200 dark:to-accent">
               {title}
             </span>

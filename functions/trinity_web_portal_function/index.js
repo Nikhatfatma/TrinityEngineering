@@ -37,39 +37,72 @@ const formatSendCopy = (prefs = []) => {
 };
 
 function mapFormDataToCreator(data) {
+    // Collect all emails into a unified subform structure
+    const unifiedEmails = data.contactEmails || [];
+    
+    // Fallback for transition period if old fields arrive
+    if (unifiedEmails.length === 0) {
+        if (data.iaRecipients) {
+            data.iaRecipients.forEach(r => unifiedEmails.push({ ...r, contactType: "IA", sendCopy: r.notificationType }));
+        }
+        if (data.adjusterEmails) {
+            data.adjusterEmails.forEach(r => unifiedEmails.push({ ...r, contactType: "Adjuster (Carrier)", sendCopy: r.sendCopyOf }));
+        }
+    }
 
-    // IA Subform: uses notificationType array, outputs array for Zoho Creator multi-select
-    const iaSubform = (data.iaRecipients || []).filter(r => r.email).map((r, i) => {
-        const formatted = formatSendCopy(r.notificationType || []);
-        console.log(`[iaSubform ${i}] RAW notificationType:`, r.notificationType);
-        console.log(`[iaSubform ${i}] FORMATTED Send_Copy_Of:`, formatted);
+    // Sort emails to group by type: Adjuster (Carrier) first, then IA
+    const sortedEmails = [...unifiedEmails].sort((a, b) => {
+        const typeA = a.contactType || "";
+        const typeB = b.contactType || "";
+        
+        // Define priority: Adjuster (Carrier) = 1, IA = 2
+        const priority = { "Adjuster (Carrier)": 1, "IA": 2 };
+        return (priority[typeA] || 99) - (priority[typeB] || 99);
+    });
+
+    const contactSubform = sortedEmails.filter(r => r.email).map((r, i) => {
+        const formatted = formatSendCopy(r.sendCopy || []);
         return {
             "Email": r.email,
+            "Contact_Type": r.contactType,
             "Send_Copy_Of": formatted
         };
     });
 
-    // Adjuster Subform: uses sendCopyOf array, MUST output IDENTICAL format as IA (array)
-    const adjSubform = (data.adjusterEmails || []).filter(r => r.email).map((r, i) => {
-        const formatted = formatSendCopy(r.sendCopyOf || []);
-        console.log(`[adjSubform ${i}] RAW sendCopyOf:`, r.sendCopyOf);
-        console.log(`[adjSubform ${i}] FORMATTED Send_Copy_Of:`, formatted);
-        return {
-            "Email": r.email,
-            "Send_Copy_Of": formatted
-        };
-    });
+    const primaryAdjuster = unifiedEmails.find(c => c.contactType === "Adjuster (Carrier)") || { email: "", sendCopy: [] };
 
-    const primaryAdjuster = (data.adjusterEmails && data.adjusterEmails[0]) || { email: "", sendCopyOf: [] };
+    // Map IDs to Human-Readable Titles for Zoho Creator pick-lists
+    const inspectionMapping = {
+        "storm-damage": "Residential Storm Damage",
+        "structural-loss": "Structural Loss",
+        "large-complex-loss": "Large / Complex Loss",
+        "interior-water-loss": "Interior Water Loss",
+        "lightning-damage": "Lightning Damage",
+        "vandalism": "Vandalism",
+        "chimney-fire-collapse": "Chimney Fire / Collapse",
+        "component-failure": "Component Failure",
+        "hvac-electrical": "HVAC / Electrical",
+        "small-fire": "Small Fire",
+        "plumbing-failure": "Plumbing Failure"
+    };
+
+    const buildingMapping = {
+        "residential": "Residential",
+        "commercial-municipal-industrial": "Commercial / Municipal / Industrial",
+        "multiple-structures": "Multiple Structures"
+    };
+
+    const inspectionType = inspectionMapping[data.inspectionType] || data.inspectionType || "";
+    const buildingType = buildingMapping[data.buildingType] || data.buildingType || "";
 
     return {
         data: {
-            Inspection_Type: data.inspectionType || "",
-            Building_Type: data.buildingType || "",
+            Inspection_Type: inspectionType,
+            Building_Type: buildingType,
             Claim_Number: data.claimNumber || "",
             Insurance_Company: data.insuranceCompany || "",
             Adjuster_Email: primaryAdjuster.email || "",
-            Adjuster_Send_Copy_Of: formatSendCopy(data.adjusterEmails?.[0]?.sendCopyOf || []),
+            Adjuster_Send_Copy_Of: formatSendCopy(primaryAdjuster.sendCopy || []),
             Adjuster_First_Name: data.adjusterFirstName || "",
             Adjuster_Last_Name: data.adjusterLastName || "",
             Adjuster_Phone: data.adjusterPhone || "",
@@ -81,8 +114,7 @@ function mapFormDataToCreator(data) {
             IA_Last_Name: data.iaLastName || "",
             IA_Phone: data.iaPhone || "",
             IA_Company: data.iaCompany || "",
-            IA_Emails_Subform: iaSubform,
-            Adjuster_Emails_Subform: adjSubform,
+            Contact_Emails_Subform: contactSubform,
             Policyholder_First_Name: data.policyholderFirstName || "",
             Policyholder_Last_Name: data.policyholderLastName || "",
             Policyholder_Phone_1: [data.policyholderPhone1, data.policyholderPhone1Extra].filter(Boolean).join(", "),
@@ -95,9 +127,11 @@ function mapFormDataToCreator(data) {
             City: data.city || "",
             State: data.state || "",
             Zip_Code: data.zip || "",
-            Date_of_Loss: data.dateOfLoss || "",
+            Date_of_Loss: data.dateOfLoss || "", 
             Policy_Number: data.policyNumber || "",
             Adjuster_Company: data.adjusterCompany || "",
+            Primary_Client_Type: data.Primary_Client_Type || data.primaryClientType || "",
+            Primary_Client_Type_Selection: (data.Primary_Client_Type || data.primaryClientType) ? [data.Primary_Client_Type || data.primaryClientType] : [],
             Roofer_Name: data.rooferName || "",
             Roofer_Company: data.rooferCompany || "",
             Roofer_Phone: data.rooferPhone || "",
@@ -156,16 +190,43 @@ async function getNewAccessToken() {
 
 module.exports = async (context, basicIO) => {
     try {
-        const action = basicIO.getArgument('action');
         const catalystApp = catalyst.initialize(context);
+        
+        // Robust argument retrieval
+        let body = {};
+        try {
+            let requestBody = null;
+            // Check for different method names depending on Catalyst environment version
+            if (typeof basicIO.getRequestBody === 'function') {
+                requestBody = basicIO.getRequestBody();
+            } else if (typeof basicIO.getRequestBodyAsString === 'function') {
+                requestBody = basicIO.getRequestBodyAsString();
+            }
+            
+            if (requestBody) body = JSON.parse(requestBody);
+        } catch (e) {
+            console.log("Body parse attempt failed or not available:", e.message);
+        }
 
+        const getParam = (key) => {
+            let val = basicIO.getArgument(key);
+            // If not found in arguments, look in the manually parsed body
+            if (val === null || val === undefined || val === '') {
+                val = body[key];
+            }
+            if (Array.isArray(val)) return val[0];
+            return val;
+        };
+
+        const actionRaw = getParam('action');
+        const action = String(actionRaw || '').replace(/['"]/g, '').trim();
+        const getArg = (key) => getParam(key);
+        
         console.log("Environment Variable Keys:", Object.keys(process.env).filter(k => k.startsWith('ZOHO_')));
-
-        // Removed ineffective manual CORS header assignment for BasicIO function
-
+        console.log("Final Action Parsed:", action);
 
         if (action === 'submitInspection') {
-            const data = basicIO.getArgument('data');
+            const data = getArg('data');
 
             // STEP 1: Incoming Form Data
             console.log("STEP 1: Incoming Form Data:", JSON.stringify(data, null, 2));
@@ -186,9 +247,9 @@ module.exports = async (context, basicIO) => {
             const missingFields = requiredFields.filter(field => !data[field] || String(data[field]).trim() === "");
 
             // Primary Adjuster Email check
-            const primaryEmail = data.adjusterEmails && data.adjusterEmails[0] && data.adjusterEmails[0].email;
+            const primaryEmail = (data.contactEmails || []).find(c => c.contactType === "Adjuster (Carrier)")?.email;
             if (!primaryEmail || primaryEmail.trim() === "") {
-                missingFields.push('adjusterEmail (adjusterEmails[0])');
+                missingFields.push('adjusterEmail (Primary Carrier Adjuster)');
             }
 
             if (missingFields.length > 0) {
@@ -201,7 +262,20 @@ module.exports = async (context, basicIO) => {
             }
 
             // Normalize claimNumber
-            data.claimNumber = String(data.claimNumber).trim().toLowerCase();
+            data.claimNumber = String(data.claimNumber).trim();
+
+            // Date of Loss format validation (MM/DD/YYYY)
+            if (data.dateOfLoss) {
+                const dateRegex = /^(0[1-9]|1[0-2])\/(0[1-9]|[12][0-9]|3[01])\/\d{4}$/;
+                if (!dateRegex.test(data.dateOfLoss)) {
+                    basicIO.write(JSON.stringify({ 
+                        success: false, 
+                        error: `Validation Error: Date of Loss must be in MM/DD/YYYY format (received: ${data.dateOfLoss})` 
+                    }));
+                    context.close();
+                    return;
+                }
+            }
 
             // 2. Flexible Duplicate Prevention (24h Window)
             try {
@@ -315,15 +389,15 @@ module.exports = async (context, basicIO) => {
                 data.insuranceCompany = resolvedId;
             }
 
-            console.log("Adjuster sendCopyOf RAW:", data.adjusterEmails);
-            console.log("Formatted Send Copy:", formatSendCopy(data.adjusterEmails?.[0]?.sendCopyOf));
+            console.log("Contact Emails RAW:", data.contactEmails);
+            const primaryAdj = (data.contactEmails || []).find(c => c.contactType === "Adjuster (Carrier)");
+            console.log("Primary Adjuster sendCopy RAW:", primaryAdj?.sendCopy);
 
             const creatorPayload = mapFormDataToCreator(data);
 
             // FINAL PAYLOAD LOGGING (VERY IMPORTANT FOR DEBUGGING)
-            console.log("FINAL CREATOR PAYLOAD:", JSON.stringify(creatorPayload, null, 2));
-            console.log("IA Send_Copy_Of payload:", JSON.stringify((creatorPayload.data.IA_Emails_Subform || []).map(s => s.Send_Copy_Of)));
-            console.log("Adjuster Send_Copy_Of payload:", JSON.stringify((creatorPayload.data.Adjuster_Emails_Subform || []).map(s => s.Send_Copy_Of)));
+            console.log("FINAL CREATOR PAYLOAD (MM/DD/YYYY):", JSON.stringify(creatorPayload, null, 2));
+            console.log("Contact Emails Subform payload:", JSON.stringify((creatorPayload.data.Contact_Emails_Subform || []).map(s => s.Send_Copy_Of)));
 
             // Check if Adjuster_Send_Copy_Of is empty or undefined
             if (!creatorPayload.data.Adjuster_Send_Copy_Of || creatorPayload.data.Adjuster_Send_Copy_Of.length === 0) {
@@ -443,7 +517,7 @@ module.exports = async (context, basicIO) => {
             context.close();
 
         } else if (action === 'retrySubmission') {
-            const rowId = basicIO.getArgument('rowId');
+            const rowId = getArg('rowId');
             if (!rowId) {
                 basicIO.write(JSON.stringify({ success: false, error: 'rowId is required for retries' }));
                 context.close();
@@ -513,6 +587,49 @@ module.exports = async (context, basicIO) => {
                 basicIO.write(JSON.stringify({ success: false, error: err.message }));
                 context.close();
             }
+
+        } else if (action === 'updateFailedSubmission') {
+            const rowId = getArg('rowId');
+            const newPayload = getArg('payload');
+
+            if (!rowId || !newPayload) {
+                basicIO.write(JSON.stringify({ success: false, error: 'rowId and payload are required' }));
+                context.close();
+                return;
+            }
+
+            try {
+                const table = catalystApp.datastore().table('FailedSubmissions');
+                await table.updateRow({
+                    ROWID: rowId,
+                    Payload: typeof newPayload === 'string' ? newPayload : JSON.stringify(newPayload)
+                });
+                basicIO.write(JSON.stringify({ success: true, message: 'Submission record updated successfully.' }));
+            } catch (err) {
+                console.error("Update Failed Submission Error:", err);
+                basicIO.write(JSON.stringify({ success: false, error: err.message }));
+            }
+            context.close();
+
+        } else if (action === 'deleteFailedSubmission') {
+            const rowId = getArg('rowId');
+
+            if (!rowId) {
+                basicIO.write(JSON.stringify({ success: false, error: 'rowId is required' }));
+                context.close();
+                return;
+            }
+
+            try {
+                const table = catalystApp.datastore().table('FailedSubmissions');
+                await table.deleteRow(rowId);
+                basicIO.write(JSON.stringify({ success: true, message: 'Record deleted successfully.' }));
+            } catch (err) {
+                console.error("Delete Failed Submission Error:", err);
+                basicIO.write(JSON.stringify({ success: false, error: err.message }));
+            }
+            context.close();
+
             /* ================================================================ */
             /*  ACTION: searchInsuranceCompanies                                */
             /*  Searches both InsuranceCompanies.name and InsuranceAliases      */
@@ -520,7 +637,7 @@ module.exports = async (context, basicIO) => {
             /*            matchedBy: "name" | "alias" }                         */
             /* ================================================================ */
         } else if (action === 'searchInsuranceCompanies') {
-            const search = (basicIO.getArgument('search') || '').trim();
+            const search = (getArg('search') || '').trim();
 
             const zcql = catalystApp.zcql();
             // ZCQL LIKE is case-sensitive and ZCQL does NOT support LOWER()/UPPER().
@@ -620,7 +737,7 @@ module.exports = async (context, basicIO) => {
             /*  ALWAYS returns zoho_creator_id (record ID), never name          */
             /* ================================================================ */
         } else if (action === 'resolveCompanyId') {
-            const companyName = (basicIO.getArgument('companyName') || '').trim();
+            const companyName = (getArg('companyName') || '').trim();
 
             if (!companyName) {
                 basicIO.write(JSON.stringify({ success: false, error: 'companyName is required' }));
@@ -789,7 +906,7 @@ module.exports = async (context, basicIO) => {
             /*  Direct creation via User Modal                                  */
             /* ================================================================ */
         } else if (action === 'createCompany') {
-            const data = basicIO.getArgument('data');
+            const data = getArg('data');
 
             if (!data || !data.name) {
                 basicIO.write(JSON.stringify({ success: false, error: 'Company Name is required' }));

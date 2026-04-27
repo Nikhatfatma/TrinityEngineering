@@ -2,6 +2,8 @@
 
 import { useState, FormEvent } from "react";
 import Link from "next/link";
+import { isValidMMDDYYYY } from "@/lib/utils/validation";
+import { DatePicker } from "@/components/inspection-form/DatePicker";
 
 interface ServiceAssignmentFormProps {
   serviceType?: string;
@@ -79,7 +81,18 @@ export default function ServiceAssignmentForm({ serviceType = "" }: ServiceAssig
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
   ) => {
     const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
+    let nextValue = value;
+
+    // Auto-format Date of Loss (MM/DD/YYYY)
+    if (name === "dateOfLoss") {
+      let v = value.replace(/\D/g, "");
+      if (v.length > 8) v = v.slice(0, 8);
+      if (v.length > 4) v = `${v.slice(0, 2)}/${v.slice(2, 4)}/${v.slice(4)}`;
+      else if (v.length > 2) v = `${v.slice(0, 2)}/${v.slice(2)}`;
+      nextValue = v;
+    }
+
+    setFormData((prev) => ({ ...prev, [name]: nextValue }));
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -105,7 +118,7 @@ export default function ServiceAssignmentForm({ serviceType = "" }: ServiceAssig
       case 2:
         return !!(formData.propertyAddress && formData.city && formData.state && formData.zip && formData.propertyType);
       case 3:
-        return !!formData.dateOfLoss;
+        return !!formData.dateOfLoss && isValidMMDDYYYY(formData.dateOfLoss);
       case 4:
         return !!(formData.serviceType && formData.inspectionContact && formData.inspectionPhone && formData.lossDescription);
       default:
@@ -460,15 +473,11 @@ export default function ServiceAssignmentForm({ serviceType = "" }: ServiceAssig
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
-                    Date of Loss <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="date"
+                  <DatePicker
+                    label="Date of Loss"
                     name="dateOfLoss"
                     value={formData.dateOfLoss}
                     onChange={handleChange}
-                    className="w-full px-4 py-3 rounded-lg bg-gray-50 dark:bg-background-dark border border-gray-300 dark:border-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary dark:focus:ring-accent focus:border-transparent transition-all"
                     required
                   />
                 </div>
