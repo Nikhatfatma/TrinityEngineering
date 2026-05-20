@@ -24,7 +24,7 @@ export default {
         "accent-light": "#60A5FA",
       },
       fontFamily: {
-        display: ["Manrope", "sans-serif"],
+        display: ["var(--font-mulish)", "sans-serif"],
       },
       borderRadius: {
         DEFAULT: "0.25rem",

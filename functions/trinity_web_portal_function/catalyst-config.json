@@ -4,15 +4,18 @@
 		"stack": "node20",
 		"type": "basicio",
 		"env_variables": {
-			"ZOHO_CLIENT_ID": "1000.E8FASHJGE81V5HA34B92EF69GWQGTR",
-			"ZOHO_CREATOR_APP_NAME": "inspection-app",
+			"ZOHO_CLIENT_ID": "1000.J9ER2GM901C8OCRCTW8EJ75GEUVZ9U",
+			"ZOHO_CREATOR_APP_NAME": "engineering-inspections",
 			"ADMIN_PASSWORD": "T3am@Secure#2026",
 			"ZOHO_CREATOR_ACCOUNT_OWNER": "trinity5",
-			"ZOHO_CLIENT_SECRET": "d961fcb2c4670a764438906b30b85ce02ee8417f0e",
+			"ZOHO_CLIENT_SECRET": "1257b6c353e8871c11d0da94d181efd90f4c098466",
+			"ADMIN_PORTAL_URL": "https://trinitypllc.com/admin/failed-submissions",
 			"ZOHO_CREATOR_FORM_NAME": "Inspection_Request_Public_Submission",
 			"NEXT_PUBLIC_GOOGLE_MAPS_API_KEY": "AIzaSyDaEos8OJSGoRSxoDVpc7q74rb3b45sVf4",
+			"ZOHO_COMPANIES_APP_NAME": "engineering-inspections",
 			"ADMIN_USERNAME": "trinity_admin",
-			"ZOHO_REFRESH_TOKEN": "1000.b13fa0453d076b66bc2ac2c55f3988fa.5dc9706faeb8c150ec4c3d7fc49ff450"
+			"ZOHO_CRM_ZAPIKEY": "1003.f7c08221c5ca8b50a622305932817e35.29a199af53cccc57633c5a46aa5be77b",
+			"ZOHO_REFRESH_TOKEN": "1000.579f6dd24181322d98451c8cf141352a.a4140c581b79f45ca11f1d62cc6ffcc8"
 		}
 	},
 	"execution": {

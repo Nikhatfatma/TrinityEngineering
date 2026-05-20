@@ -3,7 +3,7 @@ const catalyst = require('zcatalyst-sdk-node');
 // Helper to transform multi-select options for Zoho Creator
 const formatSendCopy = (prefs = []) => {
     console.log("[formatSendCopy] INPUT:", prefs);
-    
+
     if (!Array.isArray(prefs)) {
         console.log("[formatSendCopy] Warning: prefs is not an array:", prefs);
         return [];
@@ -13,11 +13,11 @@ const formatSendCopy = (prefs = []) => {
         "report": "Report",
         "invoice": "Invoice",
         "notifications": "Notifications",
-        "notification": "Notifications" 
+        "notification": "Notifications"
     };
 
     const normalized = prefs.map(p => String(p).toLowerCase());
-    
+
     // Expand "all" into individual options as Zoho Creator expects actual values
     if (normalized.includes("all")) {
         const out = ["Report", "Invoice", "Notifications"];
@@ -39,7 +39,7 @@ const formatSendCopy = (prefs = []) => {
 function mapFormDataToCreator(data) {
     // Collect all emails into a unified subform structure
     const unifiedEmails = data.contactEmails || [];
-    
+
     // Fallback for transition period if old fields arrive
     if (unifiedEmails.length === 0) {
         if (data.iaRecipients) {
@@ -54,7 +54,7 @@ function mapFormDataToCreator(data) {
     const sortedEmails = [...unifiedEmails].sort((a, b) => {
         const typeA = a.contactType || "";
         const typeB = b.contactType || "";
-        
+
         // Define priority: Adjuster (Carrier) = 1, IA = 2
         const priority = { "Adjuster (Carrier)": 1, "IA": 2 };
         return (priority[typeA] || 99) - (priority[typeB] || 99);
@@ -62,38 +62,57 @@ function mapFormDataToCreator(data) {
 
     const contactSubform = sortedEmails.filter(r => r.email).map((r, i) => {
         const formatted = formatSendCopy(r.sendCopy || []);
+
+        // Map frontend contact types to Zoho Creator pick-list options
+        let typeMapping = r.contactType;
+        if (r.contactType === "Adjuster (Carrier)") {
+            typeMapping = "Ins Adjuster (Carrier)";
+        } else if (r.contactType === "IA") {
+            typeMapping = "Independent Adjuster";
+        }
+
         return {
             "Email": r.email,
-            "Contact_Type": r.contactType,
+            "Type_field": typeMapping,
             "Send_Copy_Of": formatted
         };
     });
 
-    const primaryAdjuster = unifiedEmails.find(c => c.contactType === "Adjuster (Carrier)") || { email: "", sendCopy: [] };
 
-    // Map IDs to Human-Readable Titles for Zoho Creator pick-lists
+    // Exact matches for the Radio options in Zoho Creator (engineering-inspections)
     const inspectionMapping = {
         "storm-damage": "Residential Storm Damage",
-        "structural-loss": "Structural Loss",
+        "commercial-municipal-industrial": "Commercial/Municipal/Ind",
+        "structural-loss": "Structural Damage",
         "large-complex-loss": "Large / Complex Loss",
         "interior-water-loss": "Interior Water Loss",
         "lightning-damage": "Lightning Damage",
         "vandalism": "Vandalism",
         "chimney-fire-collapse": "Chimney Fire / Collapse",
         "component-failure": "Component Failure",
-        "hvac-electrical": "HVAC / Electrical",
+        "hvac-electrical": "HVAC/Electrical",
         "small-fire": "Small Fire",
         "plumbing-failure": "Plumbing Failure"
     };
 
     const buildingMapping = {
         "residential": "Residential",
-        "commercial-municipal-industrial": "Commercial / Municipal / Industrial",
+        "commercial-municipal-industrial": "Commercial/Municipal/Ind",
         "multiple-structures": "Multiple Structures"
     };
 
     const inspectionType = inspectionMapping[data.inspectionType] || data.inspectionType || "";
     const buildingType = buildingMapping[data.buildingType] || data.buildingType || "";
+
+    const primaryAdjuster = data.contactEmails.find(c => c.contactType === "Adjuster (Carrier)") || {};
+    const primaryIA = data.contactEmails.find(c => c.contactType === "IA") || {};
+
+    // Combine all emails into a single subform as before
+    const unifiedSubform = data.contactEmails.map(c => ({
+        Email: c.email || "",
+        Type_field: c.contactType === "IA" ? "Independent Adjuster" : "Ins Adjuster (Carrier)",
+        Send_Copy_Of: formatSendCopy(c.sendCopy || [])
+    }));
 
     return {
         data: {
@@ -101,45 +120,64 @@ function mapFormDataToCreator(data) {
             Building_Type: buildingType,
             Claim_Number: data.claimNumber || "",
             Insurance_Company: data.insuranceCompany || "",
-            Adjuster_Email: primaryAdjuster.email || "",
-            Adjuster_Send_Copy_Of: formatSendCopy(primaryAdjuster.sendCopy || []),
-            Adjuster_First_Name: data.adjusterFirstName || "",
-            Adjuster_Last_Name: data.adjusterLastName || "",
+            Client_Email: primaryAdjuster.email || "",
+            IA_Email: primaryIA.email || "",
+            Adjuster_Name: {
+                first_name: data.adjusterFirstName || "",
+                last_name: data.adjusterLastName || ""
+            },
             Adjuster_Phone: data.adjusterPhone || "",
-            Adjuster_Phone_Ext: data.adjusterPhoneExt || "",
-            Second_Email_for_Report: data.secondEmailForReport || "",
-            Adjusters_Comments_or_Special_Notes: data.adjusterComments || "",
-            Is_IA_Claim: data.isIAClaim ? ["true"] : [],
-            IA_First_Name: data.iaFirstName || "",
-            IA_Last_Name: data.iaLastName || "",
+            Adjuster_Phone_Extension: data.adjusterPhoneExt || "",
+            Second_Email_for_Report_Submission: data.secondEmailForReport || "",
+            Adjuster_s_Comments_and_Special_Notes_or_Instructions: data.adjusterComments || "",
+            This_Claim_Is_Being_Submitted_by_an_IA: data.isIAClaim ? "true" : "false",
+            IA_Name: {
+                first_name: data.iaFirstName || "",
+                last_name: data.iaLastName || ""
+            },
             IA_Phone: data.iaPhone || "",
             IA_Company: data.iaCompany || "",
-            Contact_Emails_Subform: contactSubform,
-            Policyholder_First_Name: data.policyholderFirstName || "",
-            Policyholder_Last_Name: data.policyholderLastName || "",
-            Policyholder_Phone_1: [data.policyholderPhone1, data.policyholderPhone1Extra].filter(Boolean).join(", "),
+            Notification_Preferences: unifiedSubform,
+            PH_Name_Individual: {
+                first_name: data.policyholderFirstName || "",
+                last_name: data.policyholderLastName || ""
+            },
+            PH_Name_Commercial: data.buildingType === 'commercial-municipal-industrial' ? (data.policyholderFirstName + " " + data.policyholderLastName).trim() : "",
+            PH_Phone_1: [data.policyholderPhone1, data.policyholderPhone1Extra].filter(Boolean).join(", "),
             Property_Contact_Email: data.propertyContactEmail || "",
-            Spouse_or_Second_Policyholder_First_Name: data.spouseFirstName || "",
-            Spouse_or_Second_Policyholder_Last_Name: data.spouseLastName || "",
+            Spouse_or_Second_Policyholder: {
+                first_name: data.spouseFirstName || "",
+                last_name: data.spouseLastName || ""
+            },
             Policyholder_Phone_2: data.policyholderPhone2 || "",
-            Street_Address: data.streetAddress || "",
-            Address_Line_2: data.addressLine2 || "",
-            City: data.city || "",
-            State: data.state || "",
-            Zip_Code: data.zip || "",
-            Date_of_Loss: data.dateOfLoss || "", 
+            Inspection_Address: {
+                address_line_1: data.streetAddress || "",
+                address_line_2: data.addressLine2 || "",
+                district_city: data.city || "",
+                state_province: data.state || "",
+                postal_code: data.zip || ""
+            },
+            Date_of_Loss: data.dateOfLoss || "",
             Policy_Number: data.policyNumber || "",
             Adjuster_Company: data.adjusterCompany || "",
-            Primary_Client_Type: data.Primary_Client_Type || data.primaryClientType || "",
-            Primary_Client_Type_Selection: (data.Primary_Client_Type || data.primaryClientType) ? [data.Primary_Client_Type || data.primaryClientType] : [],
-            Roofer_Name: data.rooferName || "",
+            Primary_Client: data.primaryClientType || "",
+            Primary_Client_Type_Selection: data.primaryClientType ? [data.primaryClientType] : [],
+            Roofer_Name: {
+                first_name: data.rooferName || "",
+                last_name: ""
+            },
             Roofer_Company: data.rooferCompany || "",
             Roofer_Phone: data.rooferPhone || "",
             Roofer_Email: data.rooferEmail || "",
-            Public_Adjuster_Name: data.publicAdjusterName || "",
+            Public_Adjuster_Name: {
+                first_name: data.publicAdjusterName || "",
+                last_name: ""
+            },
             Public_Adjuster_Company: data.publicAdjusterCompany || "",
             Public_Adjuster_Phone: data.publicAdjusterPhone || "",
-            Public_Adjuster_Email: data.publicAdjusterEmail || ""
+            Public_Adjuster_Email: data.publicAdjusterEmail || "",
+            // Inspection_Request: inspectionType, // Disabled: This is a Lookup field and needs an ID, not a string
+            Inspection_Name: `${(data.policyholderFirstName + " " + data.policyholderLastName).trim()} - ${inspectionType}`
         }
     };
 }
@@ -188,10 +226,40 @@ async function getNewAccessToken() {
     return tokenPromise;
 }
 
+async function notifyFailureOnCliq({ rowId, payload, claimNumber, adjusterEmail, errorDetails, createdTime }) {
+    try {
+        const zapiKey = (process.env.ZOHO_CRM_ZAPIKEY || '').trim();
+        if (!zapiKey) {
+            console.warn('[Cliq Notify] ZOHO_CRM_ZAPIKEY not set — skipping');
+            return;
+        }
+        const adminUrl = process.env.ADMIN_PORTAL_URL || 'https://trinitypllc.com/admin/failed-submissions';
+        const body = {
+            message: `Trinity: Failure While Adding Record from Portal Error: ${errorDetails || 'Unknown error'}`,
+            url: adminUrl,
+            ROWID: String(rowId || ''),
+            Payload: typeof payload === 'string' ? payload : JSON.stringify(payload || {}),
+            ClaimNumber: claimNumber || 'Unknown',
+            AdjusterEmail: adjusterEmail || 'Unknown',
+            ErrorDetails: errorDetails || '',
+            CREATEDTIME: createdTime || new Date().toISOString()
+        };
+        const crmFunctionUrl = `https://www.zohoapis.com/crm/v7/functions/restaurantcanadalogcliq1/actions/execute?auth_type=apikey&zapikey=${zapiKey}`;
+        const res = await fetch(crmFunctionUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body)
+        });
+        console.log('[Cliq Notify] Response:', JSON.stringify(await res.json()));
+    } catch (err) {
+        console.error('[Cliq Notify] Failed:', err.message);
+    }
+}
+
 module.exports = async (context, basicIO) => {
     try {
         const catalystApp = catalyst.initialize(context);
-        
+
         // Robust argument retrieval
         let body = {};
         try {
@@ -202,7 +270,7 @@ module.exports = async (context, basicIO) => {
             } else if (typeof basicIO.getRequestBodyAsString === 'function') {
                 requestBody = basicIO.getRequestBodyAsString();
             }
-            
+
             if (requestBody) body = JSON.parse(requestBody);
         } catch (e) {
             console.log("Body parse attempt failed or not available:", e.message);
@@ -221,7 +289,7 @@ module.exports = async (context, basicIO) => {
         const actionRaw = getParam('action');
         const action = String(actionRaw || '').replace(/['"]/g, '').trim();
         const getArg = (key) => getParam(key);
-        
+
         console.log("Environment Variable Keys:", Object.keys(process.env).filter(k => k.startsWith('ZOHO_')));
         console.log("Final Action Parsed:", action);
 
@@ -268,9 +336,9 @@ module.exports = async (context, basicIO) => {
             if (data.dateOfLoss) {
                 const dateRegex = /^(0[1-9]|1[0-2])\/(0[1-9]|[12][0-9]|3[01])\/\d{4}$/;
                 if (!dateRegex.test(data.dateOfLoss)) {
-                    basicIO.write(JSON.stringify({ 
-                        success: false, 
-                        error: `Validation Error: Date of Loss must be in MM/DD/YYYY format (received: ${data.dateOfLoss})` 
+                    basicIO.write(JSON.stringify({
+                        success: false,
+                        error: `Validation Error: Date of Loss must be in MM/DD/YYYY format (received: ${data.dateOfLoss})`
                     }));
                     context.close();
                     return;
@@ -290,7 +358,16 @@ module.exports = async (context, basicIO) => {
                     const timeWindow = hours * 60 * 60 * 1000;
 
                     if (Date.now() - createdTime < timeWindow) {
-                        basicIO.write(JSON.stringify({ success: false, error: `Duplicate Submission: A claim with this number has already been processed within the last ${hours} hours.` }));
+                        const dupErrMsg = `Duplicate Submission: Claim #${data.claimNumber} was already processed within the last ${hours} hours.`;
+                        await notifyFailureOnCliq({
+                            rowId: String(existing[0].ProcessedClaims.ROWID || ''),
+                            payload: JSON.stringify(data),
+                            claimNumber: data.claimNumber || 'Unknown',
+                            adjusterEmail: (data.contactEmails || []).find(c => c.contactType === 'Adjuster (Carrier)')?.email || 'Unknown',
+                            errorDetails: dupErrMsg,
+                            createdTime: new Date().toISOString()
+                        });
+                        basicIO.write(JSON.stringify({ success: false, error: dupErrMsg }));
                         context.close();
                         return;
                     }
@@ -299,91 +376,81 @@ module.exports = async (context, basicIO) => {
                 console.error("Duplicate check skipped (table may not exist yet or ZCQL error):", err.message);
             }
 
-            // FIX: Added DB → Zoho → Create fallback for Insurance_Company
+            // FIX: The frontend sends zoho_creator_id directly. Look it up in DB to confirm it's valid.
             if (data.insuranceCompany && data.insuranceCompany.trim()) {
-                const companyName = data.insuranceCompany.trim();
+                const incomingValue = data.insuranceCompany.trim();
                 let resolvedId = null;
 
-                // STEP 1: Check local Catalyst DB
-                try {
-                    const zcqlResolve = catalystApp.zcql();
-                    const safeCompanyName = companyName.replace(/'/g, "''");
-                    const resolveQuery = `SELECT ROWID, name, zoho_creator_id, status FROM InsuranceCompanies WHERE name = '${safeCompanyName}'`;
-                    const resolveResult = await zcqlResolve.executeZCQLQuery(resolveQuery);
-                    if (resolveResult && resolveResult.length > 0) {
-                        const activeRecord = resolveResult.find(r => r.InsuranceCompanies.status === 'Active') || resolveResult[0];
-                        resolvedId = activeRecord.InsuranceCompanies.zoho_creator_id || null;
-                        if (resolvedId) console.log("[Insurance Resolve] DB HIT | ID:", resolvedId);
-                    }
-                } catch (dbErr) {
-                    console.error("[Insurance Resolve] DB lookup failed:", dbErr.message);
-                }
-
-                // STEP 2: If not found in DB → search Zoho Creator (All_Companies report)
-                if (!resolvedId) {
+                // Check if it's already a Zoho Creator ID (numeric string)
+                if (/^\d+$/.test(incomingValue)) {
+                    // It's already an ID — look it up in DB by zoho_creator_id to confirm
                     try {
-                        let resolveToken = await getNewAccessToken();
-                        const resolveOwner = (process.env.ZOHO_CREATOR_ACCOUNT_OWNER || 'owner').replace(/['\"]/g, '').trim();
-                        const resolveApp = (process.env.ZOHO_CREATOR_APP_NAME || 'inspection-app').replace(/['\"]/g, '').trim();
-                        const reportUrl = `https://creator.zoho.com/api/v2/${resolveOwner}/${resolveApp}/report/All_Companies?criteria=(Insurance_Company_Name=="${companyName}")`;
-                        let creatorSearchRes = await fetch(reportUrl, { method: 'GET', headers: { 'Authorization': `Zoho-oauthtoken ${resolveToken}` } });
-                        // Handle token expiry
-                        if (creatorSearchRes.status === 401) {
-                            cachedToken = null; tokenExpiry = 0;
-                            resolveToken = await getNewAccessToken();
-                            creatorSearchRes = await fetch(reportUrl, { method: 'GET', headers: { 'Authorization': `Zoho-oauthtoken ${resolveToken}` } });
+                        const zcqlResolve = catalystApp.zcql();
+                        const resolveQuery = `SELECT ROWID, name, zoho_creator_id, status FROM InsuranceCompanies WHERE zoho_creator_id = '${incomingValue}'`;
+                        const resolveResult = await zcqlResolve.executeZCQLQuery(resolveQuery);
+                        if (resolveResult && resolveResult.length > 0) {
+                            resolvedId = incomingValue; // Already a valid Creator ID
+                            console.log("[Insurance Resolve] DB HIT | ID:", resolvedId);
                         }
-                        const creatorSearchData = await creatorSearchRes.json();
-                        if (creatorSearchData.data && creatorSearchData.data.length > 0) {
-                            const found = creatorSearchData.data.find(c => c.Status === 'Active') || creatorSearchData.data[0];
-                            resolvedId = String(found.ID);
-                            console.log("[Insurance Resolve] CREATOR HIT | ID:", resolvedId);
-                            // Cache in local DB for future lookups
-                            try {
-                                const icTable = catalystApp.datastore().table('InsuranceCompanies');
-                                await icTable.insertRow({ name: found.Insurance_Company_Name || companyName, zoho_creator_id: resolvedId, status: found.Status || 'Active' });
-                            } catch (cacheErr) { console.error("[Insurance Resolve] Failed to cache in DB:", cacheErr.message); }
-                        }
-                    } catch (creatorErr) {
-                        console.error("[Insurance Resolve] Creator search failed:", creatorErr.message);
+                    } catch (dbErr) {
+                        console.error("[Insurance Resolve] DB lookup failed:", dbErr.message);
                     }
-                }
 
-                // STEP 3: If still not found → create new company in Zoho Creator
-                if (!resolvedId) {
+                    // If not in DB, trust it anyway (it came from the portal selection)
+                    if (!resolvedId) {
+                        resolvedId = incomingValue;
+                        console.log("[Insurance Resolve] Using provided ID directly:", resolvedId);
+                    }
+                } else {
+                    // It's a company name string — do the full name→ID resolve
+                    const companyName = incomingValue;
                     try {
-                        let resolveToken = await getNewAccessToken();
-                        const resolveOwner = (process.env.ZOHO_CREATOR_ACCOUNT_OWNER || 'owner').replace(/['\"]/g, '').trim();
-                        const resolveApp = (process.env.ZOHO_CREATOR_APP_NAME || 'inspection-app').replace(/['\"]/g, '').trim();
-                        const createUrl = `https://creator.zoho.com/api/v2/${resolveOwner}/${resolveApp}/form/All_Companies1`;
-                        const createPayload = { data: { Insurance_Company_Name: companyName, Status: 'Pending' } };
-                        let createRes = await fetch(createUrl, { method: 'POST', headers: { 'Authorization': `Zoho-oauthtoken ${resolveToken}`, 'Content-Type': 'application/json' }, body: JSON.stringify(createPayload) });
-                        // Handle token expiry
-                        if (createRes.status === 401) {
-                            cachedToken = null; tokenExpiry = 0;
-                            resolveToken = await getNewAccessToken();
-                            createRes = await fetch(createUrl, { method: 'POST', headers: { 'Authorization': `Zoho-oauthtoken ${resolveToken}`, 'Content-Type': 'application/json' }, body: JSON.stringify(createPayload) });
+                        const zcqlResolve = catalystApp.zcql();
+                        const safeCompanyName = companyName.replace(/'/g, "''");
+                        const resolveQuery = `SELECT ROWID, name, zoho_creator_id, status FROM InsuranceCompanies WHERE name = '${safeCompanyName}'`;
+                        const resolveResult = await zcqlResolve.executeZCQLQuery(resolveQuery);
+                        if (resolveResult && resolveResult.length > 0) {
+                            const activeRecord = resolveResult.find(r => r.InsuranceCompanies.status === 'Active') || resolveResult[0];
+                            resolvedId = activeRecord.InsuranceCompanies.zoho_creator_id || null;
+                            if (resolvedId) console.log("[Insurance Resolve] DB HIT by name | ID:", resolvedId);
                         }
-                        const createData = await createRes.json();
-                        if (createData.code === 3000 && createData.data && createData.data.ID) {
-                            resolvedId = String(createData.data.ID);
-                            console.log("[Insurance Resolve] CREATED NEW | ID:", resolvedId);
-                            // Cache in local DB
-                            try {
-                                const icTable = catalystApp.datastore().table('InsuranceCompanies');
-                                await icTable.insertRow({ name: companyName, zoho_creator_id: resolvedId, status: 'Pending' });
-                            } catch (cacheErr) { console.error("[Insurance Resolve] Failed to cache new company in DB:", cacheErr.message); }
-                        } else {
-                            console.error("[Insurance Resolve] Creation failed:", JSON.stringify(createData));
-                        }
-                    } catch (createErr) {
-                        console.error("[Insurance Resolve] Creator create failed:", createErr.message);
+                    } catch (dbErr) {
+                        console.error("[Insurance Resolve] DB lookup failed:", dbErr.message);
                     }
                 }
 
-                // STEP 4: Replace company name with resolved ID, or throw if all steps failed
+                // STEP 4: Replace with resolved ID, or handle failure inline
                 if (!resolvedId) {
-                    throw new Error(`[Insurance Resolve] FAILED: Could not resolve or create Insurance Company "${companyName}" in Zoho Creator.`);
+                    const resolveErrMsg = `Insurance Company could not be resolved for value "${incomingValue}". Please verify the company name or contact support.`;
+                    console.error('[Insurance Resolve]', resolveErrMsg);
+
+                    // Save to FailedSubmissions so admin can retry
+                    let savedRow = null;
+                    try {
+                        const failTable = catalystApp.datastore().table('FailedSubmissions');
+                        savedRow = await failTable.insertRow({
+                            Payload: JSON.stringify(data),
+                            ClaimNumber: data.claimNumber || 'Unknown',
+                            AdjusterEmail: (data.contactEmails || []).find(c => c.contactType === 'Adjuster (Carrier)')?.email || 'Unknown',
+                            ErrorDetails: resolveErrMsg,
+                            Resolved: false
+                        });
+                    } catch (dbErr) {
+                        console.error('[Insurance Resolve] Could not save to FailedSubmissions:', dbErr.message);
+                    }
+
+                    await notifyFailureOnCliq({
+                        rowId: savedRow?.ROWID,
+                        payload: JSON.stringify(data),
+                        claimNumber: data.claimNumber || 'Unknown',
+                        adjusterEmail: (data.contactEmails || []).find(c => c.contactType === 'Adjuster (Carrier)')?.email || 'Unknown',
+                        errorDetails: resolveErrMsg,
+                        createdTime: new Date().toISOString()
+                    });
+
+                    basicIO.write(JSON.stringify({ success: false, error: resolveErrMsg }));
+                    context.close();
+                    return;
                 }
                 console.log("[Creator API] Resolved Insurance Company ID:", resolvedId);
                 data.insuranceCompany = resolvedId;
@@ -397,7 +464,7 @@ module.exports = async (context, basicIO) => {
 
             // FINAL PAYLOAD LOGGING (VERY IMPORTANT FOR DEBUGGING)
             console.log("FINAL CREATOR PAYLOAD (MM/DD/YYYY):", JSON.stringify(creatorPayload, null, 2));
-            console.log("Contact Emails Subform payload:", JSON.stringify((creatorPayload.data.Contact_Emails_Subform || []).map(s => s.Send_Copy_Of)));
+            console.log("Contact Emails Subform payload:", JSON.stringify((creatorPayload.data.Notification_Preferences || []).map(s => s.Send_Copy_Of)));
 
             // Check if Adjuster_Send_Copy_Of is empty or undefined
             if (!creatorPayload.data.Adjuster_Send_Copy_Of || creatorPayload.data.Adjuster_Send_Copy_Of.length === 0) {
@@ -471,17 +538,28 @@ module.exports = async (context, basicIO) => {
                 const table = catalystApp.datastore().table('FailedSubmissions');
 
                 // Fallback attempt
+                let insertedRow = null;
                 try {
-                    await table.insertRow({
+                    insertedRow = await table.insertRow({
                         Payload: JSON.stringify(data),
                         ClaimNumber: data.claimNumber || 'Unknown',
-                        AdjusterEmail: data.adjusterEmail || 'Unknown',
+                        AdjusterEmail: (data.contactEmails || []).find(c => c.contactType === 'Adjuster (Carrier)')?.email || 'Unknown',
                         ErrorDetails: err.message || JSON.stringify(err),
                         Resolved: false
                     });
                 } catch (dbErr) {
                     console.error("Failed to insert into Datastore:", dbErr);
                 }
+
+                // Cliq notification
+                await notifyFailureOnCliq({
+                    rowId: insertedRow?.ROWID,
+                    payload: JSON.stringify(data),
+                    claimNumber: data.claimNumber || 'Unknown',
+                    adjusterEmail: (data.contactEmails || []).find(c => c.contactType === 'Adjuster (Carrier)')?.email || 'Unknown',
+                    errorDetails: err.message || JSON.stringify(err),
+                    createdTime: new Date().toISOString()
+                });
 
                 // Email notification attempt
                 try {
@@ -512,6 +590,14 @@ module.exports = async (context, basicIO) => {
                 basicIO.write(JSON.stringify({ success: true, data: records }));
             } catch (err) {
                 console.error("ZCQL Fetch Error:", err);
+                await notifyFailureOnCliq({
+                    rowId: '',
+                    payload: '',
+                    claimNumber: 'N/A',
+                    adjusterEmail: 'N/A',
+                    errorDetails: `getFailedSubmissions DB query failed: ${err.message}`,
+                    createdTime: new Date().toISOString()
+                });
                 basicIO.write(JSON.stringify({ success: false, error: err.message }));
             }
             context.close();
@@ -524,10 +610,14 @@ module.exports = async (context, basicIO) => {
                 return;
             }
 
+            let retryRow = null;
+            let retryData = null;
             try {
                 const table = catalystApp.datastore().table('FailedSubmissions');
-                const row = await table.getRow(rowId);
-                const data = JSON.parse(row.Payload);
+                retryRow = await table.getRow(rowId);
+                retryData = JSON.parse(retryRow.Payload);
+                const row = retryRow;
+                const data = retryData;
                 const creatorPayload = mapFormDataToCreator(data);
 
                 let token = await getNewAccessToken();
@@ -584,6 +674,14 @@ module.exports = async (context, basicIO) => {
                 basicIO.write(JSON.stringify({ success: true, message: 'Retry successful! Submission completed.' }));
                 context.close();
             } catch (err) {
+                await notifyFailureOnCliq({
+                    rowId: rowId,
+                    payload: retryRow?.Payload,
+                    claimNumber: retryData?.claimNumber || 'Unknown',
+                    adjusterEmail: (retryData?.contactEmails || []).find(c => c.contactType === 'Adjuster (Carrier)')?.email || 'Unknown',
+                    errorDetails: err.message,
+                    createdTime: new Date().toISOString()
+                });
                 basicIO.write(JSON.stringify({ success: false, error: err.message }));
                 context.close();
             }
@@ -607,6 +705,14 @@ module.exports = async (context, basicIO) => {
                 basicIO.write(JSON.stringify({ success: true, message: 'Submission record updated successfully.' }));
             } catch (err) {
                 console.error("Update Failed Submission Error:", err);
+                await notifyFailureOnCliq({
+                    rowId: String(rowId || ''),
+                    payload: typeof newPayload === 'string' ? newPayload : JSON.stringify(newPayload || {}),
+                    claimNumber: 'N/A',
+                    adjusterEmail: 'N/A',
+                    errorDetails: `updateFailedSubmission DB update failed for ROWID ${rowId}: ${err.message}`,
+                    createdTime: new Date().toISOString()
+                });
                 basicIO.write(JSON.stringify({ success: false, error: err.message }));
             }
             context.close();
@@ -626,6 +732,14 @@ module.exports = async (context, basicIO) => {
                 basicIO.write(JSON.stringify({ success: true, message: 'Record deleted successfully.' }));
             } catch (err) {
                 console.error("Delete Failed Submission Error:", err);
+                await notifyFailureOnCliq({
+                    rowId: String(rowId || ''),
+                    payload: '',
+                    claimNumber: 'N/A',
+                    adjusterEmail: 'N/A',
+                    errorDetails: `deleteFailedSubmission DB delete failed for ROWID ${rowId}: ${err.message}`,
+                    createdTime: new Date().toISOString()
+                });
                 basicIO.write(JSON.stringify({ success: false, error: err.message }));
             }
             context.close();
@@ -688,7 +802,7 @@ module.exports = async (context, basicIO) => {
 
                 if (aliasMatches.length > 0) {
                     // Get the company details for each alias match
-                    const companyIds = [...new Set(aliasMatches.map(r => r.InsuranceAliases.company_id))];
+                    const companyIds = [...new Set(aliasMatches.map(r => r.InsuranceAliases.company_id).filter(id => id !== null))];
 
                     for (const companyId of companyIds) {
                         try {
@@ -727,6 +841,14 @@ module.exports = async (context, basicIO) => {
 
             } catch (err) {
                 console.error("searchInsuranceCompanies Error:", err);
+                await notifyFailureOnCliq({
+                    rowId: '',
+                    payload: JSON.stringify({ search }),
+                    claimNumber: 'N/A',
+                    adjusterEmail: 'N/A',
+                    errorDetails: `searchInsuranceCompanies failed for query "${search}": ${err.message}`,
+                    createdTime: new Date().toISOString()
+                });
                 basicIO.write(JSON.stringify({ success: false, error: err.message }));
                 context.close();
             }
@@ -772,10 +894,10 @@ module.exports = async (context, basicIO) => {
                 // ── STEP 2: Search Zoho Creator (all_companies report) ──
                 let token = await getNewAccessToken();
                 const owner = process.env.ZOHO_CREATOR_ACCOUNT_OWNER || 'owner';
-                const appName = process.env.ZOHO_CREATOR_APP_NAME || 'inspection-app';
+                const appName = process.env.ZOHO_COMPANIES_APP_NAME || process.env.ZOHO_CREATOR_APP_NAME || 'inspection-app';
 
                 async function searchCreator(accessToken) {
-                    const reportUrl = `https://creator.zoho.com/api/v2/${owner}/${appName}/report/All_Companies?criteria=(Insurance_Company_Name=="${companyName}")`;
+                    const reportUrl = `https://creator.zoho.com/api/v2/${owner}/${appName}/report/All_Companies_List?criteria=(Insurance_Company_Name=="${companyName}")`;
                     console.log(`[resolveCompanyId] Searching Creator: ${reportUrl}`);
                     return fetch(reportUrl, {
                         method: 'GET',
@@ -863,6 +985,14 @@ module.exports = async (context, basicIO) => {
                 if (!createResponse.ok || (createData.code && createData.code !== 3000)) {
                     // Creator POST failed — STOP submission entirely
                     console.error(`[resolveCompanyId] CREATION_FAILED | Company: "${companyName}" | Response:`, JSON.stringify(createData));
+                    await notifyFailureOnCliq({
+                        rowId: '',
+                        payload: JSON.stringify(createPayload),
+                        claimNumber: 'N/A (Company Creation)',
+                        adjusterEmail: 'N/A',
+                        errorDetails: `Failed to create company "${companyName}": ${JSON.stringify(createData)}`,
+                        createdTime: new Date().toISOString()
+                    });
                     basicIO.write(JSON.stringify({
                         success: false,
                         error: `Failed to create company in Zoho Creator: ${JSON.stringify(createData)}`,
@@ -897,6 +1027,14 @@ module.exports = async (context, basicIO) => {
 
             } catch (err) {
                 console.error("resolveCompanyId Error:", err);
+                await notifyFailureOnCliq({
+                    rowId: '',
+                    payload: JSON.stringify({ companyName }),
+                    claimNumber: 'N/A',
+                    adjusterEmail: 'N/A',
+                    errorDetails: `resolveCompanyId failed for company "${companyName}": ${err.message}`,
+                    createdTime: new Date().toISOString()
+                });
                 basicIO.write(JSON.stringify({ success: false, error: err.message }));
                 context.close();
             }
@@ -906,33 +1044,38 @@ module.exports = async (context, basicIO) => {
             /*  Direct creation via User Modal                                  */
             /* ================================================================ */
         } else if (action === 'createCompany') {
-            const data = getArg('data');
-
-            if (!data || !data.name) {
-                basicIO.write(JSON.stringify({ success: false, error: 'Company Name is required' }));
-                context.close();
-                return;
-            }
-
+            let createCompanyName = '';
             try {
                 let token = await getNewAccessToken();
-                const owner = (process.env.ZOHO_CREATOR_ACCOUNT_OWNER || '').replace(/['"]/g, '').trim();
-                const appName = (process.env.ZOHO_CREATOR_APP_NAME || '').replace(/['"]/g, '').trim();
+                const owner = (process.env.ZOHO_CREATOR_ACCOUNT_OWNER || 'trinity5').replace(/['"]/g, '').trim();
+                const appName = (process.env.ZOHO_COMPANIES_APP_NAME || process.env.ZOHO_CREATOR_APP_NAME || 'inspection-app').replace(/['"]/g, '').trim();
 
-                const createUrl = `https://creator.zoho.com/api/v2/${owner}/${appName}/form/All_Companies1`;
+                // Support both flat and nested data from frontend
+                const inputData = basicIO.getArgument('data') || {};
+                const companyName = String(inputData.name || basicIO.getArgument('name') || '').trim();
+                createCompanyName = companyName;
+
+                if (!companyName) {
+                    basicIO.write(JSON.stringify({ success: false, error: 'Company Name is required' }));
+                    context.close();
+                    return;
+                }
+
+                const createUrl = `https://creator.zoho.com/api/v2/${owner}/${appName}/form/All_Companies`;
                 const createPayload = {
                     data: {
-                        Insurance_Company_Name: data.name,
-                        CC_Invoices_To: data.ccInvoicesTo || "",
-                        Invoice_Email: data.invoiceEmail || "",
-                        Split_Invoice_from_Report: data.splitInvoice ? true : false,
-                        Price_List: data.priceList || "2025 Prices",
-                        Status: 'Pending'
+                        Insurance_Company_Name: companyName,
+                        CC_Invoices_to: inputData.ccInvoicesTo || basicIO.getArgument('cc_invoices') || "",
+                        Invoice_Email: inputData.invoiceEmail || basicIO.getArgument('invoice_email') || "",
+                        Split_Invoice_from_Report: (inputData.splitInvoice === true || basicIO.getArgument('split_invoice') === 'true'),
+                        Price_List: inputData.priceList || basicIO.getArgument('price_list') || "",
+                        Status: "Pending"
                     }
                 };
 
                 console.log(`[createCompany] Creating Company: ${createUrl}`, JSON.stringify(createPayload));
-                let response = await fetch(createUrl, {
+
+                const response = await fetch(createUrl, {
                     method: 'POST',
                     headers: {
                         'Authorization': `Zoho-oauthtoken ${token}`,
@@ -940,37 +1083,21 @@ module.exports = async (context, basicIO) => {
                     },
                     body: JSON.stringify(createPayload)
                 });
-                let resData = await response.json();
-                console.log(`[createCompany] Creator Response Status: ${response.status}`, JSON.stringify(resData));
 
-                if (response.status === 401 || (resData.code && [1030, 2945].includes(resData.code)) || JSON.stringify(resData).includes("INVALID_OAUTH")) {
-                    console.log("[createCompany] Token rejected by Zoho, forcing hard refresh...");
-                    cachedToken = null;
-                    tokenExpiry = 0;
-                    token = await getNewAccessToken();
-                    response = await fetch(createUrl, {
-                        method: 'POST',
-                        headers: {
-                            'Authorization': `Zoho-oauthtoken ${token}`,
-                            'Content-Type': 'application/json'
-                        },
-                        body: JSON.stringify(createPayload)
-                    });
-                    resData = await response.json();
-                    console.log(`[createCompany] Creator Retry Response Status: ${response.status}`, JSON.stringify(resData));
-                }
+                const resData = await response.json();
+                console.log(`[createCompany] Creator Response: ${JSON.stringify(resData)}`);
 
-                if (!response.ok || (resData.code && resData.code !== 3000)) {
-                    throw new Error(resData.error || `Zoho Creator Error: ${JSON.stringify(resData)}`);
+                if (resData.code !== 3000) {
+                    throw new Error(resData.error || `Zoho Error: ${JSON.stringify(resData)}`);
                 }
 
                 const creatorId = String(resData.data.ID);
 
-                // Store in local DB
+                // Store in local DB for immediate search availability
                 try {
                     const table = catalystApp.datastore().table('InsuranceCompanies');
                     await table.insertRow({
-                        name: data.name,
+                        name: companyName,
                         zoho_creator_id: creatorId,
                         status: 'Pending'
                     });
@@ -983,6 +1110,14 @@ module.exports = async (context, basicIO) => {
 
             } catch (err) {
                 console.error("createCompany Error:", err);
+                await notifyFailureOnCliq({
+                    rowId: '',
+                    payload: JSON.stringify({ companyName: createCompanyName }),
+                    claimNumber: 'N/A (Company Creation)',
+                    adjusterEmail: 'N/A',
+                    errorDetails: `Failed to create company "${createCompanyName}": ${err.message}`,
+                    createdTime: new Date().toISOString()
+                });
                 basicIO.write(JSON.stringify({ success: false, error: err.message }));
                 context.close();
             }
@@ -995,7 +1130,7 @@ module.exports = async (context, basicIO) => {
             try {
                 let token = await getNewAccessToken();
                 const owner = process.env.ZOHO_CREATOR_ACCOUNT_OWNER || 'owner';
-                const appName = process.env.ZOHO_CREATOR_APP_NAME || 'inspection-app';
+                const appName = process.env.ZOHO_COMPANIES_APP_NAME || process.env.ZOHO_CREATOR_APP_NAME || 'inspection-app';
 
                 // Fetch all companies from Creator (paginated)
                 let allCompanies = [];
@@ -1004,7 +1139,7 @@ module.exports = async (context, basicIO) => {
                 let hasMore = true;
 
                 while (hasMore) {
-                    const reportUrl = `https://creator.zoho.com/api/v2/${owner}/${appName}/report/All_Companies?from=${from}&limit=${limit}`;
+                    const reportUrl = `https://creator.zoho.com/api/v2/${owner}/${appName}/report/All_Companies_List?from=${from}&limit=${limit}`;
                     const response = await fetch(reportUrl, {
                         method: 'GET',
                         headers: { 'Authorization': `Zoho-oauthtoken ${token}` }
@@ -1029,6 +1164,10 @@ module.exports = async (context, basicIO) => {
                 }
 
                 console.log(`[syncInsuranceCompanies] Fetched ${allCompanies.length} companies from Creator`);
+                if (allCompanies.length > 0) {
+                    console.log("[syncInsuranceCompanies] DEBUG: First record keys:", Object.keys(allCompanies[0]));
+                    console.log("[syncInsuranceCompanies] DEBUG: First record sample:", JSON.stringify(allCompanies[0]));
+                }
 
                 const zcql = catalystApp.zcql();
                 const table = catalystApp.datastore().table('InsuranceCompanies');
@@ -1101,16 +1240,123 @@ module.exports = async (context, basicIO) => {
                     }
                 }
 
+                // ── SYNC ALIASES ──────────────────────────────────────────────────
+                // Re-fetch updated company ROWIDs after upsert
+                let aliasInserted = 0, aliasDeleted = 0;
+                try {
+                    const aliasTable = catalystApp.datastore().table('InsuranceAliases');
+
+                    // Step 1: Delete all existing aliases (full rebuild)
+                    let existingAliasRows = [];
+                    try {
+                        existingAliasRows = await zcql.executeZCQLQuery('SELECT ROWID FROM InsuranceAliases');
+                    } catch (e) { /* table may be empty */ }
+
+                    for (const row of (existingAliasRows || [])) {
+                        try { await aliasTable.deleteRow(row.InsuranceAliases.ROWID); aliasDeleted++; }
+                        catch (e) { /* skip */ }
+                    }
+
+                    // Step 2: Re-fetch company ROWIDs from DB (needed to link aliases)
+                    const freshRows = await zcql.executeZCQLQuery('SELECT ROWID, zoho_creator_id FROM InsuranceCompanies');
+                    const creatorIdToRowId = new Map();
+                    (freshRows || []).forEach(r => {
+                        creatorIdToRowId.set(r.InsuranceCompanies.zoho_creator_id, r.InsuranceCompanies.ROWID);
+                    });
+
+                    // Step 3: Insert aliases from Zoho data
+                    for (const company of allCompanies) {
+                        const creatorId = String(company.ID);
+                        const companyRowId = creatorIdToRowId.get(creatorId);
+                        const aliases = company.Company_Aliases || [];
+
+                        if (!companyRowId || !Array.isArray(aliases) || aliases.length === 0) continue;
+
+                        for (const aliasEntry of aliases) {
+                            // Zoho returns aliases as { display_value: "Alias Name", ID: "..." }
+                            const aliasName = aliasEntry.display_value || aliasEntry.Alias || aliasEntry.name || '';
+                            if (!aliasName) continue;
+
+                            try {
+                                await aliasTable.insertRow({
+                                    alias: aliasName,
+                                    company_id: companyRowId
+                                });
+                                aliasInserted++;
+                            } catch (aliasInsertErr) {
+                                console.error(`Failed to insert alias "${aliasName}":`, aliasInsertErr.message);
+                            }
+                        }
+                    }
+
+                    console.log(`[syncAliases] Done — Deleted: ${aliasDeleted}, Inserted: ${aliasInserted}`);
+                } catch (aliasErr) {
+                    console.error('[syncAliases] Error:', aliasErr.message);
+                }
+                // ─────────────────────────────────────────────────────────────────
+
                 console.log(`[syncInsuranceCompanies] Done — Inserted: ${inserted}, Updated: ${updated}, Deleted: ${deleted}`);
                 basicIO.write(JSON.stringify({
                     success: true,
-                    message: `Sync complete. Inserted: ${inserted}, Updated: ${updated}, Deleted: ${deleted}`,
+                    message: `Sync complete. Companies — Inserted: ${inserted}, Updated: ${updated}, Deleted: ${deleted}. Aliases — Deleted: ${aliasDeleted}, Inserted: ${aliasInserted}`,
                     totalFromCreator: allCompanies.length
                 }));
                 context.close();
 
             } catch (err) {
                 console.error("syncInsuranceCompanies Error:", err);
+                await notifyFailureOnCliq({
+                    rowId: '',
+                    payload: '',
+                    claimNumber: 'N/A (Sync Job)',
+                    adjusterEmail: 'N/A',
+                    errorDetails: `syncInsuranceCompanies failed: ${err.message}`,
+                    createdTime: new Date().toISOString()
+                });
+                basicIO.write(JSON.stringify({ success: false, error: err.message }));
+                context.close();
+            }
+
+        } else if (action === 'getCompanies') {
+            try {
+                let token = await getNewAccessToken();
+                const owner = process.env.ZOHO_CREATOR_ACCOUNT_OWNER || 'owner';
+                const appName = process.env.ZOHO_COMPANIES_APP_NAME || 'engineering-inspections';
+
+                const reportUrl = `https://creator.zoho.com/api/v2/${owner}/${appName}/report/All_Companies_List`;
+                console.log(`[getCompanies] Fetching from: ${reportUrl}`);
+
+                const response = await fetch(reportUrl, {
+                    method: 'GET',
+                    headers: { 'Authorization': `Zoho-oauthtoken ${token}` }
+                });
+                const data = await response.json();
+
+                if (response.status === 401) {
+                    cachedToken = null;
+                    tokenExpiry = 0;
+                    token = await getNewAccessToken();
+                    // Retry once
+                    const retryResponse = await fetch(reportUrl, {
+                        method: 'GET',
+                        headers: { 'Authorization': `Zoho-oauthtoken ${token}` }
+                    });
+                    const retryData = await retryResponse.json();
+                    basicIO.write(JSON.stringify({ success: true, data: retryData.data || [], count: (retryData.data || []).length }));
+                } else {
+                    basicIO.write(JSON.stringify({ success: true, data: data.data || [], count: (data.data || []).length }));
+                }
+                context.close();
+            } catch (err) {
+                console.error("getCompanies Error:", err);
+                await notifyFailureOnCliq({
+                    rowId: '',
+                    payload: '',
+                    claimNumber: 'N/A',
+                    adjusterEmail: 'N/A',
+                    errorDetails: `getCompanies failed: ${err.message}`,
+                    createdTime: new Date().toISOString()
+                });
                 basicIO.write(JSON.stringify({ success: false, error: err.message }));
                 context.close();
             }
@@ -1134,15 +1380,23 @@ module.exports = async (context, basicIO) => {
                     return;
                 }
 
-                // ✅ IMPORTANT FIX: prevent null/empty overwrite
-                if (!status || status === "null") {
-                    console.log("[WEBHOOK] Skipped due to empty status");
-                    basicIO.write(JSON.stringify({ success: true, skipped: true }));
+                // ✅ IMPORTANT FIX: handle various empty states
+                if (!status || status === "null" || status === "undefined" || status === "") {
+                    console.log(`[WEBHOOK] Skipped due to empty or invalid status: "${status}"`);
+                    basicIO.write(JSON.stringify({ success: true, message: "Skipped: Status was empty or invalid" }));
                     context.close();
                     return;
                 }
 
                 status = String(status).trim();
+
+                // 🛡️ SAFETY FILTER: If name looks like a Zoho ID (19 digits), ignore the name update
+                // This prevents CRM Sync workflows from overwriting names with IDs.
+                let nameToUpdate = String(name || '').trim();
+                if (/^\d{19}$/.test(nameToUpdate)) {
+                    console.log(`[WEBHOOK] Name update blocked: "${nameToUpdate}" looks like a Zoho ID. Keeping existing name.`);
+                    nameToUpdate = null; // Signal to skip name update
+                }
 
                 const zcql = catalystApp.zcql();
                 const table = catalystApp.datastore().table('InsuranceCompanies');
@@ -1152,12 +1406,18 @@ module.exports = async (context, basicIO) => {
 
                 if (existing && existing.length > 0) {
                     // ✅ UPDATE
-                    await table.updateRow({
+                    const updateData = {
                         ROWID: existing[0].InsuranceCompanies.ROWID,
-                        name: name,
                         status: status,
-                        zoho_creator_id: creatorId // ✅ IMPORTANT
-                    });
+                        zoho_creator_id: creatorId
+                    };
+
+                    // Only update name if it's a real name (not an ID)
+                    if (nameToUpdate) {
+                        updateData.name = nameToUpdate;
+                    }
+
+                    await table.updateRow(updateData);
 
                     console.log("[WEBHOOK] UPDATED:", creatorId);
 
@@ -1168,7 +1428,7 @@ module.exports = async (context, basicIO) => {
                 } else {
                     // ✅ INSERT
                     await table.insertRow({
-                        name: name,
+                        name: nameToUpdate || creatorId, // Use ID as fallback name if Zoho only sends ID
                         status: status,
                         zoho_creator_id: creatorId
                     });
@@ -1183,10 +1443,93 @@ module.exports = async (context, basicIO) => {
 
             } catch (err) {
                 console.error("webhookUpdateCompany Error:", err);
+                await notifyFailureOnCliq({
+                    rowId: '',
+                    payload: JSON.stringify({ creatorId: basicIO.getArgument('zoho_creator_id'), status: basicIO.getArgument('status'), name: basicIO.getArgument('name') }),
+                    claimNumber: 'N/A (Webhook)',
+                    adjusterEmail: 'N/A',
+                    errorDetails: `webhookUpdateCompany failed for ID ${basicIO.getArgument('zoho_creator_id') || 'unknown'}: ${err.message}`,
+                    createdTime: new Date().toISOString()
+                });
                 basicIO.write(JSON.stringify({ success: false, error: err.message }));
             }
 
             context.close();
+
+        } else if (action === 'webhookUpdateAlias') {
+            // ================================================================
+            // ACTION: webhookUpdateAlias
+            // Called by Zoho Creator workflow when a Company Alias is added/edited/deleted
+            // Params: zoho_creator_id (company ID), alias (alias name), delete=true/false
+            // ================================================================
+            try {
+                const companyCreatorId = String(basicIO.getArgument('zoho_creator_id') || '').trim();
+                const aliasName = String(basicIO.getArgument('alias') || '').trim();
+                const shouldDelete = basicIO.getArgument('delete') === 'true';
+
+                console.log('[webhookUpdateAlias] Incoming:', { companyCreatorId, aliasName, shouldDelete });
+
+                if (!companyCreatorId || !aliasName) {
+                    basicIO.write(JSON.stringify({ success: false, error: 'zoho_creator_id and alias are required' }));
+                    context.close();
+                    return;
+                }
+
+                const zcql = catalystApp.zcql();
+
+                // Step 1: Find the company ROWID from zoho_creator_id
+                const companyQuery = `SELECT ROWID FROM InsuranceCompanies WHERE zoho_creator_id = '${companyCreatorId}'`;
+                const companyResult = await zcql.executeZCQLQuery(companyQuery);
+
+                if (!companyResult || companyResult.length === 0) {
+                    console.log('[webhookUpdateAlias] Company not found in DB for ID:', companyCreatorId);
+                    basicIO.write(JSON.stringify({ success: false, error: 'Company not found in local DB' }));
+                    context.close();
+                    return;
+                }
+
+                const companyRowId = companyResult[0].InsuranceCompanies.ROWID;
+                const aliasTable = catalystApp.datastore().table('InsuranceAliases');
+                const safeAlias = aliasName.replace(/'/g, "''");
+
+                if (shouldDelete) {
+                    // Delete the alias
+                    const existingAlias = await zcql.executeZCQLQuery(
+                        `SELECT ROWID FROM InsuranceAliases WHERE alias = '${safeAlias}' AND company_id = ${companyRowId}`
+                    );
+                    if (existingAlias && existingAlias.length > 0) {
+                        await aliasTable.deleteRow(existingAlias[0].InsuranceAliases.ROWID);
+                        console.log('[webhookUpdateAlias] DELETED alias:', aliasName);
+                    }
+                    basicIO.write(JSON.stringify({ success: true, message: 'Alias deleted' }));
+                } else {
+                    // Insert alias if it doesn't already exist
+                    const existingAlias = await zcql.executeZCQLQuery(
+                        `SELECT ROWID FROM InsuranceAliases WHERE alias = '${safeAlias}' AND company_id = ${companyRowId}`
+                    );
+                    if (!existingAlias || existingAlias.length === 0) {
+                        await aliasTable.insertRow({ alias: aliasName, company_id: companyRowId });
+                        console.log('[webhookUpdateAlias] INSERTED alias:', aliasName);
+                        basicIO.write(JSON.stringify({ success: true, message: 'Alias added' }));
+                    } else {
+                        console.log('[webhookUpdateAlias] Alias already exists:', aliasName);
+                        basicIO.write(JSON.stringify({ success: true, message: 'Alias already exists' }));
+                    }
+                }
+                context.close();
+            } catch (err) {
+                console.error('webhookUpdateAlias Error:', err);
+                await notifyFailureOnCliq({
+                    rowId: '',
+                    payload: JSON.stringify({ companyCreatorId: basicIO.getArgument('zoho_creator_id'), alias: basicIO.getArgument('alias') }),
+                    claimNumber: 'N/A (Webhook)',
+                    adjusterEmail: 'N/A',
+                    errorDetails: `webhookUpdateAlias failed for company ${basicIO.getArgument('zoho_creator_id') || 'unknown'}, alias "${basicIO.getArgument('alias') || 'unknown'}": ${err.message}`,
+                    createdTime: new Date().toISOString()
+                });
+                basicIO.write(JSON.stringify({ success: false, error: err.message }));
+                context.close();
+            }
 
         } else {
             basicIO.write(JSON.stringify({ success: false, error: 'Invalid or missing action parameter' }));
@@ -1195,6 +1538,18 @@ module.exports = async (context, basicIO) => {
 
     } catch (err) {
         console.error("Function Root Error:", err);
+        try {
+            await notifyFailureOnCliq({
+                rowId: '',
+                payload: '',
+                claimNumber: 'Unknown',
+                adjusterEmail: 'Unknown',
+                errorDetails: `Unexpected root-level error: ${err.message}`,
+                createdTime: new Date().toISOString()
+            });
+        } catch (notifyErr) {
+            console.error('[Cliq Notify] Failed in root catch:', notifyErr.message);
+        }
         basicIO.write(JSON.stringify({ success: false, error: "Internal Server Error: " + err.message }));
         context.close();
     }

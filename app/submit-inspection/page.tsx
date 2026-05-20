@@ -64,10 +64,18 @@ const INSPECTION_TYPES = [
 ];
 
 const BUILDING_TYPES = [
-  { id: "residential", title: "Residential", image: "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=800&q=80" },
+  { id: "single-family", title: "Single Family Residence", image: "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=800&q=80" },
+  { id: "multiples-residence", title: "Multiples Residence", image: "https://images.unsplash.com/photo-1512917774080-9991f1c4c750?w=800&q=80" },
   { id: "commercial-municipal-industrial", title: "Commercial / Municipal / Industrial", image: "https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?w=800&q=80" },
-  { id: "multiple-structures", title: "Multiple Structures", image: "https://images.unsplash.com/photo-1512917774080-9991f1c4c750?w=800&q=80" },
 ];
+
+function getAvailableBuildingTypes(inspectionType: string) {
+  if (!inspectionType || inspectionType === "Component Failure") return [];
+  if (inspectionType === "Residential Storm Damage") {
+    return BUILDING_TYPES.filter((b) => b.id === "single-family" || b.id === "multiples-residence");
+  }
+  return BUILDING_TYPES;
+}
 
 /* Insurance companies are now fetched from the database via API — no hardcoded list */
 
@@ -816,7 +824,7 @@ export default function SubmitInspectionPage() {
 
       // 4. Submission Payload Preparation
       const functionUrl = '/api/submit-inspection';
-      let submissionData = { 
+      let submissionData = {
         ...formData,
         Primary_Client_Type: formData.primaryClientType,
         contactEmails: formData.contactEmails.map(c => ({
@@ -828,8 +836,8 @@ export default function SubmitInspectionPage() {
       // Ensure Zoho Creator IDs are passed for lookup fields instead of raw strings
       const matchedComp = masterInsuranceList.find(c => c.name.toLowerCase() === (submissionData.insuranceCompany || "").toLowerCase());
       if (matchedComp && matchedComp.zoho_creator_id) {
-          (submissionData as any).insuranceCompanyName = submissionData.insuranceCompany;
-          submissionData.insuranceCompany = matchedComp.zoho_creator_id;
+        (submissionData as any).insuranceCompanyName = submissionData.insuranceCompany;
+        submissionData.insuranceCompany = matchedComp.zoho_creator_id;
       }
 
       // Date of Loss is already in MM/DD/YYYY format as requested
@@ -1152,7 +1160,7 @@ export default function SubmitInspectionPage() {
         <Navbar />
       </div>
 
-      <main className={`${isSubmitted ? "h-[calc(100vh-64px)] flex items-start justify-center pt-24" : "pt-16 pb-8"}`}>
+      <main className={`${isSubmitted ? "h-[calc(100vh-64px)] flex items-start justify-center pt-24" : "pt-24 pb-8"}`}>
         <div className={`${isSubmitted ? "max-w-xl" : "max-w-5xl"} mx-auto ${currentStep === 4 ? "px-12" : "px-6"}`}>
 
           {/* ── Sticky Wrapper – Only visible for Wizard Steps ── */}
@@ -1193,7 +1201,8 @@ export default function SubmitInspectionPage() {
                 {currentStep === 0 && (
                   <FormSection>
                     {(() => {
-                      const showBuildingType = !!formData.inspectionType && !["Component Failure", "Residential Storm Damage", "Structural Loss", "Large / Complex Loss", "Interior Water Loss"].includes(formData.inspectionType);
+                      const availableBuildingTypes = getAvailableBuildingTypes(formData.inspectionType);
+                      const showBuildingType = availableBuildingTypes.length > 0;
                       return (
                         <div className={`grid grid-cols-1 gap-4 items-start animate-fadeIn ${showBuildingType ? "md:grid-cols-4" : ""}`}>
                           {/* Left: Inspection Type */}
@@ -1216,10 +1225,12 @@ export default function SubmitInspectionPage() {
                                   selected={formData.inspectionType === t.title}
                                   dimmed={!!formData.inspectionType && formData.inspectionType !== t.title}
                                   onSelect={() => {
+                                    const nextAvailable = getAvailableBuildingTypes(t.title);
+                                    const keepBuilding = nextAvailable.some((b) => b.title === formData.buildingType);
                                     setFormData({
                                       ...formData,
                                       inspectionType: t.title,
-                                      buildingType: t.id === "component-failure" ? "" : formData.buildingType,
+                                      buildingType: keepBuilding ? formData.buildingType : "",
                                     });
                                     setShowErrors(false);
                                   }}
@@ -1238,8 +1249,11 @@ export default function SubmitInspectionPage() {
                           {showBuildingType && (
                             <div className="space-y-2.5 md:col-span-1 animate-fadeIn">
                               <SectionHeader title="Building Type" icon={Building2} />
-                              <div className="grid grid-cols-2 md:grid-cols-1 gap-2 p-2 rounded-xl bg-gray-50/30 dark:bg-white/5">
-                                {BUILDING_TYPES.map((b) => (
+                              <div
+                                data-field-name="buildingType"
+                                className="grid grid-cols-2 md:grid-cols-1 gap-2 p-2 rounded-xl bg-gray-50/30 dark:bg-white/5"
+                              >
+                                {availableBuildingTypes.map((b) => (
                                   <SelectCard
                                     key={b.id}
                                     label={b.title}
@@ -1249,6 +1263,7 @@ export default function SubmitInspectionPage() {
                                     dimmed={!!formData.buildingType && formData.buildingType !== b.title}
                                     onSelect={() => {
                                       setFormData({ ...formData, buildingType: b.title });
+                                      setShowErrors(false);
                                     }}
                                   />
                                 ))}
@@ -1320,11 +1335,10 @@ export default function SubmitInspectionPage() {
                                             return next;
                                           });
                                         }}
-                                        className={`flex items-center gap-1.5 p-1.5 rounded-lg border transition-all text-left ${
-                                          selected
+                                        className={`flex items-center gap-1.5 p-1.5 rounded-lg border transition-all text-left ${selected
                                             ? "border-primary bg-primary/5 dark:bg-accent/5 ring-1 ring-primary shadow-sm"
                                             : "border-gray-200 dark:border-gray-700 bg-white dark:bg-background-dark hover:border-gray-300 hover:shadow-sm"
-                                        }`}
+                                          }`}
                                       >
                                         <div className={`p-1 rounded-full shrink-0 ${selected ? "bg-primary text-white" : "bg-gray-100 dark:bg-gray-800 text-gray-500"}`}>
                                           <opt.icon className="w-3 h-3" />
@@ -1399,7 +1413,7 @@ export default function SubmitInspectionPage() {
                                 <SectionHeader title="Primary IA Email" />
                                 <div className="space-y-2">
                                   {formData.contactEmails.filter(c => c.contactType === "IA").map((recipient, localIndex) => {
-                                    const absoluteIndex = formData.contactEmails.findIndex((c, i) => 
+                                    const absoluteIndex = formData.contactEmails.findIndex((c, i) =>
                                       c.contactType === "IA" && formData.contactEmails.filter((cc, ii) => cc.contactType === "IA" && ii < i).length === localIndex
                                     );
                                     return (
@@ -1671,7 +1685,7 @@ export default function SubmitInspectionPage() {
                                           <input type="checkbox" checked={checked} onChange={() => {
                                             const index = formData.contactEmails.findIndex(c => c.contactType === "Adjuster (Carrier)");
                                             if (index === -1) return;
-                                            
+
                                             let next: string[];
                                             if (opt === "all") {
                                               next = checked ? [] : ["all", "report", "invoice", "notifications"];
@@ -1703,10 +1717,10 @@ export default function SubmitInspectionPage() {
                                       const adjRecipients = formData.contactEmails.filter(c => c.contactType === "Adjuster (Carrier)");
                                       return adjRecipients.slice(1).map((recipient, localIdx) => {
                                         const localIndex = localIdx + 1; // local index in filtered Adjuster array
-                                        const absoluteIndex = formData.contactEmails.findIndex((c, i) => 
+                                        const absoluteIndex = formData.contactEmails.findIndex((c, i) =>
                                           c.contactType === "Adjuster (Carrier)" && formData.contactEmails.filter((cc, ii) => cc.contactType === "Adjuster (Carrier)" && ii < i).length === localIndex
                                         );
-                                        
+
                                         return (
                                           <div key={localIndex} id={`adj-recipient-${localIndex}`} className={`rounded-lg border p-1.5 bg-gray-50 dark:bg-background-dark/60 ${adjusterEmailErrors[localIndex] ? "border-gray-400 bg-gray-100/60 dark:bg-gray-800/20" : "border-gray-200 dark:border-gray-700"}`}>
                                             <div className="space-y-2">
@@ -1995,7 +2009,7 @@ export default function SubmitInspectionPage() {
                                       <input type="checkbox" checked={checked} onChange={() => {
                                         const index = formData.contactEmails.findIndex(c => c.contactType === "Adjuster (Carrier)");
                                         if (index === -1) return;
-                                        
+
                                         let next: string[];
                                         if (opt === "all") {
                                           next = checked ? [] : ["all", "report", "invoice", "notifications"];
@@ -2027,10 +2041,10 @@ export default function SubmitInspectionPage() {
                                   const adjRecipients = formData.contactEmails.filter(c => c.contactType === "Adjuster (Carrier)");
                                   return adjRecipients.slice(1).map((recipient, localIdx) => {
                                     const localIndex = localIdx + 1; // local index in filtered Adjuster array
-                                    const absoluteIndex = formData.contactEmails.findIndex((c, i) => 
+                                    const absoluteIndex = formData.contactEmails.findIndex((c, i) =>
                                       c.contactType === "Adjuster (Carrier)" && formData.contactEmails.filter((cc, ii) => cc.contactType === "Adjuster (Carrier)" && ii < i).length === localIndex
                                     );
-                                    
+
                                     return (
                                       <div key={localIndex} id={`adj-recipient-${localIndex}`} className={`rounded-lg border p-1.5 bg-gray-50 dark:bg-background-dark/60 ${adjusterEmailErrors[localIndex] ? "border-gray-400 bg-gray-100/60 dark:bg-gray-800/20" : "border-gray-200 dark:border-gray-700"}`}>
                                         <div className="space-y-2">
@@ -2260,106 +2274,106 @@ export default function SubmitInspectionPage() {
                     <FormSection>
                       <div className="space-y-4">
 
-                      {/* 1. Inspection & Property */}
-                      <ReviewBlock stepNumber="1." title="Inspection & Property" icon={ClipboardList} onEdit={() => setCurrentStep(0)}>
-                        <ReviewRow label="Inspection Type" value={formData.inspectionType} />
-                        {formData.buildingType && <ReviewRow label="Building Type" value={formData.buildingType} />}
-                      </ReviewBlock>
+                        {/* 1. Inspection & Property */}
+                        <ReviewBlock stepNumber="1." title="Inspection & Property" icon={ClipboardList} onEdit={() => setCurrentStep(0)}>
+                          <ReviewRow label="Inspection Type" value={formData.inspectionType} />
+                          {formData.buildingType && <ReviewRow label="Building Type" value={formData.buildingType} />}
+                        </ReviewBlock>
 
-                      {/* 2. Insurance & Adjuster */}
-                      <ReviewBlock stepNumber="2." title="Insurance & Adjuster" icon={Shield} onEdit={() => setCurrentStep(1)}>
-                        {formData.isIAClaim && (
-                          <>
-                            <ReviewRow label="IA Company" value={formData.iaCompany} />
-                            <ReviewRow label="IA Name" value={`${formData.iaFirstName} ${formData.iaLastName}`.trim()} />
-                            <ReviewRow label="IA Phone" value={formData.iaPhone} />
-                            {formData.contactEmails.filter(c => c.contactType === "IA").map((r, i) => (
-                              <ReviewRow key={`ia-${i}`} label={`IA Email ${i + 1}`} value={r.email ? `${r.email}${r.sendCopy.length > 0 ? ` (${formatPreferences(r.sendCopy)})` : ''}` : ""} />
-                            ))}
-                            <div className="col-span-full border-t-[2px] border-gray-200 dark:border-gray-700 mt-2 mb-2"></div>
-                          </>
-                        )}
-
-                        <ReviewRow label="Insurance Company" value={formData.insuranceCompany} />
-                        <ReviewRow label="Claim Number" value={formData.claimNumber} />
-                        {formData.policyNumber && <ReviewRow label="Policy Number" value={formData.policyNumber} />}
-                        {formData.dateOfLoss && <ReviewRow label="Date of Loss" value={formData.dateOfLoss} />}
-                        
-                        <div className="col-span-full border-t-[2px] border-gray-200 dark:border-gray-700 mt-2 mb-2"></div>
-
-                        <ReviewRow label="Adjuster Company" value={formData.adjusterCompany} />
-                        <ReviewRow label="Adjuster Name" value={`${formData.adjusterFirstName} ${formData.adjusterLastName}`.trim()} />
-                        {(() => {
-                          const adjEmails = formData.contactEmails.filter(c => c.contactType === "Adjuster (Carrier)");
-                          const primary = adjEmails[0];
-                          const secondary = adjEmails.slice(1);
-                          return (
+                        {/* 2. Insurance & Adjuster */}
+                        <ReviewBlock stepNumber="2." title="Insurance & Adjuster" icon={Shield} onEdit={() => setCurrentStep(1)}>
+                          {formData.isIAClaim && (
                             <>
-                              <ReviewRow label="Primary Email" value={primary?.email ? `${primary.email}${primary.sendCopy.length > 0 ? ` (${formatPreferences(primary.sendCopy)})` : ''}` : ""} />
-                              <ReviewRow label="Phone" value={formData.adjusterPhone} />
-                              {formData.adjusterPhoneExt && <ReviewRow label="Extension" value={formData.adjusterPhoneExt} />}
-                              {secondary.map((r, i) => (
-                                <ReviewRow key={`adj-${i}`} label={`Extra Email ${i + 1}`} value={r.email ? `${r.email}${r.sendCopy.length > 0 ? ` (${formatPreferences(r.sendCopy)})` : ''}` : ""} />
+                              <ReviewRow label="IA Company" value={formData.iaCompany} />
+                              <ReviewRow label="IA Name" value={`${formData.iaFirstName} ${formData.iaLastName}`.trim()} />
+                              <ReviewRow label="IA Phone" value={formData.iaPhone} />
+                              {formData.contactEmails.filter(c => c.contactType === "IA").map((r, i) => (
+                                <ReviewRow key={`ia-${i}`} label={`IA Email ${i + 1}`} value={r.email ? `${r.email}${r.sendCopy.length > 0 ? ` (${formatPreferences(r.sendCopy)})` : ''}` : ""} />
                               ))}
+                              <div className="col-span-full border-t-[2px] border-gray-200 dark:border-gray-700 mt-2 mb-2"></div>
                             </>
-                          );
-                        })()}
-                        {formData.adjusterComments && <ReviewRow label="Comments" value={formData.adjusterComments} />}
-                        {formData.primaryClientType && <ReviewRow label="Primary Client" value={formData.primaryClientType} />}
-                      </ReviewBlock>
+                          )}
 
-                      {/* 3. Property Contact Info & Address */}
-                      <ReviewBlock stepNumber="3." title="Property Contact Info" icon={User} onEdit={() => setCurrentStep(2)}>
-                        <ReviewRow label="Primary Name" value={`${formData.policyholderFirstName} ${formData.policyholderLastName}`.trim()} />
-                        <ReviewRow label="Primary Phone" value={formData.policyholderPhone1} />
-                        {formData.policyholderPhone1Extra && <ReviewRow label="Primary Phone 2" value={formData.policyholderPhone1Extra} />}
-                        {formData.propertyContactEmail && <ReviewRow label="Email" value={formData.propertyContactEmail} />}
-                        <div className="col-span-full border-t-[2px] border-gray-200 dark:border-gray-700 mt-2 mb-2"></div>
-                        <ReviewRow label="Secondary Name" value={`${formData.spouseFirstName} ${formData.spouseLastName}`.trim()} />
-                        <ReviewRow label="Secondary Phone" value={formData.policyholderPhone2} />
-                        
-                        <div className="col-span-full border-t-[2px] border-gray-200 dark:border-gray-700 mt-2 mb-2"></div>
-                        
-                        <ReviewRow label="Street Address" value={formData.streetAddress} fullWidth={!formData.addressLine2} />
-                        {formData.addressLine2 && <ReviewRow label="Apt/Suite" value={formData.addressLine2} />}
-                        <ReviewRow label="City" value={formData.city} />
-                        <ReviewRow label="State" value={formData.state} />
-                        <ReviewRow label="Zip Code" value={formData.zip} />
-                      </ReviewBlock>
+                          <ReviewRow label="Insurance Company" value={formData.insuranceCompany} />
+                          <ReviewRow label="Claim Number" value={formData.claimNumber} />
+                          {formData.policyNumber && <ReviewRow label="Policy Number" value={formData.policyNumber} />}
+                          {formData.dateOfLoss && <ReviewRow label="Date of Loss" value={formData.dateOfLoss} />}
 
-                      {/* 4. Roofer & Public Adjuster */}
-                      <ReviewBlock stepNumber="4." title="Roofer & Public Adjuster" icon={Home} onEdit={() => setCurrentStep(3)} optional>
-                        {/* Roofer */}
-                        {!(formData.rooferName || formData.rooferCompany || formData.rooferPhone || formData.rooferEmail) ? (
-                          <div className="col-span-full text-[13px] italic text-gray-300 dark:text-gray-600 self-center">No Roofer Provided</div>
-                        ) : (
-                          <>
-                            <ReviewRow label="Roofer Name" value={formData.rooferName} />
-                            <ReviewRow label="Roofer Company" value={formData.rooferCompany} />
-                            <ReviewRow label="Roofer Phone" value={formData.rooferPhone} />
-                            <ReviewRow label="Roofer Email" value={formData.rooferEmail} />
-                          </>
-                        )}
-                        
-                        <div className="col-span-full border-t-[2px] border-gray-200 dark:border-gray-700 mt-2 mb-2"></div>
+                          <div className="col-span-full border-t-[2px] border-gray-200 dark:border-gray-700 mt-2 mb-2"></div>
 
-                        {/* Public Adjuster */}
-                        {!(formData.publicAdjusterName || formData.publicAdjusterCompany || formData.publicAdjusterPhone || formData.publicAdjusterEmail) ? (
-                          <div className="col-span-full text-[13px] italic text-gray-300 dark:text-gray-600 self-center">No Public Adjuster Provided</div>
-                        ) : (
-                          <>
-                            <ReviewRow label="PA Name" value={formData.publicAdjusterName} />
-                            <ReviewRow label="PA Company" value={formData.publicAdjusterCompany} />
-                            <ReviewRow label="PA Phone" value={formData.publicAdjusterPhone} />
-                            <ReviewRow label="PA Email" value={formData.publicAdjusterEmail} />
-                          </>
-                        )}
-                      </ReviewBlock>
+                          <ReviewRow label="Adjuster Company" value={formData.adjusterCompany} />
+                          <ReviewRow label="Adjuster Name" value={`${formData.adjusterFirstName} ${formData.adjusterLastName}`.trim()} />
+                          {(() => {
+                            const adjEmails = formData.contactEmails.filter(c => c.contactType === "Adjuster (Carrier)");
+                            const primary = adjEmails[0];
+                            const secondary = adjEmails.slice(1);
+                            return (
+                              <>
+                                <ReviewRow label="Primary Email" value={primary?.email ? `${primary.email}${primary.sendCopy.length > 0 ? ` (${formatPreferences(primary.sendCopy)})` : ''}` : ""} />
+                                <ReviewRow label="Phone" value={formData.adjusterPhone} />
+                                {formData.adjusterPhoneExt && <ReviewRow label="Extension" value={formData.adjusterPhoneExt} />}
+                                {secondary.map((r, i) => (
+                                  <ReviewRow key={`adj-${i}`} label={`Extra Email ${i + 1}`} value={r.email ? `${r.email}${r.sendCopy.length > 0 ? ` (${formatPreferences(r.sendCopy)})` : ''}` : ""} />
+                                ))}
+                              </>
+                            );
+                          })()}
+                          {formData.adjusterComments && <ReviewRow label="Comments" value={formData.adjusterComments} />}
+                          {formData.primaryClientType && <ReviewRow label="Primary Client" value={formData.primaryClientType} />}
+                        </ReviewBlock>
 
-                    </div>
-                  </FormSection>
-                </div>
-              )}
+                        {/* 3. Property Contact Info & Address */}
+                        <ReviewBlock stepNumber="3." title="Property Contact Info" icon={User} onEdit={() => setCurrentStep(2)}>
+                          <ReviewRow label="Primary Name" value={`${formData.policyholderFirstName} ${formData.policyholderLastName}`.trim()} />
+                          <ReviewRow label="Primary Phone" value={formData.policyholderPhone1} />
+                          {formData.policyholderPhone1Extra && <ReviewRow label="Primary Phone 2" value={formData.policyholderPhone1Extra} />}
+                          {formData.propertyContactEmail && <ReviewRow label="Email" value={formData.propertyContactEmail} />}
+                          <div className="col-span-full border-t-[2px] border-gray-200 dark:border-gray-700 mt-2 mb-2"></div>
+                          <ReviewRow label="Secondary Name" value={`${formData.spouseFirstName} ${formData.spouseLastName}`.trim()} />
+                          <ReviewRow label="Secondary Phone" value={formData.policyholderPhone2} />
+
+                          <div className="col-span-full border-t-[2px] border-gray-200 dark:border-gray-700 mt-2 mb-2"></div>
+
+                          <ReviewRow label="Street Address" value={formData.streetAddress} fullWidth={!formData.addressLine2} />
+                          {formData.addressLine2 && <ReviewRow label="Apt/Suite" value={formData.addressLine2} />}
+                          <ReviewRow label="City" value={formData.city} />
+                          <ReviewRow label="State" value={formData.state} />
+                          <ReviewRow label="Zip Code" value={formData.zip} />
+                        </ReviewBlock>
+
+                        {/* 4. Roofer & Public Adjuster */}
+                        <ReviewBlock stepNumber="4." title="Roofer & Public Adjuster" icon={Home} onEdit={() => setCurrentStep(3)} optional>
+                          {/* Roofer */}
+                          {!(formData.rooferName || formData.rooferCompany || formData.rooferPhone || formData.rooferEmail) ? (
+                            <div className="col-span-full text-[13px] italic text-gray-300 dark:text-gray-600 self-center">No Roofer Provided</div>
+                          ) : (
+                            <>
+                              <ReviewRow label="Roofer Name" value={formData.rooferName} />
+                              <ReviewRow label="Roofer Company" value={formData.rooferCompany} />
+                              <ReviewRow label="Roofer Phone" value={formData.rooferPhone} />
+                              <ReviewRow label="Roofer Email" value={formData.rooferEmail} />
+                            </>
+                          )}
+
+                          <div className="col-span-full border-t-[2px] border-gray-200 dark:border-gray-700 mt-2 mb-2"></div>
+
+                          {/* Public Adjuster */}
+                          {!(formData.publicAdjusterName || formData.publicAdjusterCompany || formData.publicAdjusterPhone || formData.publicAdjusterEmail) ? (
+                            <div className="col-span-full text-[13px] italic text-gray-300 dark:text-gray-600 self-center">No Public Adjuster Provided</div>
+                          ) : (
+                            <>
+                              <ReviewRow label="PA Name" value={formData.publicAdjusterName} />
+                              <ReviewRow label="PA Company" value={formData.publicAdjusterCompany} />
+                              <ReviewRow label="PA Phone" value={formData.publicAdjusterPhone} />
+                              <ReviewRow label="PA Email" value={formData.publicAdjusterEmail} />
+                            </>
+                          )}
+                        </ReviewBlock>
+
+                      </div>
+                    </FormSection>
+                  </div>
+                )}
 
                 {/* ── Navigation Buttons ── */}
                 <div className="flex items-center justify-between pt-1.5 mt-2 border-t border-gray-200 dark:border-gray-800">
@@ -2597,7 +2611,7 @@ function ReviewBlock({ stepNumber, title, icon: Icon, onEdit, children, optional
             )}
           </h3>
         </div>
-        
+
         <button
           type="button"
           onClick={() => {
@@ -2610,7 +2624,7 @@ function ReviewBlock({ stepNumber, title, icon: Icon, onEdit, children, optional
           Edit
         </button>
       </div>
-      
+
       <div className="p-4 md:p-5">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-x-4 gap-y-3">
           {children}
@@ -2622,7 +2636,7 @@ function ReviewBlock({ stepNumber, title, icon: Icon, onEdit, children, optional
 
 function ReviewRow({ label, value, fullWidth = false }: { label: string; value: string; fullWidth?: boolean }) {
   const displayValue = value === "+" || value?.trim() === "" ? "" : value;
-  
+
   return (
     <div className={`${fullWidth ? "col-span-full" : ""} flex flex-col gap-1`}>
       <span className="text-[10px] font-bold uppercase tracking-widest text-gray-400 dark:text-gray-500 pl-1">

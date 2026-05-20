@@ -4,11 +4,11 @@
       "trinity_web_portal_function"
     ],
     "ignore": [
-      "**/node_modules/**",
       ".catalystignore",
       "catalyst.json",
       "catalyst-debug.log"
-    ]
+    ],
+    "source": "functions"
   },
   "appsail": [
     {

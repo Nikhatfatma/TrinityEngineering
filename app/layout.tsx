@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import { ThemeProvider } from "@/contexts/ThemeContext";
+import FloatingSubmitButton from "@/components/FloatingSubmitButton";
+import { mulish } from "@/lib/fonts/mulish";
 
 export const metadata: Metadata = {
   title: "Trinity Engineering | Forensic Engineering Investigations & Expert Analysis",
@@ -13,7 +15,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className="scroll-smooth" suppressHydrationWarning>
+    <html lang="en" className={`${mulish.variable} scroll-smooth`} suppressHydrationWarning>
       <head>
         <script
           dangerouslySetInnerHTML={{
@@ -26,9 +28,10 @@ export default function RootLayout({
           }}
         />
       </head>
-      <body className="bg-white dark:bg-background-dark font-display text-gray-900 dark:text-gray-300 antialiased">
+      <body className={`${mulish.className} bg-white dark:bg-background-dark font-display text-gray-900 dark:text-gray-300 antialiased overflow-x-clip`}>
         <ThemeProvider>
           {children}
+          <FloatingSubmitButton />
         </ThemeProvider>
       </body>
     </html>

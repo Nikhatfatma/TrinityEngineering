@@ -1,288 +1,245 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
-import { useTheme } from "@/contexts/ThemeContext";
+import { usePathname } from "next/navigation";
+import { Menu, X, ArrowRight } from "lucide-react";
 
 export default function Navbar() {
-  const [isServicesOpen, setIsServicesOpen] = useState(false);
-  const [isEducationOpen, setIsEducationOpen] = useState(false);
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const { theme, toggleTheme } = useTheme();
+  const [scrolled, setScrolled] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const pathname = usePathname();
+  const isHomePage = pathname === "/";
+  const isSolidHeader = scrolled || !isHomePage;
 
-  const services = [
-    { name: "Storm Damage", icon: "cyclone", href: "/services/storm-damage" },
-    { name: "Water Loss", icon: "opacity", href: "/services/water-loss" },
-    { name: "Structural", icon: "architecture", href: "/services/structural" },
-    { name: "Fortified", icon: "shield", href: "/services/fortified" },
-    { name: "Chimney Collapse", icon: "report_problem", href: "/services/chimney-collapse" },
-    { name: "Large Loss", icon: "domain_disabled", href: "/services/large-loss" },
-    { name: "Component Failure", icon: "construction", href: "/services/component-failure" },
-    { name: "HVAC/Electrical", icon: "electrical_services", href: "/services/hvac-electrical" },
-  ];
+  useEffect(() => {
+    const handleScroll = () => {
+      setScrolled(window.scrollY > 50);
+    };
+    window.addEventListener("scroll", handleScroll);
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
+
+  useEffect(() => {
+    setMobileMenuOpen(false);
+  }, [pathname]);
+
+  useEffect(() => {
+    const mq = window.matchMedia("(min-width: 1024px)");
+    const onResize = () => {
+      if (mq.matches) setMobileMenuOpen(false);
+    };
+    mq.addEventListener("change", onResize);
+    onResize();
+
+    if (mobileMenuOpen) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "";
+    }
+    return () => {
+      mq.removeEventListener("change", onResize);
+      document.body.style.overflow = "";
+    };
+  }, [mobileMenuOpen]);
+
+  const navItems = ["HOME", "CLAIMS", "SWI", "FORTIFIED", "CAREERS"];
+
+  const getNavHref = (item: string) => (item === "HOME" ? "/" : `/${item.toLowerCase()}`);
+
+  const isNavActive = (item: string) => {
+    const href = getNavHref(item);
+    if (item === "HOME") return pathname === "/";
+    return pathname === href || pathname.startsWith(`${href}/`);
+  };
+
+  const mobileHeaderText = isSolidHeader ? "text-gray-900" : "text-white";
+  const mobilePhoneClass = `text-[9px] min-[380px]:text-[10px] sm:text-[11px] font-semibold tracking-wide whitespace-nowrap transition-colors hover:opacity-80 ${mobileHeaderText}`;
 
   return (
-    <nav className="fixed top-0 w-full z-50 bg-white dark:bg-background-dark border-b border-gray-200 dark:border-gray-800 shadow-md">
-      <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
-        {/* Logo */}
-        <Link href="/" className="flex items-center">
-          <img 
-            src="/logo.jpg" 
-            alt="Trinity Engineering" 
-            className="h-10 w-auto object-contain"
-          />
-        </Link>
-
-        {/* Desktop Menu - Center */}
-        <div className="hidden lg:flex items-center gap-6">
-          {/* Services Dropdown */}
-          <div 
-            className="relative group"
-            onMouseEnter={() => setIsServicesOpen(true)}
-            onMouseLeave={() => setIsServicesOpen(false)}
-          >
-            <button className="flex items-center gap-1 text-sm font-semibold text-gray-700 dark:text-gray-300 hover:text-primary dark:hover:text-accent transition-colors focus:outline-none">
-              Our Services
-              <span className="material-icons text-sm">expand_more</span>
-            </button>
-            <div
-              className={`absolute top-full left-0 mt-2 w-64 bg-white dark:bg-section-dark shadow-2xl rounded-lg border border-gray-200 dark:border-gray-800 transition-all duration-200 max-h-[500px] overflow-y-auto scrollbar-hide ${
-                isServicesOpen ? "opacity-100 visible" : "opacity-0 invisible"
-              }`}
-            >
-              <div className="p-2">
-                {services.map((service) => (
-                  <a
-                    key={service.name}
-                    className="flex items-center gap-3 px-4 py-3 text-sm text-gray-700 dark:text-gray-300 hover:bg-primary/10 hover:text-primary transition-colors rounded-lg group/item"
-                    href={service.href}
-                  >
-                    <span className="material-symbols-outlined text-lg text-primary group-hover/item:scale-110 transition-transform">
-                      {service.icon}
-                    </span>
-                    <span>{service.name}</span>
-                  </a>
-                ))}
-              </div>
-              <div className="border-t border-gray-200 dark:border-gray-800 p-2">
-                <a
-                  className="flex items-center justify-center gap-2 px-4 py-3 text-sm text-primary hover:bg-primary/10 transition-colors rounded-lg font-bold"
-                  href="#services"
-                >
-                  View All Services
-                  <span className="material-icons text-sm">arrow_forward</span>
-                </a>
-              </div>
-            </div>
-          </div>
-
-          {/* Fortified */}
+    <>
+      <nav
+        className={`fixed top-0 w-full z-50 transition-all duration-500 ${
+          isSolidHeader
+            ? "bg-white shadow-[0_1px_0_rgba(0,0,0,0.05)] h-14 lg:h-[75px]"
+            : "h-14 lg:h-[85px] xl:h-[110px] bg-black/30 backdrop-blur-sm lg:bg-transparent lg:backdrop-blur-none"
+        }`}
+      >
+        <div className="max-w-[1600px] mx-auto px-3 sm:px-5 md:px-10 h-full flex items-center justify-between gap-1.5 sm:gap-2">
           <Link
-            className="text-sm font-semibold text-gray-700 dark:text-gray-300 hover:text-primary dark:hover:text-accent transition-colors"
-            href="/fortified"
+            href="/"
+            className="flex items-center min-w-0 flex-1 lg:flex-none lg:w-[250px] max-w-[42%] min-[400px]:max-w-[48%] sm:max-w-none"
           >
-            Fortified
-          </Link>
-
-          {/* Education Dropdown */}
-          <div 
-            className="relative group"
-            onMouseEnter={() => setIsEducationOpen(true)}
-            onMouseLeave={() => setIsEducationOpen(false)}
-          >
-            <button className="flex items-center gap-1 text-sm font-semibold text-gray-700 dark:text-gray-300 hover:text-primary dark:hover:text-accent transition-colors focus:outline-none">
-              Education
-              <span className="material-icons text-sm">expand_more</span>
-            </button>
-            <div
-              className={`absolute top-full left-0 mt-2 w-48 bg-white dark:bg-section-dark shadow-2xl rounded-lg border border-gray-200 dark:border-gray-800 transition-all duration-200 ${
-                isEducationOpen ? "opacity-100 visible" : "opacity-0 invisible"
-              }`}
-            >
-              <Link
-                className="block px-4 py-3 text-sm text-gray-700 dark:text-gray-300 hover:bg-primary/10 hover:text-primary transition-colors rounded-t-lg"
-                href="/case-studies"
-              >
-                Case Studies
-              </Link>
-              <Link
-                className="block px-4 py-3 text-sm text-gray-700 dark:text-gray-300 hover:bg-primary/10 hover:text-primary transition-colors rounded-b-lg"
-                href="/white-papers"
-              >
-                White Papers
-              </Link>
-            </div>
-          </div>
-
-          {/* Careers */}
-          <Link
-            className="text-sm font-semibold text-gray-700 dark:text-gray-300 hover:text-primary dark:hover:text-accent transition-colors"
-            href="/careers"
-          >
-            Careers
-          </Link>
-
-          {/* About Us */}
-          <Link
-            className="text-sm font-semibold text-gray-700 dark:text-gray-300 hover:text-primary dark:hover:text-accent transition-colors"
-            href="/about"
-          >
-            About Us
-          </Link>
-
-          {/* Contact */}
-          <Link
-            className="text-sm font-semibold text-gray-700 dark:text-gray-300 hover:text-primary dark:hover:text-accent transition-colors"
-            href="/contact"
-          >
-            Contact
-          </Link>
-        </div>
-
-        {/* Desktop Right Side */}
-        <div className="hidden lg:flex items-center gap-3">
-          {/* Client Login */}
-          <Link
-            className="text-sm font-medium text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors"
-            href="/client-login"
-          >
-            Client Login
-          </Link>
-
-          {/* Theme Toggle */}
-          <button
-            onClick={toggleTheme}
-            className="w-9 h-9 rounded-lg bg-gray-100 dark:bg-gray-800 flex items-center justify-center hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
-            aria-label="Toggle theme"
-          >
-            {theme === "dark" ? (
-              <span className="material-symbols-outlined text-gray-600 dark:text-gray-400 text-base">
-                light_mode
-              </span>
+            {!isSolidHeader && isHomePage ? (
+              <img
+                src="/logo-transparent.png"
+                alt="Trinity Engineering"
+                className="h-6 min-[400px]:h-7 sm:h-8 lg:h-[55px] w-auto max-w-full object-contain object-left"
+              />
             ) : (
-              <span className="material-symbols-outlined text-gray-600 text-base">
-                dark_mode
-              </span>
+              <img
+                src="/logo-white-bg-removed.png"
+                alt="Trinity Engineering"
+                className="h-6 min-[400px]:h-7 sm:h-8 lg:h-[50px] w-auto max-w-full object-contain object-left"
+              />
             )}
-          </button>
-
-          {/* Submit Inspection Button */}
-          <Link
-            className="bg-primary hover:bg-primary-dark dark:bg-accent dark:hover:bg-accent-light text-white px-5 py-1.5 rounded-lg text-[13px] font-bold transition-all shadow-md hover:shadow-lg flex items-center gap-2 whitespace-nowrap"
-            href="/submit-inspection"
-          >
-            <span className="material-icons text-sm">send</span>
-            Submit Inspection
           </Link>
-        </div>
 
-        {/* Mobile Menu Button */}
-        <button
-          onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-          className="lg:hidden w-10 h-10 flex items-center justify-center text-gray-700 dark:text-gray-300"
-          aria-label="Toggle mobile menu"
-        >
-          <span className="material-icons text-2xl">
-            {isMobileMenuOpen ? "close" : "menu"}
-          </span>
-        </button>
-      </div>
+          <div className="hidden lg:flex items-center gap-2 absolute left-1/2 -translate-x-1/2">
+            {navItems.map((item) => {
+              const href = getNavHref(item);
+              const isActive = isNavActive(item);
+              return (
+                <Link
+                  key={item}
+                  href={href}
+                  aria-current={isActive ? "page" : undefined}
+                  className={`relative px-6 py-2 text-[12px] tracking-[0.2em] transition-colors duration-300 group ${
+                    isActive
+                      ? isSolidHeader
+                        ? "font-semibold text-[#0047AB]"
+                        : "font-semibold text-white"
+                      : isSolidHeader
+                        ? "font-medium text-gray-600 hover:text-[#0047AB]"
+                        : "font-medium text-white/80 hover:text-white"
+                  }`}
+                >
+                  <span className="relative z-10">{item}</span>
+                  <div
+                    className={`absolute bottom-0 left-1/2 h-[2px] -translate-x-1/2 transition-all duration-300 ${
+                      isActive ? "w-1/2" : "w-0 group-hover:w-1/2"
+                    } ${isSolidHeader || isActive ? "bg-[#0047AB]" : "bg-white"}`}
+                  />
+                </Link>
+              );
+            })}
+          </div>
 
-      {/* Mobile Menu */}
-      {isMobileMenuOpen && (
-        <div className="lg:hidden bg-white dark:bg-section-dark border-t border-gray-200 dark:border-gray-800">
-          <div className="px-6 py-4 space-y-3">
-            {/* Services */}
-            <div>
-              <button
-                onClick={() => setIsServicesOpen(!isServicesOpen)}
-                className="flex items-center justify-between w-full text-sm font-semibold text-gray-700 dark:text-gray-300 py-2"
-              >
-                Our Services
-                <span className="material-icons text-sm">
-                  {isServicesOpen ? "expand_less" : "expand_more"}
-                </span>
-              </button>
-              {isServicesOpen && (
-                <div className="pl-4 space-y-2 mt-2">
-                  {services.map((service) => (
-                    <a
-                      key={service.name}
-                      href={service.href}
-                      className="block text-sm text-gray-600 dark:text-gray-400 py-2"
-                    >
-                      {service.name}
-                    </a>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            <Link href="/fortified" className="block text-sm font-semibold text-gray-700 dark:text-gray-300 py-2">
-              Fortified
-            </Link>
-
-            {/* Education */}
-            <div>
-              <button
-                onClick={() => setIsEducationOpen(!isEducationOpen)}
-                className="flex items-center justify-between w-full text-sm font-semibold text-gray-700 dark:text-gray-300 py-2"
-              >
-                Education
-                <span className="material-icons text-sm">
-                  {isEducationOpen ? "expand_less" : "expand_more"}
-                </span>
-              </button>
-              {isEducationOpen && (
-                <div className="pl-4 space-y-2 mt-2">
-                  <Link href="/case-studies" className="block text-sm text-gray-600 dark:text-gray-400 py-2">
-                    Case Studies
-                  </Link>
-                  <Link href="/white-papers" className="block text-sm text-gray-600 dark:text-gray-400 py-2">
-                    White Papers
-                  </Link>
-                </div>
-              )}
-            </div>
-
-            <Link href="/careers" className="block text-sm font-semibold text-gray-700 dark:text-gray-300 py-2">
-              Careers
-            </Link>
-
-            <Link href="/about" className="block text-sm font-semibold text-gray-700 dark:text-gray-300 py-2">
-              About Us
-            </Link>
-
-            <Link href="/contact" className="block text-sm font-semibold text-gray-700 dark:text-gray-300 py-2">
-              Contact
-            </Link>
-
-            <Link href="/client-login" className="block text-sm font-medium text-gray-600 dark:text-gray-400 py-2">
-              Client Login
-            </Link>
-
-            <div className="pt-3 border-t border-gray-200 dark:border-gray-800">
-              <Link
-                href="/submit-inspection"
-                className="flex items-center justify-center gap-2 w-full bg-primary hover:bg-primary-dark text-white px-6 py-3 rounded-lg font-bold transition-all"
-              >
-                <span className="material-icons text-base">send</span>
-                Submit Inspection
-              </Link>
-            </div>
-
-            <button
-              onClick={toggleTheme}
-              className="flex items-center justify-center gap-2 w-full bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 px-6 py-3 rounded-lg font-semibold transition-all"
+          <div
+            className={`hidden lg:flex items-center gap-8 text-[12px] font-bold tracking-[0.1em] shrink-0 ${
+              isSolidHeader ? "text-gray-900" : "text-white"
+            }`}
+          >
+            <a href="tel:8559295888" className="transition-colors hover:opacity-70 whitespace-nowrap">
+              (855) 929-5888
+            </a>
+            <span className="opacity-40">|</span>
+            <Link
+              href="/login"
+              className={`relative group/login flex items-center transition-all duration-500 uppercase tracking-[0.2em] font-black ${
+                isSolidHeader
+                  ? "text-gray-900 hover:text-[#0047AB]"
+                  : "text-white hover:text-white"
+              }`}
             >
-              <span className="material-symbols-outlined text-base">
-                {theme === "dark" ? "light_mode" : "dark_mode"}
+              <span className="relative z-10 transition-transform duration-500 group-hover/login:-translate-x-1">
+                LOGIN
               </span>
-              {theme === "dark" ? "Light Mode" : "Dark Mode"}
+              <span
+                className={`absolute right-0 opacity-0 -translate-x-2 transition-all duration-500 group-hover/login:opacity-100 group-hover/login:translate-x-6 ${
+                  isSolidHeader ? "text-blue-500" : "text-white"
+                }`}
+              >
+                →
+              </span>
+            </Link>
+          </div>
+
+          <div className="lg:hidden flex items-center gap-1 sm:gap-1.5 shrink-0">
+            <a href="tel:8559295888" className={mobilePhoneClass}>
+              (855) 929-5888
+            </a>
+            <button
+              type="button"
+              aria-label={mobileMenuOpen ? "Close menu" : "Open menu"}
+              aria-expanded={mobileMenuOpen}
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              className="p-1 -mr-0.5"
+            >
+              {mobileMenuOpen ? (
+                <X className={mobileHeaderText} size={20} strokeWidth={2.5} />
+              ) : (
+                <Menu className={mobileHeaderText} size={20} strokeWidth={2.5} />
+              )}
             </button>
+          </div>
+        </div>
+      </nav>
+
+      {mobileMenuOpen && (
+        <div
+          className="fixed inset-0 z-[100] lg:hidden"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Mobile navigation"
+        >
+          <button
+            type="button"
+            aria-label="Close menu"
+            className="absolute inset-0 bg-[#05111D]/55 backdrop-blur-[3px]"
+            onClick={() => setMobileMenuOpen(false)}
+          />
+
+          <div
+            className="absolute top-0 right-0 z-10 flex w-[min(280px,calc(100vw-12px))] max-h-[100dvh] flex-col overflow-hidden rounded-bl-2xl bg-white shadow-[-12px_0_40px_rgba(0,0,0,0.18)] animate-slide-in-right"
+          >
+            <div className="h-1 shrink-0 bg-gradient-to-r from-[#0047AB] via-[#2563EB] to-[#60A5FA]" />
+
+            <div className="flex h-14 shrink-0 items-center justify-between border-b border-gray-100/90 px-4">
+              <Link href="/" onClick={() => setMobileMenuOpen(false)} className="min-w-0">
+                <img
+                  src="/logo-white-bg-removed.png"
+                  alt="Trinity Engineering"
+                  className="h-7 w-auto object-contain"
+                />
+              </Link>
+              <button
+                type="button"
+                aria-label="Close menu"
+                onClick={() => setMobileMenuOpen(false)}
+                className="rounded-full p-2 text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-900"
+              >
+                <X size={20} strokeWidth={2.25} />
+              </button>
+            </div>
+
+            <div className="flex flex-col overflow-y-auto px-3 py-4">
+              <nav className="flex flex-col gap-0.5">
+                {navItems.map((item) => {
+                  const href = getNavHref(item);
+                  const isActive = isNavActive(item);
+                  return (
+                    <Link
+                      key={item}
+                      href={href}
+                      aria-current={isActive ? "page" : undefined}
+                      onClick={() => setMobileMenuOpen(false)}
+                      className={`rounded-lg px-3 py-2.5 text-[12px] font-semibold tracking-[0.14em] transition-all duration-200 ${
+                        isActive
+                          ? "bg-[#0047AB]/10 text-[#0047AB] ring-1 ring-[#0047AB]/20"
+                          : "text-gray-700 hover:bg-gray-50 hover:text-[#0047AB]"
+                      }`}
+                    >
+                      {item}
+                    </Link>
+                  );
+                })}
+              </nav>
+
+              <div className="mt-4 border-t border-gray-100 pt-4">
+                <Link
+                  href="/login"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="flex items-center justify-center gap-2 rounded-lg bg-[#001D3D] px-4 py-3 text-[11px] font-black tracking-[0.2em] text-white shadow-md transition-colors hover:bg-[#0047AB]"
+                >
+                  LOGIN
+                  <ArrowRight size={14} strokeWidth={2.5} className="shrink-0" />
+                </Link>
+              </div>
+            </div>
           </div>
         </div>
       )}
-    </nav>
+    </>
   );
 }

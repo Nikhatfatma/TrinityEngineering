@@ -1,5 +1,5 @@
 # Dependencies (installed on server via scripts.install)
-node_modules
+# node_modules removed to allow manual upload
 
 # Next.js build cache (rebuilt on server)
 /.next
