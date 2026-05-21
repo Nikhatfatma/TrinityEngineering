@@ -8,8 +8,15 @@
 
 html,
 body {
-  overflow-x: clip;
   max-width: 100%;
+}
+
+/* Clip horizontal overflow on mobile/tablet only — desktop sticky sections need it off */
+@media (max-width: 1023px) {
+  html,
+  body {
+    overflow-x: clip;
+  }
 }
 
 @layer utilities {

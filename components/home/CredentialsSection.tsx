@@ -1,27 +1,25 @@
 "use client";
 
+import SectionDivider from "./SectionDivider";
+import { HOME_CONTENT_CLASS, HOME_SECTION_CLASS, HOME_SECTION_HEADING } from "./HomeContent";
+
 export default function CredentialsSection() {
   return (
-    <section className="py-10 px-6 bg-gradient-to-b from-[#F8F9FA] to-white border-t border-gray-100 overflow-hidden relative">
-      <div className="w-full max-w-[1920px] mx-auto relative z-10">
+    <section className={`${HOME_SECTION_CLASS} py-10 bg-gradient-to-b from-[#F8F9FA] to-white border-t border-gray-100 overflow-hidden`}>
+      <div className={`${HOME_CONTENT_CLASS} relative z-10`}>
         <div className="text-center mb-8 px-2 sm:px-4">
-          {/* Diamond Divider */}
-          <div className="flex items-center justify-center gap-4 mb-6">
-            <div className="w-[80px] md:w-[200px] h-[3px] bg-gradient-to-r from-transparent to-[#1A1A1A] rounded-l-full"></div>
-            <div className="w-2.5 h-2.5 rotate-45 bg-[#1A1A1A]"></div>
-            <div className="w-[80px] md:w-[200px] h-[3px] bg-gradient-to-l from-transparent to-[#1A1A1A] rounded-r-full"></div>
-          </div>
+          <SectionDivider viaClass="via-[#1A1A1A]" />
           <h2
-            className="mx-auto w-full font-semibold text-[#1A1A1A] text-center tracking-tight leading-[1.2]"
+            className={`mx-auto w-full text-[#1A1A1A] text-center tracking-tight leading-[1.2] lg:font-semibold ${HOME_SECTION_HEADING}`}
             style={{ fontSize: "clamp(0.8125rem, 2.19vw, 2.625rem)" }}
           >
-            <span className="block sm:whitespace-nowrap">Professional Certifications & Memberships</span>
+            <span className="block">Professional Certifications & Memberships</span>
           </h2>
         </div>
 
-        <div className="max-w-5xl mx-auto flex flex-col md:flex-row justify-center items-center gap-10 md:gap-16">
+        <div className="w-full min-w-0 flex flex-row justify-center items-stretch gap-3 sm:items-center sm:gap-10 md:gap-16">
           {/* NSPE Container */}
-          <div className="group bg-white w-full max-w-[380px] aspect-[16/9] flex items-center justify-center p-0 rounded-2xl border border-gray-100 shadow-[0_8px_30px_rgb(0,0,0,0.04)] hover:shadow-[0_20px_40px_rgba(0,71,171,0.08)] hover:-translate-y-2 transition-all duration-500 overflow-hidden relative">
+          <div className="group relative flex-1 min-h-[7rem] min-w-0 aspect-[16/9] flex items-center justify-center overflow-hidden rounded-2xl border border-gray-100 bg-white p-2 shadow-[0_8px_30px_rgb(0,0,0,0.04)] transition-all duration-500 hover:-translate-y-2 hover:shadow-[0_20px_40px_rgba(0,71,171,0.08)] sm:min-h-0 sm:p-0 sm:mx-0 sm:max-w-[380px] sm:flex-1">
             <div className="absolute inset-0 bg-gradient-to-br from-[#0047AB]/[0.02] to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
             <img 
               src="/logo-nspe.png" 
@@ -31,7 +29,7 @@ export default function CredentialsSection() {
           </div>
 
           {/* FORTIFIED Container */}
-          <div className="group bg-white w-full max-w-[380px] aspect-[16/9] flex items-center justify-center p-0 rounded-2xl border border-gray-100 shadow-[0_8px_30px_rgb(0,0,0,0.04)] hover:shadow-[0_20px_40px_rgba(0,168,89,0.08)] hover:-translate-y-2 transition-all duration-500 overflow-hidden relative">
+          <div className="group relative flex-1 min-h-[7rem] min-w-0 aspect-[16/9] flex items-center justify-center overflow-hidden rounded-2xl border border-gray-100 bg-white p-2 shadow-[0_8px_30px_rgb(0,0,0,0.04)] transition-all duration-500 hover:-translate-y-2 hover:shadow-[0_20px_40px_rgba(0,168,89,0.08)] sm:min-h-0 sm:p-0 sm:mx-0 sm:max-w-[380px] sm:flex-1">
             <div className="absolute inset-0 bg-gradient-to-br from-[#00A859]/[0.02] to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
             <img 
               src="/logo-fortified-cert.png" 

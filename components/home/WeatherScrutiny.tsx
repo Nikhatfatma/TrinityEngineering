@@ -1,95 +1,93 @@
 "use client";
 
+import SectionDivider from "./SectionDivider";
+import { HOME_CONTENT_CLASS, HOME_SECTION_CLASS, HOME_SECTION_HEADING } from "./HomeContent";
+
 export default function WeatherScrutiny() {
   return (
-    <section className="py-10 md:py-12 px-4 sm:px-6 bg-[#F8FAFC] relative overflow-hidden max-lg:overflow-x-clip">
+    <section className={`${HOME_SECTION_CLASS} py-10 md:py-12 bg-[#F8FAFC] overflow-hidden`}>
       {/* Technical Background Pattern */}
       <div className="absolute inset-0 opacity-[0.03] pointer-events-none" style={{ backgroundImage: 'radial-gradient(#1a1a1a 0.5px, transparent 0.5px)', backgroundSize: '24px 24px' }}></div>
       
-      <div className="w-full max-w-[1920px] mx-auto relative z-10 px-4 sm:px-6 md:px-10 lg:px-12 xl:px-16 2xl:px-24">
-        <div className="flex flex-col items-center w-full text-center gap-5 mb-8 md:mb-10">
-          <div className="flex items-center justify-center gap-4 w-full">
-            <div className="w-[60px] md:w-[150px] h-[3px] bg-gradient-to-r from-transparent to-[#1a1a1a] rounded-l-full"></div>
-            <div className="w-2.5 h-2.5 rotate-45 bg-[#1a1a1a]"></div>
-            <div className="w-[60px] md:w-[150px] h-[3px] bg-gradient-to-l from-transparent to-[#1a1a1a] rounded-r-full"></div>
-          </div>
-          <div className="inline-block bg-[#1a1a1a] text-white text-[9px] md:text-[10px] font-bold px-4 md:px-5 py-1.5 uppercase tracking-[0.3em]">
+      <div className={`${HOME_CONTENT_CLASS} relative z-10`}>
+        <div className="text-center mb-8 md:mb-10 px-2 sm:px-4">
+          <SectionDivider viaClass="via-[#1a1a1a]" />
+          <div className="inline-block bg-[#1a1a1a] text-white text-[9px] md:text-[10px] font-bold px-4 md:px-5 py-1.5 mb-4 uppercase tracking-[0.3em] rounded-full shadow-sm">
             HISTORICAL WEATHER ANALYSIS
           </div>
           <h2
-            className="font-serif font-normal text-[#1A1A1A] text-center tracking-tight leading-[1.2] max-lg:text-xl max-lg:px-2 lg:whitespace-nowrap"
+            className={`px-2 text-center text-xl leading-[1.2] tracking-tight text-[#1A1A1A] sm:text-2xl md:text-3xl lg:font-serif lg:font-normal lg:text-4xl ${HOME_SECTION_HEADING}`}
             style={{ fontSize: "clamp(1.5rem, 3vw, 3rem)" }}
           >
-            Weather Reporting Built To <span className="font-bold">Withstand Scrutiny.</span>
+            Weather Reporting Built To <span className="lg:font-bold">Withstand Scrutiny.</span>
           </h2>
           <p
-            className="mx-auto w-full max-w-7xl px-4 sm:px-6 text-gray-600 text-center tracking-normal font-medium leading-snug"
+            className="mx-auto mt-5 w-full text-gray-600 text-center tracking-normal font-medium leading-snug"
             style={{ fontSize: "clamp(0.75rem, 1.05vw, 0.875rem)" }}
           >
-            <span className="block lg:whitespace-nowrap">
+            <span className="block">
               Forensic-grade hail and severe weather analysis for insurance claims backed by named, reproducible government datasets and
             </span>
-            <span className="block lg:whitespace-nowrap">a methodology transparent enough for any deposition.</span>
+            <span className="block">a methodology transparent enough for any deposition.</span>
           </p>
         </div>
 
         {/* SWI Logo Section */}
         <div className="flex flex-col items-center mb-8 md:mb-10">
-          <div className="w-[180px] md:w-[320px] relative group">
-             <div className="absolute -inset-4 bg-blue-500/5 blur-2xl rounded-full opacity-0 group-hover:opacity-100 transition-opacity"></div>
+          <div className="w-[180px] md:w-[320px]">
              <img 
                src="/swi-logo.png" 
-               className="w-full h-auto object-contain relative z-10" 
+               className="w-full h-auto object-contain" 
                alt="Severe Weather Intelligence Logo"
              />
           </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-10 md:gap-12 xl:gap-16 items-stretch">
-          {/* Left: Weather Map */}
-          <div className="lg:col-span-1">
-             <div className="relative group rounded-2xl overflow-hidden shadow-[0_20px_50px_rgba(0,0,0,0.15)] border border-white/50 bg-white h-auto aspect-[4/3] md:aspect-auto md:h-full">
-               <img 
-                 src="/weather-map.png" 
-                 className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-110" 
-                 alt="Historical Weather Map"
-               />
-               <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent opacity-60"></div>
-             </div>
+        <div className="grid grid-cols-1 min-w-0 max-lg:gap-y-4 lg:grid-cols-3 lg:items-stretch gap-8 md:gap-10 xl:gap-16">
+          {/* Left: Weather Map — mobile: same full width as Insurance section image */}
+          <div className="w-full min-w-0 max-lg:col-span-full self-start lg:col-span-1 lg:flex lg:items-center lg:justify-center">
+            <img
+              src="/weather-map.png"
+              alt="Historical Weather Map"
+              className="block w-full h-auto max-lg:object-contain max-lg:object-center lg:max-h-[32rem] lg:w-auto lg:border lg:border-white/50 lg:object-contain lg:shadow-[0_20px_50px_rgba(0,0,0,0.15)]"
+            />
           </div>
 
           {/* Middle: Content */}
-          <div className="lg:col-span-1 space-y-8 md:space-y-10 py-4">
-            <div className="group">
-              <h3 className="text-[#0047AB] font-black text-[13px] mb-3 uppercase tracking-[0.2em] group-hover:translate-x-2 transition-transform duration-300">BUILT FOR THE DEPOSITION ROOM</h3>
-              <p className="text-gray-600 text-[14px] md:text-[15px] leading-relaxed font-medium">
+          <div className="flex h-full flex-col justify-center space-y-8 py-2 md:space-y-10 md:py-4 lg:col-span-1 lg:justify-start lg:space-y-10 lg:-mt-1 lg:pb-4 xl:mt-0 xl:space-y-12">
+            <div>
+              <h3 className="text-[#0047AB] font-black text-[12px] mb-3 uppercase tracking-[0.2em] md:mb-4 md:text-[13px]">
+                BUILT FOR THE DEPOSITION ROOM
+              </h3>
+              <p className="text-gray-600 text-[13px] font-medium leading-relaxed md:text-[14px]">
                 Every SWI report is built on named, publicly accessible government datasets with documented methodology. When opposing counsel asks how the number was derived, your expert has an answer.
               </p>
             </div>
-            <div className="group">
-              <h3 className="text-[#0047AB] font-black text-[13px] mb-3 uppercase tracking-[0.2em] group-hover:translate-x-2 transition-transform duration-300">5 INDEPENDENT DATA SOURCES</h3>
-              <p className="text-gray-600 text-[14px] md:text-[15px] leading-relaxed font-medium">
+            <div>
+              <h3 className="text-[#0047AB] font-black text-[12px] mb-3 uppercase tracking-[0.2em] md:mb-4 md:text-[13px]">
+                5 INDEPENDENT DATA SOURCES
+              </h3>
+              <p className="text-gray-600 text-[13px] font-medium leading-relaxed md:text-[14px]">
                 Storm Events, NEXRAD radar, ASOS stations, IEM reports, and SPC Discussions are cross-referenced with PE-verified empirical data — no single point of failure.
               </p>
             </div>
-            <div className="group">
-              <h3 className="text-[#0047AB] font-black text-[13px] mb-3 uppercase tracking-[0.2em] group-hover:translate-x-2 transition-transform duration-300">EMPIRICAL DATA INTEGRATION</h3>
-              <p className="text-gray-600 text-[14px] md:text-[15px] leading-relaxed font-medium">
+            <div>
+              <h3 className="text-[#0047AB] font-black text-[12px] mb-3 uppercase tracking-[0.2em] md:mb-4 md:text-[13px]">
+                EMPIRICAL DATA INTEGRATION
+              </h3>
+              <p className="text-gray-600 text-[13px] font-medium leading-relaxed md:text-[14px]">
                 SWI reports are produced by Trinity Engineering as part of the forensic process. The weather analysis and engineering findings arrive together from the same source.
               </p>
             </div>
           </div>
 
-          {/* Right: NOAA Station */}
-          <div className="lg:col-span-1">
-             <div className="relative group rounded-2xl overflow-hidden shadow-[0_20px_50px_rgba(0,0,0,0.15)] border border-white/50 bg-white h-auto aspect-[4/3] md:aspect-auto md:h-full">
-               <img 
-                 src="/noaa-station.png" 
-                 className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-110" 
-                 alt="NOAA Weather Station"
-               />
-               <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent opacity-60"></div>
-             </div>
+          {/* Right: NOAA Station — mobile: same full width as Insurance section image */}
+          <div className="w-full min-w-0 max-lg:col-span-full self-start lg:col-span-1 lg:flex lg:items-center lg:justify-center">
+            <img
+              src="/noaa-station.png"
+              alt="NOAA Weather Station"
+              className="block w-full h-auto max-lg:object-contain max-lg:object-center lg:max-h-[32rem] lg:w-auto lg:border lg:border-white/50 lg:object-contain lg:shadow-[0_20px_50px_rgba(0,0,0,0.15)]"
+            />
           </div>
         </div>
       </div>

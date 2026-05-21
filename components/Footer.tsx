@@ -3,8 +3,39 @@
 import Link from "next/link";
 import { Phone, Mail, Clock, ChevronRight } from "lucide-react";
 
+const SERVICES_COL_LEFT = [
+  "Structural Investigations",
+  "Storm Damage",
+  "Water Loss",
+  "FORTIFIED Roof",
+  "Large Loss",
+  "Lightning Damage",
+];
+
+const SERVICES_COL_RIGHT = [
+  "Chimney Collapse",
+  "Component Failure",
+  "HVAC/Electrical",
+  "Fire Investigation",
+  "Plumbing Failure",
+  "Fraud Investigation",
+];
+
 export default function Footer() {
   const footerLinkClass = "relative group flex items-center gap-0 hover:gap-2 transition-all duration-300 hover:text-blue-400 py-1";
+
+  const serviceHref = (item: string) =>
+    `/services/${item.toLowerCase().replace(/ /g, "-")}`;
+
+  const ServiceLink = ({ item }: { item: string }) => (
+    <Link className={footerLinkClass} href={serviceHref(item)}>
+      <ChevronRight
+        size={12}
+        className="w-0 opacity-0 group-hover:w-3 group-hover:opacity-100 transition-all duration-300 text-blue-500"
+      />
+      <span>{item}</span>
+    </Link>
+  );
   
   const HeaderWithDot = ({ title }: { title: string }) => (
     <div className="mb-8">
@@ -17,7 +48,7 @@ export default function Footer() {
   );
 
   return (
-    <footer className="bg-[#05111D] text-white py-12 max-lg:py-14 px-4 sm:px-6 overflow-hidden relative">
+    <footer className="relative bg-[#05111D] py-12 text-white max-lg:overflow-x-clip max-lg:py-14">
       <style jsx>{`
         @keyframes pulse-glow {
           0%, 100% { box-shadow: 0 0 15px rgba(59,130,246,0.6), 0 0 30px rgba(0,71,171,0.4); opacity: 0.8; }
@@ -30,38 +61,47 @@ export default function Footer() {
       
       {/* Dynamic Pulsing Neon Line */}
       <div className="absolute top-0 left-0 right-0 h-[6px] bg-[#0047AB] animate-pulse-glow z-20"></div>
-      <div className="max-w-[1600px] mx-auto">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 max-lg:gap-8 lg:gap-8 mb-12 max-lg:mb-10 lg:mb-16">
+      <div className="mx-auto max-w-[1440px] px-4 sm:px-6 lg:px-6 lg:pr-14 xl:px-8 xl:pr-8">
+        <div className="mb-12 grid grid-cols-1 gap-10 max-lg:mb-10 max-lg:justify-items-start max-lg:gap-8 lg:mb-16 lg:grid-cols-12 lg:gap-6 xl:gap-8">
           
-          {/* Logo Section - Span 3 */}
-          <div className="lg:col-span-3 flex flex-col justify-center max-lg:items-center">
-            <Link href="/" className="hover:opacity-80 transition-opacity">
+          {/* Logo Section */}
+          <div className="flex w-full min-w-0 flex-col max-lg:items-start max-lg:justify-start lg:col-span-2 lg:justify-center xl:col-span-3">
+            <Link href="/" className="inline-block hover:opacity-80 transition-opacity">
               <img 
                 src="/logo-transparent.png" 
                 alt="Trinity Engineering" 
-                className="h-[80px] w-auto object-contain object-left"
+                className="h-[76px] w-auto object-contain object-left sm:h-[96px] lg:h-[112px]"
               />
             </Link>
           </div>
 
-          {/* Services Section - Span 5 */}
-          <div className="lg:col-span-5">
-            <HeaderWithDot title="Services" />
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-[13px] font-medium text-white/80 max-lg:max-w-xs max-lg:mx-auto">
-              <ul className="space-y-4">
-                {["Structural Investigations", "Storm Damage", "Water Loss", "FORTIFIED Roof", "Large Loss", "Lightning Damage"].map((item) => (
+          {/* Tablet — left services + right services above Contact column */}
+          <div className="hidden w-full min-w-0 grid-cols-2 gap-x-10 gap-y-8 md:grid lg:hidden">
+            <div className="col-span-2">
+              <HeaderWithDot title="Services" />
+            </div>
+            <ul className="space-y-8 text-[13px] font-medium text-white/80">
+              {SERVICES_COL_LEFT.map((item) => (
+                <li key={item}>
+                  <ServiceLink item={item} />
+                </li>
+              ))}
+            </ul>
+            <div className="flex flex-col justify-end text-[13px] font-medium text-white/80">
+              <ul className="space-y-8">
+                {SERVICES_COL_RIGHT.map((item) => (
                   <li key={item}>
-                    <Link className={footerLinkClass} href={`/services/${item.toLowerCase().replace(/ /g, "-")}`}>
-                      <ChevronRight size={12} className="w-0 opacity-0 group-hover:w-3 group-hover:opacity-100 transition-all duration-300 text-blue-500" />
-                      <span>{item}</span>
-                    </Link>
+                    <ServiceLink item={item} />
                   </li>
                 ))}
               </ul>
-              <ul className="space-y-4">
-                {["Chimney Collapse", "Component Failure", "HVAC/Electrical", "Fire Investigation", "Plumbing Failure", "Fraud Investigation"].map((item) => (
+            </div>
+            <div className="min-w-0">
+              <HeaderWithDot title="Company" />
+              <ul className="space-y-4 text-[13px] font-medium text-white/80">
+                {["Our Services", "Fortified", "Education", "Careers", "About Us", "Contact"].map((item) => (
                   <li key={item}>
-                    <Link className={footerLinkClass} href={`/services/${item.toLowerCase().replace(/ /g, "-")}`}>
+                    <Link className={footerLinkClass} href={`/${item.toLowerCase().replace(/ /g, "-")}`}>
                       <ChevronRight size={12} className="w-0 opacity-0 group-hover:w-3 group-hover:opacity-100 transition-all duration-300 text-blue-500" />
                       <span>{item}</span>
                     </Link>
@@ -69,60 +109,129 @@ export default function Footer() {
                 ))}
               </ul>
             </div>
-          </div>
-
-          {/* Company Section - Span 2 */}
-          <div className="lg:col-span-2">
-            <HeaderWithDot title="Company" />
-            <ul className="space-y-4 text-[13px] font-medium text-white/80">
-              {["Our Services", "Fortified", "Education", "Careers", "About Us", "Contact"].map((item) => (
-                <li key={item}>
-                  <Link className={footerLinkClass} href={`/${item.toLowerCase().replace(/ /g, "-")}`}>
-                    <ChevronRight size={12} className="w-0 opacity-0 group-hover:w-3 group-hover:opacity-100 transition-all duration-300 text-blue-500" />
-                    <span>{item}</span>
-                  </Link>
+            <div className="min-w-0">
+              <HeaderWithDot title="Contact" />
+              <ul className="space-y-6 text-[13px] font-medium">
+                <li className="flex items-center gap-3 group cursor-pointer">
+                  <div className="p-2 bg-blue-500/10 rounded-sm group-hover:bg-blue-500/20 transition-colors">
+                    <Phone size={14} className="text-blue-500" />
+                  </div>
+                  <a href="tel:+18559295888" className="hover:text-blue-400 transition-colors">(855) 929-5888</a>
                 </li>
-              ))}
-            </ul>
+                <li className="flex items-center gap-3 group cursor-pointer">
+                  <div className="p-2 bg-blue-500/10 rounded-sm group-hover:bg-blue-500/20 transition-colors">
+                    <Mail size={14} className="text-blue-500" />
+                  </div>
+                  <a href="mailto:claims@trinitypllc.com" className="hover:text-blue-400 transition-colors">claims@trinitypllc.com</a>
+                </li>
+                <li className="flex items-center gap-3 group cursor-pointer">
+                  <div className="p-2 bg-blue-500/10 rounded-sm group-hover:bg-blue-500/20 transition-colors">
+                    <Mail size={14} className="text-blue-500" />
+                  </div>
+                  <a href="mailto:fortified@trinitypllc.com" className="hover:text-blue-400 transition-colors">fortified@trinitypllc.com</a>
+                </li>
+                <li className="flex items-center gap-3 group">
+                  <div className="p-2 bg-blue-500/10 rounded-sm group-hover:bg-blue-500/20 transition-colors">
+                    <Clock size={14} className="text-blue-500" />
+                  </div>
+                  <span className="text-white/80">24/7 Emergency Service</span>
+                </li>
+              </ul>
+            </div>
           </div>
 
-          {/* Contact Section - Span 2 */}
-          <div className="lg:col-span-2">
-            <HeaderWithDot title="Contact" />
-            <ul className="space-y-6 text-[13px] font-medium">
-              <li className="flex items-center gap-3 group cursor-pointer">
-                <div className="p-2 bg-blue-500/10 rounded-sm group-hover:bg-blue-500/20 transition-colors">
-                  <Phone size={14} className="text-blue-500" />
-                </div>
-                <a href="tel:+18559295888" className="hover:text-blue-400 transition-colors">(855) 929-5888</a>
-              </li>
-              <li className="flex items-center gap-3 group cursor-pointer">
-                <div className="p-2 bg-blue-500/10 rounded-sm group-hover:bg-blue-500/20 transition-colors">
-                  <Mail size={14} className="text-blue-500" />
-                </div>
-                <a href="mailto:claims@trinitypllc.com" className="hover:text-blue-400 transition-colors">claims@trinitypllc.com</a>
-              </li>
-              <li className="flex items-center gap-3 group cursor-pointer">
-                <div className="p-2 bg-blue-500/10 rounded-sm group-hover:bg-blue-500/20 transition-colors">
-                  <Mail size={14} className="text-blue-500" />
-                </div>
-                <a href="mailto:fortified@trinitypllc.com" className="hover:text-blue-400 transition-colors">fortified@trinitypllc.com</a>
-              </li>
-              <li className="flex items-center gap-3 group">
-                <div className="p-2 bg-blue-500/10 rounded-sm group-hover:bg-blue-500/20 transition-colors">
-                  <Clock size={14} className="text-blue-500" />
-                </div>
-                <span className="text-white/80">24/7 Emergency Service</span>
-              </li>
-            </ul>
+          {/* Services — mobile + desktop */}
+          <div className="w-full min-w-0 md:hidden lg:col-span-5 lg:block xl:col-span-5">
+            <HeaderWithDot title="Services" />
+            <div className="text-[13px] font-medium text-white/80 w-full min-w-0">
+              <div className="flex flex-col gap-8 lg:hidden">
+                <ul className="space-y-4">
+                  {SERVICES_COL_LEFT.map((item) => (
+                    <li key={item}>
+                      <ServiceLink item={item} />
+                    </li>
+                  ))}
+                </ul>
+                <ul className="space-y-4">
+                  {SERVICES_COL_RIGHT.map((item) => (
+                    <li key={item}>
+                      <ServiceLink item={item} />
+                    </li>
+                  ))}
+                </ul>
+              </div>
+              <div className="hidden lg:grid lg:grid-cols-2 lg:gap-4">
+                <ul className="space-y-4">
+                  {SERVICES_COL_LEFT.map((item) => (
+                    <li key={item}>
+                      <ServiceLink item={item} />
+                    </li>
+                  ))}
+                </ul>
+                <ul className="space-y-4">
+                  {SERVICES_COL_RIGHT.map((item) => (
+                    <li key={item}>
+                      <ServiceLink item={item} />
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+          </div>
+
+          {/* Company + Contact — mobile + desktop */}
+          <div className="grid w-full grid-cols-1 gap-10 max-lg:gap-8 md:hidden lg:contents">
+            <div className="min-w-0 lg:col-span-2">
+              <HeaderWithDot title="Company" />
+              <ul className="space-y-4 text-[13px] font-medium text-white/80">
+                {["Our Services", "Fortified", "Education", "Careers", "About Us", "Contact"].map((item) => (
+                  <li key={item}>
+                    <Link className={footerLinkClass} href={`/${item.toLowerCase().replace(/ /g, "-")}`}>
+                      <ChevronRight size={12} className="w-0 opacity-0 group-hover:w-3 group-hover:opacity-100 transition-all duration-300 text-blue-500" />
+                      <span>{item}</span>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            <div className="min-w-0 lg:col-span-3 xl:col-span-2">
+              <HeaderWithDot title="Contact" />
+              <ul className="space-y-6 text-[12px] font-medium xl:text-[13px]">
+                <li className="group flex min-w-0 cursor-pointer items-start gap-3">
+                  <div className="shrink-0 rounded-sm bg-blue-500/10 p-2 transition-colors group-hover:bg-blue-500/20">
+                    <Phone size={14} className="text-blue-500" />
+                  </div>
+                  <a href="tel:+18559295888" className="min-w-0 break-words hover:text-blue-400 transition-colors">(855) 929-5888</a>
+                </li>
+                <li className="group flex min-w-0 cursor-pointer items-start gap-3">
+                  <div className="shrink-0 rounded-sm bg-blue-500/10 p-2 transition-colors group-hover:bg-blue-500/20">
+                    <Mail size={14} className="text-blue-500" />
+                  </div>
+                  <a href="mailto:claims@trinitypllc.com" className="min-w-0 break-all hover:text-blue-400 transition-colors sm:break-words">claims@trinitypllc.com</a>
+                </li>
+                <li className="group flex min-w-0 cursor-pointer items-start gap-3">
+                  <div className="shrink-0 rounded-sm bg-blue-500/10 p-2 transition-colors group-hover:bg-blue-500/20">
+                    <Mail size={14} className="text-blue-500" />
+                  </div>
+                  <a href="mailto:fortified@trinitypllc.com" className="min-w-0 break-all hover:text-blue-400 transition-colors sm:break-words">fortified@trinitypllc.com</a>
+                </li>
+                <li className="group flex min-w-0 items-start gap-3">
+                  <div className="shrink-0 rounded-sm bg-blue-500/10 p-2 transition-colors group-hover:bg-blue-500/20">
+                    <Clock size={14} className="text-blue-500" />
+                  </div>
+                  <span className="min-w-0 break-words text-white/80">24/7 Emergency Service</span>
+                </li>
+              </ul>
+            </div>
           </div>
         </div>
 
-        <div className="pt-10 border-t border-white/5 flex flex-col md:flex-row items-center justify-between gap-6 text-[11px] font-bold text-white/30 tracking-widest uppercase">
-          <p>© Trinitypllc.com 2022 All rights Reserved.</p>
-          <div className="flex gap-12">
-            <Link className="hover:text-blue-400 transition-colors" href="/privacy">Privacy Policy</Link>
-            <Link className="hover:text-blue-400 transition-colors" href="/terms">Terms of Service</Link>
+        <div className="pt-10 border-t border-white/5 flex flex-col md:flex-row items-center justify-between gap-6 text-center md:text-left text-[11px] font-bold text-white tracking-widest uppercase">
+          <p className="max-w-full break-words">© Trinitypllc.com 2022 All rights Reserved.</p>
+          <div className="flex flex-wrap justify-center gap-6 sm:gap-12">
+            <Link className="text-white hover:text-blue-400 transition-colors" href="/privacy">Privacy Policy</Link>
+            <Link className="text-white hover:text-blue-400 transition-colors" href="/terms">Terms of Service</Link>
           </div>
         </div>
       </div>

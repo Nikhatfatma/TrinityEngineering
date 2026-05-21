@@ -18,14 +18,15 @@ export default function FloatingSubmitButton() {
   if (!visible) return null;
 
   return (
-    <div className="fixed right-0 top-1/2 -translate-y-1/2 z-[60] hidden lg:block animate-fadeIn">
+    <div className="fixed right-0 top-1/2 z-[60] -translate-y-1/2 animate-fadeIn max-lg:top-auto max-lg:bottom-24 max-lg:translate-y-0">
       <Link
         href="/submit-inspection"
-        className="flex flex-col items-center bg-[#0047AB] hover:bg-[#003580] text-white py-4 px-2.5 rounded-l-md shadow-xl transition-all hover:-translate-x-1"
+        className="flex flex-col items-center rounded-l-md bg-[#0047AB] px-1.5 py-2.5 text-white shadow-xl transition-all hover:-translate-x-1 hover:bg-[#003580] max-lg:px-1.5 max-lg:py-3 lg:px-2.5 lg:py-4"
+        aria-label="Submit Inspection"
       >
-        <Send size={15} className="-rotate-90 mb-1" />
-        <span 
-          className="mt-3 font-bold uppercase tracking-[0.2em] text-[11px]"
+        <Send className="mb-1 h-3.5 w-3.5 shrink-0 lg:h-[15px] lg:w-[15px]" />
+        <span
+          className="mt-1.5 font-bold uppercase tracking-[0.14em] text-[8px] max-lg:mt-2 lg:mt-3 lg:text-[11px] lg:tracking-[0.2em]"
           style={{ writingMode: "vertical-rl", textOrientation: "mixed" }}
         >
           Submit Inspection

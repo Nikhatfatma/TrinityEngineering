@@ -64,8 +64,8 @@ const INSPECTION_TYPES = [
 ];
 
 const BUILDING_TYPES = [
-  { id: "single-family", title: "Single Family Residence", image: "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=800&q=80" },
-  { id: "multiples-residence", title: "Multiples Residence", image: "https://images.unsplash.com/photo-1512917774080-9991f1c4c750?w=800&q=80" },
+  { id: "single-family", title: "Single-family residential", image: "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=800&q=80" },
+  { id: "multiples-residence", title: "Multi-unit residential", image: "https://images.unsplash.com/photo-1512917774080-9991f1c4c750?w=800&q=80" },
   { id: "commercial-municipal-industrial", title: "Commercial / Municipal / Industrial", image: "https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?w=800&q=80" },
 ];
 

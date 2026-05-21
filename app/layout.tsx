@@ -28,7 +28,7 @@ export default function RootLayout({
           }}
         />
       </head>
-      <body className={`${mulish.className} bg-white dark:bg-background-dark font-display text-gray-900 dark:text-gray-300 antialiased overflow-x-clip`}>
+      <body className={`${mulish.className} bg-white dark:bg-background-dark font-display text-gray-900 dark:text-gray-300 antialiased max-lg:overflow-x-clip`}>
         <ThemeProvider>
           {children}
           <FloatingSubmitButton />

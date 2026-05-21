@@ -1,18 +1,20 @@
 "use client";
 
+import { HOME_CONTENT_CLASS, HOME_SECTION_CLASS } from "./HomeContent";
+
 export default function BioSection() {
   return (
-    <section className="bg-[#0F172A] flex flex-col lg:flex-row relative z-10">
+    <section className={`${HOME_SECTION_CLASS} bg-[#0F172A] z-10`}>
       {/* Background patterns contained separately to allow image overflow */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="absolute top-0 right-0 w-64 h-64 bg-blue-500/5 blur-3xl rounded-full -mr-32 -mt-32"></div>
       </div>
       
-      <div className="w-full flex justify-center py-10 md:py-16 px-4 sm:px-6 md:px-12 relative z-10">
-        <div className="w-full max-w-[1200px] flex flex-col md:flex-row items-center md:items-start gap-10 md:gap-20 text-white relative">
+      <div className={`${HOME_CONTENT_CLASS} py-10 md:py-16 relative z-10`}>
+        <div className="flex flex-col md:flex-row items-center md:items-start gap-8 sm:gap-10 md:gap-16 lg:gap-20 text-white relative min-w-0">
           
-          {/* Profile Image - Adjusted overlap for mobile */}
-          <div className="w-48 h-48 md:w-72 md:h-72 flex-shrink-0 relative -mt-12 md:-mt-16 z-20 group">
+          {/* Profile Image */}
+          <div className="w-40 h-40 sm:w-48 sm:h-48 md:w-72 md:h-72 flex-shrink-0 relative mt-0 md:-mt-16 z-20 group">
             {/* Enhanced glowing effect */}
             <div className="absolute inset-0 bg-[#2563EB] rounded-full blur-2xl md:blur-3xl opacity-20 group-hover:opacity-40 transition-opacity duration-700"></div>
             <div className="absolute inset-0 border-2 border-white/10 rounded-full scale-110 group-hover:scale-125 transition-transform duration-700 pointer-events-none"></div>
@@ -25,7 +27,7 @@ export default function BioSection() {
           </div>
           
           {/* Bio Text - Spanning to the right */}
-          <div className="flex-1 text-[15px] md:text-[18px] leading-relaxed opacity-95 relative text-center md:text-left">
+          <div className="flex-1 min-w-0 text-sm sm:text-[15px] md:text-[18px] leading-relaxed opacity-95 relative text-center md:text-left">
             {/* Stylized Quote Icon */}
             <div className="text-4xl md:text-6xl text-blue-500/20 font-serif absolute -top-6 md:-top-10 left-1/2 md:left-[-24px] -translate-x-1/2 md:translate-x-0 pointer-events-none">&ldquo;</div>
             
@@ -38,7 +40,7 @@ export default function BioSection() {
                 Scott Beaudry, PE
                 <div className="absolute -bottom-1 left-0 w-0 h-0.5 bg-blue-500 group-hover/name:w-full transition-all duration-500"></div>
               </div>
-              <div className="text-[13px] md:text-[16px] uppercase tracking-[0.2em] md:tracking-[0.3em] text-[#38BDF8] font-bold mt-3">
+              <div className="text-xs sm:text-[13px] md:text-[16px] uppercase tracking-[0.15em] sm:tracking-[0.2em] md:tracking-[0.3em] text-[#38BDF8] font-bold mt-3">
                 Sr Forensic Engineer (GA, AL, SC Manager)
               </div>
             </div>
