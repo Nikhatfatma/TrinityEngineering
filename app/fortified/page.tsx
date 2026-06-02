@@ -3,6 +3,14 @@
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import Link from "next/link";
+import {
+  SITE_BODY_CLASS,
+  SITE_FEATURE_TITLE_CLASS,
+  SITE_HERO_BODY_CLASS,
+  SITE_SECTION_HEADING_CLASS,
+  SITE_SECTION_HEADING_STYLE,
+  SITE_STAT_LABEL_CLASS,
+} from "@/components/home/HomeContent";
 
 export default function FortifiedPage() {
   const benefits = [
@@ -69,14 +77,17 @@ export default function FortifiedPage() {
             <div>
               <div className="inline-flex items-center gap-2 bg-white/10 backdrop-blur-sm px-5 py-3 rounded-full mb-6 border border-white/20">
                 <span className="material-symbols-outlined text-white text-base">shield</span>
-                <span className="text-white font-bold text-sm uppercase tracking-wider">
+                <span className="text-white font-bold text-[9px] md:text-[10px] uppercase tracking-[0.3em]">
                   IBHS Certified Program
                 </span>
               </div>
-              <h1 className="text-5xl md:text-6xl lg:text-7xl font-black text-white mb-6 leading-tight">
+              <h1
+                className="font-black text-white mb-6 leading-tight"
+                style={{ fontSize: "clamp(1.75rem, 4.5vw, 3.75rem)" }}
+              >
                 FORTIFIED Home™ Certification
               </h1>
-              <p className="text-xl text-gray-100 mb-8 leading-relaxed">
+              <p className={`text-gray-100 mb-8 ${SITE_HERO_BODY_CLASS}`}>
                 Strengthen your home against severe weather with FORTIFIED Home™ - a voluntary construction and re-roofing program developed by the Insurance Institute for Business & Home Safety (IBHS).
               </p>
               <div className="flex flex-wrap gap-4">
@@ -104,7 +115,7 @@ export default function FortifiedPage() {
               />
               <div className="absolute -bottom-6 -right-6 bg-white dark:bg-section-dark rounded-2xl p-6 shadow-2xl border-2 border-gray-200 dark:border-gray-800">
                 <div className="text-4xl font-black text-primary dark:text-accent mb-2">55%</div>
-                <div className="text-sm font-bold text-gray-600 dark:text-gray-400">Insurance Savings</div>
+                <div className={`${SITE_STAT_LABEL_CLASS} normal-case`}>Insurance Savings</div>
               </div>
             </div>
           </div>
@@ -115,10 +126,13 @@ export default function FortifiedPage() {
       <section className="py-24 bg-gray-50 dark:bg-section-dark">
         <div className="max-w-7xl mx-auto px-6">
           <div className="text-center mb-16">
-            <h2 className="text-4xl md:text-5xl font-black text-gray-900 dark:text-white mb-6">
+            <h2
+              className={`text-gray-900 dark:text-white mb-6 ${SITE_SECTION_HEADING_CLASS}`}
+              style={SITE_SECTION_HEADING_STYLE}
+            >
               Why Choose FORTIFIED?
             </h2>
-            <p className="text-xl text-gray-600 dark:text-gray-400 max-w-3xl mx-auto">
+            <p className={`${SITE_BODY_CLASS} dark:text-gray-400 max-w-3xl mx-auto`}>
               FORTIFIED Home™ provides measurable benefits that protect your investment and provide peace of mind
             </p>
           </div>
@@ -134,10 +148,10 @@ export default function FortifiedPage() {
                     {benefit.icon}
                   </span>
                 </div>
-                <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-3">
+                <h3 className={`${SITE_FEATURE_TITLE_CLASS} dark:text-white mb-3`}>
                   {benefit.title}
                 </h3>
-                <p className="text-gray-600 dark:text-gray-400 leading-relaxed">
+                <p className={`${SITE_BODY_CLASS} dark:text-gray-400`}>
                   {benefit.description}
                 </p>
               </div>
@@ -150,10 +164,13 @@ export default function FortifiedPage() {
       <section className="py-24 bg-white dark:bg-background-dark">
         <div className="max-w-7xl mx-auto px-6">
           <div className="text-center mb-16">
-            <h2 className="text-4xl md:text-5xl font-black text-gray-900 dark:text-white mb-6">
+            <h2
+              className={`text-gray-900 dark:text-white mb-6 ${SITE_SECTION_HEADING_CLASS}`}
+              style={SITE_SECTION_HEADING_STYLE}
+            >
               FORTIFIED Designation Levels
             </h2>
-            <p className="text-xl text-gray-600 dark:text-gray-400 max-w-3xl mx-auto">
+            <p className={`${SITE_BODY_CLASS} dark:text-gray-400 max-w-3xl mx-auto`}>
               Choose the level of protection that&apos;s right for your home
             </p>
           </div>
@@ -171,17 +188,17 @@ export default function FortifiedPage() {
                       {level.icon}
                     </span>
                   </div>
-                  <h3 className="text-2xl font-black text-gray-900 dark:text-white mb-4">
+                  <h3 className={`${SITE_FEATURE_TITLE_CLASS} dark:text-white mb-4`}>
                     {level.level}
                   </h3>
-                  <p className="text-gray-600 dark:text-gray-400 mb-6 leading-relaxed">
+                  <p className={`${SITE_BODY_CLASS} dark:text-gray-400 mb-6`}>
                     {level.description}
                   </p>
                   <ul className="space-y-3">
                     {level.features.map((feature, i) => (
                       <li key={i} className="flex items-center gap-3">
                         <span className="material-symbols-outlined text-green-500 text-xl">check_circle</span>
-                        <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">{feature}</span>
+                        <span className={`${SITE_BODY_CLASS} dark:text-gray-300`}>{feature}</span>
                       </li>
                     ))}
                   </ul>
@@ -195,10 +212,13 @@ export default function FortifiedPage() {
       {/* CTA Section */}
       <section className="py-20 bg-gradient-to-r from-primary to-primary-dark dark:from-accent dark:to-accent-light">
         <div className="max-w-4xl mx-auto px-6 text-center">
-          <h2 className="text-4xl md:text-5xl font-black text-white mb-6">
+          <h2
+            className={`text-white mb-6 ${SITE_SECTION_HEADING_CLASS}`}
+            style={SITE_SECTION_HEADING_STYLE}
+          >
             Ready to FORTIFY Your Home?
           </h2>
-          <p className="text-xl text-white/90 mb-8">
+          <p className={`text-white/90 mb-8 ${SITE_HERO_BODY_CLASS}`}>
             Contact our certified FORTIFIED evaluators to start your certification process today
           </p>
           <div className="flex flex-wrap justify-center gap-4">

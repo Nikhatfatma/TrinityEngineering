@@ -49,18 +49,6 @@ export default function Footer() {
 
   return (
     <footer className="relative bg-[#05111D] py-12 text-white max-lg:overflow-x-clip max-lg:py-14">
-      <style jsx>{`
-        @keyframes pulse-glow {
-          0%, 100% { box-shadow: 0 0 15px rgba(59,130,246,0.6), 0 0 30px rgba(0,71,171,0.4); opacity: 0.8; }
-          50% { box-shadow: 0 0 25px rgba(59,130,246,0.9), 0 0 50px rgba(0,71,171,0.7); opacity: 1; }
-        }
-        .animate-pulse-glow {
-          animation: pulse-glow 3s ease-in-out infinite;
-        }
-      `}</style>
-      
-      {/* Dynamic Pulsing Neon Line */}
-      <div className="absolute top-0 left-0 right-0 h-[6px] bg-[#0047AB] animate-pulse-glow z-20"></div>
       <div className="mx-auto max-w-[1440px] px-4 sm:px-6 lg:px-6 lg:pr-14 xl:px-8 xl:pr-8">
         <div className="mb-12 grid grid-cols-1 gap-10 max-lg:mb-10 max-lg:justify-items-start max-lg:gap-8 lg:mb-16 lg:grid-cols-12 lg:gap-6 xl:gap-8">
           

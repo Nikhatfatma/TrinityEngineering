@@ -17,7 +17,7 @@ export default function RepairabilitySection() {
         <div className="w-full max-w-[600px] lg:pr-12 space-y-6 text-white">
           
           <div className="flex items-center gap-3 mb-2">
-            <div className="w-[72px] sm:w-[100px] md:w-[140px] h-[3px] bg-gradient-to-r from-transparent via-white to-white rounded-full opacity-80 shrink-0" />
+            <div className="h-[3px] w-[min(100%,12rem)] shrink-0 rounded-full bg-gradient-to-r from-transparent via-white to-white opacity-80 sm:w-[min(100%,16rem)] md:w-[min(100%,20rem)] sm:h-[4px]" />
             <div className="text-[10px] md:text-[11px] font-bold uppercase tracking-[0.2em] opacity-90">
               HOT TOPICS
             </div>

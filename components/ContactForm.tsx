@@ -1,6 +1,13 @@
 "use client";
 
 import { FormEvent, useState } from "react";
+import {
+  SITE_BODY_CLASS,
+  SITE_EYEBROW_CLASS,
+  SITE_FEATURE_TITLE_CLASS,
+  SITE_SECTION_HEADING_CLASS,
+  SITE_SECTION_HEADING_STYLE,
+} from "@/components/home/HomeContent";
 
 export default function ContactForm() {
   const [formData, setFormData] = useState({
@@ -55,14 +62,17 @@ export default function ContactForm() {
         <div className="text-center mb-16">
           <div className="inline-flex items-center gap-2 bg-primary/10 dark:bg-primary/20 text-primary dark:text-accent px-5 py-3 rounded-full mb-6 border border-primary/20">
             <span className="material-symbols-outlined text-base">send</span>
-            <span className="font-bold text-sm uppercase tracking-wider">
+            <span className={`${SITE_EYEBROW_CLASS} text-primary dark:text-accent`}>
               Request Investigation
             </span>
           </div>
-          <h2 className="text-4xl md:text-5xl font-black text-gray-900 dark:text-white mb-6">
+          <h2
+            className={`text-gray-900 dark:text-white mb-6 ${SITE_SECTION_HEADING_CLASS}`}
+            style={SITE_SECTION_HEADING_STYLE}
+          >
             Submit Service Request
           </h2>
-          <p className="text-lg text-gray-600 dark:text-gray-400 max-w-3xl mx-auto leading-relaxed">
+          <p className={`${SITE_BODY_CLASS} dark:text-gray-400 max-w-3xl mx-auto`}>
             Get started with a forensic engineering investigation. Our licensed PE engineers will respond within 24 hours.
           </p>
         </div>
@@ -82,7 +92,7 @@ export default function ContactForm() {
                         person
                       </span>
                     </div>
-                    <h3 className="text-2xl font-bold text-gray-900 dark:text-white">
+                    <h3 className={`${SITE_FEATURE_TITLE_CLASS} dark:text-white`}>
                       Contact Information
                     </h3>
                   </div>
@@ -157,7 +167,7 @@ export default function ContactForm() {
                         search
                       </span>
                     </div>
-                    <h3 className="text-2xl font-bold text-gray-900 dark:text-white">
+                    <h3 className={`${SITE_FEATURE_TITLE_CLASS} dark:text-white`}>
                       Investigation Details
                     </h3>
                   </div>
@@ -239,7 +249,7 @@ export default function ContactForm() {
                       </div>
                       <div>
                         <p className="text-sm text-white/80 font-semibold">Selected Service</p>
-                        <h4 className="text-lg font-black text-white">{selectedType.name}</h4>
+                        <h4 className={`${SITE_FEATURE_TITLE_CLASS} text-white`}>{selectedType.name}</h4>
                       </div>
                     </div>
                   </div>
@@ -249,7 +259,7 @@ export default function ContactForm() {
 
             {/* Why Choose Us Card */}
             <div className="bg-white dark:bg-section-dark rounded-3xl border-2 border-gray-200 dark:border-gray-800 p-8 shadow-2xl">
-              <h3 className="text-2xl font-black text-gray-900 dark:text-white mb-6">
+              <h3 className={`${SITE_FEATURE_TITLE_CLASS} dark:text-white mb-6`}>
                 Why Choose Trinity
               </h3>
               <div className="space-y-5">
@@ -260,8 +270,8 @@ export default function ContactForm() {
                     </span>
                   </div>
                   <div>
-                    <h4 className="font-bold text-gray-900 dark:text-white mb-1">24-Hour Response</h4>
-                    <p className="text-sm text-gray-600 dark:text-gray-400">
+                    <h4 className={`${SITE_FEATURE_TITLE_CLASS} dark:text-white mb-1`}>24-Hour Response</h4>
+                    <p className={`${SITE_BODY_CLASS} dark:text-gray-400`}>
                       Rapid deployment for time-sensitive investigations
                     </p>
                   </div>
@@ -273,8 +283,8 @@ export default function ContactForm() {
                     </span>
                   </div>
                   <div>
-                    <h4 className="font-bold text-gray-900 dark:text-white mb-1">100% PE Licensed</h4>
-                    <p className="text-sm text-gray-600 dark:text-gray-400">
+                    <h4 className={`${SITE_FEATURE_TITLE_CLASS} dark:text-white mb-1`}>100% PE Licensed</h4>
+                    <p className={`${SITE_BODY_CLASS} dark:text-gray-400`}>
                       All investigations by licensed Professional Engineers
                     </p>
                   </div>
@@ -286,8 +296,8 @@ export default function ContactForm() {
                     </span>
                   </div>
                   <div>
-                    <h4 className="font-bold text-gray-900 dark:text-white mb-1">Defensible Reports</h4>
-                    <p className="text-sm text-gray-600 dark:text-gray-400">
+                    <h4 className={`${SITE_FEATURE_TITLE_CLASS} dark:text-white mb-1`}>Defensible Reports</h4>
+                    <p className={`${SITE_BODY_CLASS} dark:text-gray-400`}>
                       Court-ready documentation and expert testimony
                     </p>
                   </div>
@@ -299,8 +309,8 @@ export default function ContactForm() {
                     </span>
                   </div>
                   <div>
-                    <h4 className="font-bold text-gray-900 dark:text-white mb-1">Secure & Confidential</h4>
-                    <p className="text-sm text-gray-600 dark:text-gray-400">
+                    <h4 className={`${SITE_FEATURE_TITLE_CLASS} dark:text-white mb-1`}>Secure & Confidential</h4>
+                    <p className={`${SITE_BODY_CLASS} dark:text-gray-400`}>
                       Protected communications and data handling
                     </p>
                   </div>
@@ -310,20 +320,20 @@ export default function ContactForm() {
 
             {/* Contact Info Card */}
             <div className="bg-gradient-to-br from-primary to-primary-dark dark:from-accent dark:to-accent-light rounded-3xl p-8 shadow-2xl text-white">
-              <h3 className="text-xl font-black mb-6">Need Immediate Assistance?</h3>
+              <h3 className={`${SITE_FEATURE_TITLE_CLASS} text-white mb-6`}>Need Immediate Assistance?</h3>
               <div className="space-y-4">
                 <a href="tel:+18559295888" className="flex items-center gap-3 hover:translate-x-2 transition-transform">
                   <span className="material-symbols-outlined text-2xl">phone</span>
                   <div>
-                    <p className="text-sm opacity-90">Call Us Now</p>
-                    <p className="text-lg font-bold">(855) 929-5888</p>
+                    <p className={`${SITE_BODY_CLASS} text-white/90`}>Call Us Now</p>
+                    <p className={`${SITE_FEATURE_TITLE_CLASS} text-white`}>(855) 929-5888</p>
                   </div>
                 </a>
                 <a href="mailto:claims@trinitypllc.com" className="flex items-center gap-3 hover:translate-x-2 transition-transform">
                   <span className="material-symbols-outlined text-2xl">email</span>
                   <div>
-                    <p className="text-sm opacity-90">Email Us</p>
-                    <p className="text-base font-bold break-all">claims@trinitypllc.com</p>
+                    <p className={`${SITE_BODY_CLASS} text-white/90`}>Email Us</p>
+                    <p className={`${SITE_FEATURE_TITLE_CLASS} text-white break-all`}>claims@trinitypllc.com</p>
                   </div>
                 </a>
               </div>

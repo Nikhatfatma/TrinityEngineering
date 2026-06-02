@@ -14,7 +14,7 @@ export default function BioSection() {
         <div className="flex flex-col md:flex-row items-center md:items-start gap-8 sm:gap-10 md:gap-16 lg:gap-20 text-white relative min-w-0">
           
           {/* Profile Image */}
-          <div className="w-40 h-40 sm:w-48 sm:h-48 md:w-72 md:h-72 flex-shrink-0 relative mt-0 md:-mt-16 z-20 group">
+          <div className="w-40 h-40 sm:w-48 sm:h-48 md:w-72 md:h-72 flex-shrink-0 relative m-0 z-20 group">
             {/* Enhanced glowing effect */}
             <div className="absolute inset-0 bg-[#2563EB] rounded-full blur-2xl md:blur-3xl opacity-20 group-hover:opacity-40 transition-opacity duration-700"></div>
             <div className="absolute inset-0 border-2 border-white/10 rounded-full scale-110 group-hover:scale-125 transition-transform duration-700 pointer-events-none"></div>

@@ -1,6 +1,5 @@
 "use client";
 
-import SectionDivider from "./SectionDivider";
 import { HOME_CONTENT_CLASS, HOME_SECTION_CLASS, HOME_SECTION_HEADING } from "./HomeContent";
 
 export default function LeadingIndustry() {
@@ -26,7 +25,6 @@ export default function LeadingIndustry() {
     <section className={`${HOME_SECTION_CLASS} py-10 md:py-12 bg-[#F4F7FA]`}>
       <div className={HOME_CONTENT_CLASS}>
         <div className="text-center mb-8 md:mb-10 px-2 sm:px-4">
-          <SectionDivider viaClass="via-[#0047AB]" />
           <h2
             className={`mx-auto w-full text-[#1A1A1A] text-center tracking-tight leading-[1.2] lg:font-semibold ${HOME_SECTION_HEADING}`}
             style={{ fontSize: "clamp(0.8125rem, 2.19vw, 2.625rem)" }}

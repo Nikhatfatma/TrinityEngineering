@@ -3,6 +3,14 @@
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import Link from "next/link";
+import {
+  SITE_BODY_CLASS,
+  SITE_FEATURE_TITLE_CLASS,
+  SITE_HERO_BODY_CLASS,
+  SITE_SECTION_HEADING_CLASS,
+  SITE_SECTION_HEADING_STYLE,
+  SITE_STAT_LABEL_CLASS,
+} from "@/components/home/HomeContent";
 
 export default function AboutPage() {
   const values = [
@@ -79,14 +87,17 @@ export default function AboutPage() {
           <div className="max-w-3xl">
             <div className="inline-flex items-center gap-2 bg-white/10 backdrop-blur-sm px-5 py-3 rounded-full mb-6 border border-white/20">
               <span className="material-symbols-outlined text-white text-base">info</span>
-              <span className="text-white font-bold text-sm uppercase tracking-wider">
+              <span className="text-white font-bold text-[9px] md:text-[10px] uppercase tracking-[0.3em]">
                 About Trinity Engineering
               </span>
             </div>
-            <h1 className="text-5xl md:text-6xl lg:text-7xl font-black text-white mb-6 leading-tight">
+            <h1
+              className="font-black text-white mb-6 leading-tight"
+              style={{ fontSize: "clamp(1.75rem, 4.5vw, 3.75rem)" }}
+            >
               Engineering Detectives Using Science to Find Answers
             </h1>
-            <p className="text-xl text-gray-100 mb-8 leading-relaxed">
+            <p className={`text-gray-100 mb-8 ${SITE_HERO_BODY_CLASS}`}>
               Since 2015, Trinity Engineering has been the trusted partner for insurance companies, legal professionals, and property owners seeking scientific truth in forensic engineering investigations.
             </p>
           </div>
@@ -107,7 +118,7 @@ export default function AboutPage() {
                 <div className="text-4xl md:text-5xl font-black text-gray-900 dark:text-white mb-2">
                   {stat.number}
                 </div>
-                <div className="text-sm font-bold text-gray-600 dark:text-gray-400 uppercase tracking-wider">
+                <div className={`${SITE_STAT_LABEL_CLASS} normal-case`}>
                   {stat.label}
                 </div>
               </div>
@@ -121,13 +132,16 @@ export default function AboutPage() {
         <div className="max-w-7xl mx-auto px-6">
           <div className="grid lg:grid-cols-2 gap-12 items-center">
             <div>
-              <h2 className="text-4xl md:text-5xl font-black text-gray-900 dark:text-white mb-6">
+              <h2
+                className={`text-gray-900 dark:text-white mb-6 ${SITE_SECTION_HEADING_CLASS}`}
+                style={SITE_SECTION_HEADING_STYLE}
+              >
                 Our Mission
               </h2>
-              <p className="text-xl text-gray-600 dark:text-gray-400 mb-6 leading-relaxed">
+              <p className={`${SITE_BODY_CLASS} dark:text-gray-400 mb-6`}>
                 To deliver unbiased, scientifically sound forensic engineering investigations that serve justice, protect property owners, and support fair claim resolutions.
               </p>
-              <p className="text-lg text-gray-600 dark:text-gray-400 leading-relaxed">
+              <p className={`${SITE_BODY_CLASS} dark:text-gray-400`}>
                 We believe that every property damage claim deserves thorough investigation by qualified professionals. Our team of licensed PE engineers combines decades of experience with cutting-edge diagnostic technology to uncover the true cause of damage and provide defensible, litigation-ready reports.
               </p>
             </div>
@@ -146,10 +160,13 @@ export default function AboutPage() {
       <section className="py-24 bg-white dark:bg-background-dark">
         <div className="max-w-7xl mx-auto px-6">
           <div className="text-center mb-16">
-            <h2 className="text-4xl md:text-5xl font-black text-gray-900 dark:text-white mb-6">
+            <h2
+              className={`text-gray-900 dark:text-white mb-6 ${SITE_SECTION_HEADING_CLASS}`}
+              style={SITE_SECTION_HEADING_STYLE}
+            >
               Our Core Values
             </h2>
-            <p className="text-xl text-gray-600 dark:text-gray-400 max-w-3xl mx-auto">
+            <p className={`${SITE_BODY_CLASS} dark:text-gray-400 max-w-3xl mx-auto`}>
               Principles that guide every investigation and interaction
             </p>
           </div>
@@ -165,10 +182,10 @@ export default function AboutPage() {
                     {value.icon}
                   </span>
                 </div>
-                <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-3">
+                <h3 className={`${SITE_FEATURE_TITLE_CLASS} dark:text-white mb-3`}>
                   {value.title}
                 </h3>
-                <p className="text-gray-600 dark:text-gray-400 leading-relaxed">
+                <p className={`${SITE_BODY_CLASS} dark:text-gray-400`}>
                   {value.description}
                 </p>
               </div>
@@ -181,10 +198,13 @@ export default function AboutPage() {
       <section className="py-24 bg-gray-50 dark:bg-section-dark">
         <div className="max-w-5xl mx-auto px-6">
           <div className="text-center mb-16">
-            <h2 className="text-4xl md:text-5xl font-black text-gray-900 dark:text-white mb-6">
+            <h2
+              className={`text-gray-900 dark:text-white mb-6 ${SITE_SECTION_HEADING_CLASS}`}
+              style={SITE_SECTION_HEADING_STYLE}
+            >
               Our Journey
             </h2>
-            <p className="text-xl text-gray-600 dark:text-gray-400">
+            <p className={`${SITE_BODY_CLASS} dark:text-gray-400`}>
               A decade of growth, innovation, and excellence
             </p>
           </div>
@@ -203,8 +223,8 @@ export default function AboutPage() {
                   <div className={`${index % 2 === 0 ? 'md:text-right md:pr-12' : 'md:pl-12 md:col-start-2'}`}>
                     <div className="bg-white dark:bg-background-dark rounded-3xl p-8 border-2 border-gray-200 dark:border-gray-800 shadow-xl">
                       <div className="text-4xl font-black text-primary dark:text-accent mb-3">{item.year}</div>
-                      <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-3">{item.title}</h3>
-                      <p className="text-gray-600 dark:text-gray-400 leading-relaxed">{item.description}</p>
+                      <h3 className={`${SITE_FEATURE_TITLE_CLASS} dark:text-white mb-3`}>{item.title}</h3>
+                      <p className={`${SITE_BODY_CLASS} dark:text-gray-400`}>{item.description}</p>
                     </div>
                   </div>
 
@@ -222,10 +242,13 @@ export default function AboutPage() {
       {/* CTA Section */}
       <section className="py-20 bg-gradient-to-r from-primary to-primary-dark dark:from-accent dark:to-accent-light">
         <div className="max-w-4xl mx-auto px-6 text-center">
-          <h2 className="text-4xl md:text-5xl font-black text-white mb-6">
+          <h2
+            className={`text-white mb-6 ${SITE_SECTION_HEADING_CLASS}`}
+            style={SITE_SECTION_HEADING_STYLE}
+          >
             Partner With the Best
           </h2>
-          <p className="text-xl text-white/90 mb-8">
+          <p className={`text-white/90 mb-8 ${SITE_HERO_BODY_CLASS}`}>
             Experience the Trinity Engineering difference on your next forensic investigation
           </p>
           <div className="flex flex-wrap justify-center gap-4">

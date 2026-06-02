@@ -4,14 +4,14 @@ type SectionDividerProps = {
   className?: string;
 };
 
-/** Wide gradient line — no diamond accent */
+/** Wide gradient line above section headings */
 export default function SectionDivider({ viaClass, className = "mb-6" }: SectionDividerProps) {
   return (
     <div
-      className={`mx-auto hidden w-full max-w-[280px] items-center justify-center sm:max-w-[380px] md:max-w-[520px] lg:flex ${className}`}
+      className={`mx-auto flex w-full max-w-3xl items-center justify-center sm:max-w-4xl md:max-w-5xl lg:max-w-6xl ${className}`}
     >
       <div
-        className={`w-full h-[3px] rounded-full bg-gradient-to-r from-transparent ${viaClass} to-transparent`}
+        className={`h-[3px] w-full rounded-full bg-gradient-to-r from-transparent sm:h-[4px] ${viaClass} to-transparent`}
       />
     </div>
   );

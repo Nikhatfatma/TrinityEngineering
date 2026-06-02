@@ -9,8 +9,8 @@ export default function Navbar() {
   const [scrolled, setScrolled] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const pathname = usePathname();
-  const isHomePage = pathname === "/";
-  const isSolidHeader = scrolled || !isHomePage;
+  const hasVideoHero = pathname === "/" || pathname === "/claims" || pathname === "/swi";
+  const isSolidHeader = scrolled || !hasVideoHero;
 
   useEffect(() => {
     const handleScroll = () => {
@@ -70,7 +70,7 @@ export default function Navbar() {
             href="/"
             className="flex items-center min-w-0 flex-1 lg:flex-none lg:w-[168px] xl:w-[250px] max-w-[42%] min-[400px]:max-w-[48%] sm:max-w-none shrink-0"
           >
-            {!isSolidHeader && isHomePage ? (
+            {!isSolidHeader && hasVideoHero ? (
               <img
                 src="/logo-transparent.png"
                 alt="Trinity Engineering"

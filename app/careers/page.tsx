@@ -4,6 +4,14 @@ import { useState } from "react";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import Link from "next/link";
+import {
+  SITE_BODY_CLASS,
+  SITE_FEATURE_TITLE_CLASS,
+  SITE_HERO_BODY_CLASS,
+  SITE_SECTION_HEADING_CLASS,
+  SITE_SECTION_HEADING_STYLE,
+  SITE_STAT_LABEL_CLASS,
+} from "@/components/home/HomeContent";
 
 export default function CareersPage() {
   const [selectedCategory, setSelectedCategory] = useState("all");
@@ -107,28 +115,31 @@ export default function CareersPage() {
           <div className="max-w-3xl">
             <div className="inline-flex items-center gap-2 bg-white/10 backdrop-blur-sm px-5 py-3 rounded-full mb-6 border border-white/20">
               <span className="material-symbols-outlined text-white text-base">work</span>
-              <span className="text-white font-bold text-sm uppercase tracking-wider">
+              <span className="text-white font-bold text-[9px] md:text-[10px] uppercase tracking-[0.3em]">
                 Join Our Team
               </span>
             </div>
-            <h1 className="text-5xl md:text-6xl lg:text-7xl font-black text-white mb-6 leading-tight">
+            <h1
+              className="font-black text-white mb-6 leading-tight"
+              style={{ fontSize: "clamp(1.75rem, 4.5vw, 3.75rem)" }}
+            >
               Build Your Career in Forensic Engineering
             </h1>
-            <p className="text-xl text-gray-100 mb-8 leading-relaxed">
+            <p className={`text-gray-100 mb-8 ${SITE_HERO_BODY_CLASS}`}>
               Join a team of licensed PE engineers dedicated to uncovering the truth through science and investigation. We offer competitive compensation, professional growth, and meaningful work.
             </p>
             <div className="flex flex-wrap gap-8 text-white">
               <div>
                 <div className="text-4xl font-black mb-2">50+</div>
-                <div className="text-sm font-semibold opacity-90">Team Members</div>
+                <div className={`${SITE_STAT_LABEL_CLASS} text-white normal-case mb-2`}>Team Members</div>
               </div>
               <div>
                 <div className="text-4xl font-black mb-2">10K+</div>
-                <div className="text-sm font-semibold opacity-90">Cases Completed</div>
+                <div className={`${SITE_STAT_LABEL_CLASS} text-white normal-case mb-2`}>Cases Completed</div>
               </div>
               <div>
                 <div className="text-4xl font-black mb-2">100%</div>
-                <div className="text-sm font-semibold opacity-90">PE Licensed Engineers</div>
+                <div className={`${SITE_STAT_LABEL_CLASS} text-white normal-case mb-2`}>PE Licensed Engineers</div>
               </div>
             </div>
           </div>
@@ -139,10 +150,13 @@ export default function CareersPage() {
       <section className="py-24 bg-gray-50 dark:bg-section-dark">
         <div className="max-w-7xl mx-auto px-6">
           <div className="text-center mb-16">
-            <h2 className="text-4xl md:text-5xl font-black text-gray-900 dark:text-white mb-6">
+            <h2
+              className={`text-gray-900 dark:text-white mb-6 ${SITE_SECTION_HEADING_CLASS}`}
+              style={SITE_SECTION_HEADING_STYLE}
+            >
               Benefits & Perks
             </h2>
-            <p className="text-xl text-gray-600 dark:text-gray-400 max-w-3xl mx-auto">
+            <p className={`${SITE_BODY_CLASS} dark:text-gray-400 max-w-3xl mx-auto`}>
               We take care of our team with competitive benefits and a supportive work environment
             </p>
           </div>
@@ -158,10 +172,10 @@ export default function CareersPage() {
                     {benefit.icon}
                   </span>
                 </div>
-                <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-3">
+                <h3 className={`${SITE_FEATURE_TITLE_CLASS} dark:text-white mb-3`}>
                   {benefit.title}
                 </h3>
-                <p className="text-gray-600 dark:text-gray-400">
+                <p className={`${SITE_BODY_CLASS} dark:text-gray-400`}>
                   {benefit.description}
                 </p>
               </div>
@@ -174,10 +188,13 @@ export default function CareersPage() {
       <section className="py-24 bg-white dark:bg-background-dark">
         <div className="max-w-7xl mx-auto px-6">
           <div className="text-center mb-12">
-            <h2 className="text-4xl md:text-5xl font-black text-gray-900 dark:text-white mb-6">
+            <h2
+              className={`text-gray-900 dark:text-white mb-6 ${SITE_SECTION_HEADING_CLASS}`}
+              style={SITE_SECTION_HEADING_STYLE}
+            >
               Open Positions
             </h2>
-            <p className="text-xl text-gray-600 dark:text-gray-400 max-w-3xl mx-auto">
+            <p className={`${SITE_BODY_CLASS} dark:text-gray-400 max-w-3xl mx-auto`}>
               Explore career opportunities across our organization
             </p>
           </div>
@@ -216,10 +233,10 @@ export default function CareersPage() {
                         </span>
                       </div>
                       <div className="flex-1">
-                        <h3 className="text-2xl font-black text-gray-900 dark:text-white mb-2 group-hover:text-primary dark:group-hover:text-accent transition-colors">
+                        <h3 className={`${SITE_FEATURE_TITLE_CLASS} dark:text-white mb-2 group-hover:text-primary dark:group-hover:text-accent transition-colors`}>
                           {position.title}
                         </h3>
-                        <div className="flex flex-wrap items-center gap-4 text-sm text-gray-600 dark:text-gray-400">
+                        <div className={`flex flex-wrap items-center gap-4 ${SITE_BODY_CLASS} dark:text-gray-400`}>
                           <span className="inline-flex items-center gap-1">
                             <span className="material-symbols-outlined text-sm">location_on</span>
                             {position.location}
@@ -235,7 +252,7 @@ export default function CareersPage() {
                         </div>
                       </div>
                     </div>
-                    <p className="text-gray-600 dark:text-gray-400 mb-4 leading-relaxed">
+                    <p className={`${SITE_BODY_CLASS} dark:text-gray-400 mb-4`}>
                       {position.description}
                     </p>
                     <div className="flex flex-wrap gap-2">
@@ -266,10 +283,13 @@ export default function CareersPage() {
       {/* CTA Section */}
       <section className="py-20 bg-gradient-to-r from-primary to-primary-dark dark:from-accent dark:to-accent-light">
         <div className="max-w-4xl mx-auto px-6 text-center">
-          <h2 className="text-4xl md:text-5xl font-black text-white mb-6">
+          <h2
+            className={`text-white mb-6 ${SITE_SECTION_HEADING_CLASS}`}
+            style={SITE_SECTION_HEADING_STYLE}
+          >
             Don&apos;t See a Perfect Fit?
           </h2>
-          <p className="text-xl text-white/90 mb-8">
+          <p className={`text-white/90 mb-8 ${SITE_HERO_BODY_CLASS}`}>
             We&apos;re always looking for talented professionals. Send us your resume and we&apos;ll keep you in mind for future opportunities.
           </p>
           <a

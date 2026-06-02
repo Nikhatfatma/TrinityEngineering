@@ -3,6 +3,11 @@
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import ContactForm from "@/components/ContactForm";
+import {
+  SITE_BODY_CLASS,
+  SITE_FEATURE_TITLE_CLASS,
+  SITE_HERO_BODY_CLASS,
+} from "@/components/home/HomeContent";
 
 export default function ContactPage() {
   const contactMethods = [
@@ -51,14 +56,17 @@ export default function ContactPage() {
         <div className="max-w-7xl mx-auto px-6 text-center">
           <div className="inline-flex items-center gap-2 bg-white/10 backdrop-blur-sm px-5 py-3 rounded-full mb-6 border border-white/20">
             <span className="material-symbols-outlined text-white text-base">contact_support</span>
-            <span className="text-white font-bold text-sm uppercase tracking-wider">
+            <span className="text-white font-bold text-[9px] md:text-[10px] uppercase tracking-[0.3em]">
               Get In Touch
             </span>
           </div>
-          <h1 className="text-5xl md:text-6xl lg:text-7xl font-black text-white mb-6">
+          <h1
+            className="font-black text-white mb-6 leading-tight"
+            style={{ fontSize: "clamp(1.75rem, 4.5vw, 3.75rem)" }}
+          >
             Contact Us
           </h1>
-          <p className="text-xl text-gray-100 max-w-3xl mx-auto">
+          <p className={`text-gray-100 max-w-3xl mx-auto ${SITE_HERO_BODY_CLASS}`}>
             Available 24/7 for emergency investigations. Reach out to discuss your forensic engineering needs.
           </p>
         </div>
@@ -79,9 +87,9 @@ export default function ContactPage() {
                     {method.icon}
                   </span>
                 </div>
-                <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">{method.title}</h3>
-                <p className="text-lg font-bold text-primary dark:text-accent mb-1">{method.primary}</p>
-                <p className="text-sm text-gray-600 dark:text-gray-400">{method.secondary}</p>
+                <h3 className={`${SITE_FEATURE_TITLE_CLASS} dark:text-white mb-2`}>{method.title}</h3>
+                <p className={`${SITE_FEATURE_TITLE_CLASS} text-primary dark:text-accent mb-1`}>{method.primary}</p>
+                <p className={`${SITE_BODY_CLASS} dark:text-gray-400`}>{method.secondary}</p>
               </a>
             ))}
           </div>
