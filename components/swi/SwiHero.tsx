@@ -58,7 +58,7 @@ export default function SwiHero() {
         <div className="flex w-full flex-col items-center gap-8 lg:flex-row lg:items-center lg:justify-center lg:gap-5 xl:gap-8">
           <div className="w-full max-w-[min(100%,280px)] shrink-0 sm:max-w-[300px] lg:max-w-[320px] xl:max-w-[360px]">
             <img
-              src="/swi-logo.png"
+              src="/swi-logo-hero.png"
               alt="Severe Weather Intelligence"
               className="h-auto w-full object-contain"
             />
