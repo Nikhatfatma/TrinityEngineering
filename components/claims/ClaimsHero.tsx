@@ -2,60 +2,22 @@
 
 import Link from "next/link";
 import { ChevronDown, Send } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import HeroVideoBackground from "@/components/hero/HeroVideoBackground";
 import { CLAIMS_CONTENT_WIDTH, CLAIMS_HERO, CLAIMS_SECTION_SHELL } from "./claimsContent";
 import { SITE_HERO_BODY_CLASS } from "@/components/home/HomeContent";
 
-const HERO_VIDEO_SRC = "/Trinity%20Engineering%20Hero%20Video%20VER2.mov";
-const HERO_VIDEO_POSTER = "/hero-background.png";
-
 export default function ClaimsHero() {
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const [reduceMotion, setReduceMotion] = useState(false);
-
-  useEffect(() => {
-    const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
-    const update = () => setReduceMotion(mq.matches);
-    update();
-    mq.addEventListener("change", update);
-    return () => mq.removeEventListener("change", update);
-  }, []);
-
-  useEffect(() => {
-    if (reduceMotion || !videoRef.current) return;
-    videoRef.current.play().catch(() => {});
-  }, [reduceMotion]);
-
   return (
     <header className="relative flex min-h-[min(100dvh,680px)] w-full min-w-0 flex-col overflow-x-clip bg-black sm:min-h-[min(100dvh,720px)] lg:min-h-screen">
       <div className="absolute inset-0 z-0 overflow-hidden">
-        {reduceMotion ? (
-          <img
-            src={HERO_VIDEO_POSTER}
-            alt=""
-            className="pointer-events-none absolute inset-0 h-full w-full object-cover"
-          />
-        ) : (
-          <video
-            ref={videoRef}
-            src={HERO_VIDEO_SRC}
-            poster={HERO_VIDEO_POSTER}
-            autoPlay
-            muted
-            loop
-            playsInline
-            preload="auto"
-            className="pointer-events-none absolute inset-0 h-full w-full object-cover"
-            aria-hidden
-          />
-        )}
+        <HeroVideoBackground />
         <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-black/45 via-black/35 to-black/55" />
       </div>
 
       <div className={`relative z-10 flex w-full flex-1 flex-col items-center justify-center pb-16 pt-[4.5rem] sm:pb-20 sm:pt-24 ${CLAIMS_SECTION_SHELL}`}>
         <div className={`${CLAIMS_CONTENT_WIDTH} text-center text-white`}>
-        <h1
-          className="w-full font-medium leading-[1.12] tracking-normal text-white"
+          <h1
+          className="w-full min-w-0 break-words font-medium leading-[1.12] tracking-normal text-white"
           style={{ fontSize: "clamp(1.875rem, 3.8vw, 3.75rem)" }}
         >
           <span className="block">{CLAIMS_HERO.titleLine1}</span>

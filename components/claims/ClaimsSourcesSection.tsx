@@ -13,7 +13,7 @@ const ACTIVE_BADGE_CLASS =
 
 export default function ClaimsSourcesSection() {
   return (
-    <section className="border-t border-gray-200 bg-white py-12 md:py-16 lg:py-20">
+    <section className="max-lg:overflow-x-clip border-t border-gray-200 bg-white py-12 md:py-16 lg:py-20">
       <div className={CLAIMS_SECTION_SHELL}>
         <div className={`${CLAIMS_CONTENT_WIDTH} text-center`}>
           <h2
@@ -27,9 +27,9 @@ export default function ClaimsSourcesSection() {
           <div className="mt-10 text-left md:mt-12">
             {CLAIMS_SOURCES.items.map((source, index) => (
               <div key={source.name}>
-                <div className="grid grid-cols-1 items-start gap-4 py-6 md:grid-cols-[minmax(0,11rem)_1fr_5.75rem] md:items-center md:gap-8 md:py-8">
-                  <span className={SOURCE_NAME_CLASS}>{source.name}</span>
-                  <p className={SITE_BODY_CLASS}>{source.description}</p>
+                <div className="grid min-w-0 grid-cols-1 items-start gap-4 py-6 md:grid-cols-[minmax(0,11rem)_1fr_5.75rem] md:items-center md:gap-8 md:py-8">
+                  <span className={`min-w-0 break-words ${SOURCE_NAME_CLASS}`}>{source.name}</span>
+                  <p className={`min-w-0 break-words ${SITE_BODY_CLASS}`}>{source.description}</p>
                   <span className={`${ACTIVE_BADGE_CLASS} md:justify-self-end`}>
                     {source.status}
                   </span>

@@ -47,7 +47,7 @@ function FeatureRow({ eyebrow, title, paragraphs, imageSrc, imageAlt, imageLeft 
       </div>
 
       <div
-        className={`${STEEP_IMAGE_CLASS} max-lg:left-1/2 max-lg:w-screen max-lg:max-w-none max-lg:-translate-x-1/2 lg:w-full ${
+        className={`${STEEP_IMAGE_CLASS} max-lg:left-1/2 max-lg:w-[100dvw] max-lg:max-w-none max-lg:-translate-x-1/2 lg:w-full ${
           imageLeft ? "lg:order-1" : "lg:order-2"
         }`}
       >

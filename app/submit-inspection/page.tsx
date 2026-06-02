@@ -50,23 +50,38 @@ import { DatePicker } from "@/components/inspection-form/DatePicker";
 /* ------------------------------------------------------------------ */
 
 const INSPECTION_TYPES = [
-  { id: "storm-damage", title: "Residential Storm Damage", image: "https://images.unsplash.com/photo-1527482797697-8795b05a13fe?w=800&q=80" },
-  { id: "structural-loss", title: "Structural Loss", image: "https://images.unsplash.com/photo-1503387762-592deb58ef4e?w=800&q=80" },
-  { id: "large-complex-loss", title: "Large / Complex Loss", image: "https://images.unsplash.com/photo-1541888946425-d81bb19240f5?w=800&q=80" },
-  { id: "interior-water-loss", title: "Interior Water Loss", image: "https://images.unsplash.com/photo-1584622650111-993a426fbf0a?w=800&q=80" },
-  { id: "lightning-damage", title: "Lightning Damage", image: "https://images.unsplash.com/photo-1605727216801-e27ce1d0cc28?w=800&q=80" },
-  { id: "vandalism", title: "Vandalism", image: "https://images.unsplash.com/photo-1589829545856-d10d557cf95f?w=800&q=80" },
-  { id: "chimney-fire-collapse", title: "Chimney Fire / Collapse", image: "https://images.unsplash.com/photo-1582268611958-ebfd161ef9cf?w=800&q=80" },
-  { id: "component-failure", title: "Component Failure", image: "https://images.unsplash.com/photo-1621905251918-48416bd8575a?w=800&q=80" },
-  { id: "hvac-electrical", title: "HVAC / Electrical", image: "https://images.unsplash.com/photo-1581094794329-c8112a89af12?w=800&q=80" },
-  { id: "small-fire", title: "Small Fire", image: "https://images.unsplash.com/photo-1583508915901-b5f84c1dcde1?w=800&q=80" },
-  { id: "plumbing-failure", title: "Plumbing Failure", image: "https://images.unsplash.com/photo-1607472586893-edb57bdc0e39?w=800&q=80" },
+  { id: "storm-damage", title: "Residential Storm Damage", image: "/inspection-type-storm-damage.png" },
+  { id: "structural-loss", title: "Structural Loss", image: "/inspection-type-structural-loss.png" },
+  { id: "large-complex-loss", title: "Large / Complex Loss", image: "/inspection-type-large-complex-loss.png" },
+  { id: "interior-water-loss", title: "Interior Water Loss", image: "/inspection-type-interior-water-loss.png" },
+  { id: "lightning-damage", title: "Lightning Damage", image: "/inspection-type-lightning-damage.png" },
+  { id: "vandalism", title: "Vandalism", image: "/inspection-type-vandalism.png" },
+  { id: "chimney-fire-collapse", title: "Chimney Fire / Collapse", image: "/inspection-type-chimney-fire-collapse.png" },
+  { id: "component-failure", title: "Component Failure", image: "/inspection-type-component-failure.png" },
+  { id: "hvac-electrical", title: "HVAC / Electrical", image: "/inspection-type-hvac-electrical.png" },
+  { id: "small-fire", title: "Small Fire", image: "/inspection-type-small-fire.png" },
+  { id: "plumbing-failure", title: "Plumbing Failure", image: "/inspection-type-plumbing-failure.png" },
 ];
 
 const BUILDING_TYPES = [
-  { id: "single-family", title: "Single-family residential", image: "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=800&q=80" },
-  { id: "multiples-residence", title: "Multi-unit residential", image: "https://images.unsplash.com/photo-1512917774080-9991f1c4c750?w=800&q=80" },
-  { id: "commercial-municipal-industrial", title: "Commercial / Municipal / Industrial", image: "https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?w=800&q=80" },
+  {
+    id: "single-family",
+    title: "Single-family residential",
+    image: "/building-type-single-family.png",
+    tooltip: "Primary & secondary dwelling, sheds, other structures",
+  },
+  {
+    id: "multiples-residence",
+    title: "Multi-unit residential",
+    image: "/building-type-multi-unit.png",
+    tooltip: "Townhome, duplex, triplex, etc.",
+  },
+  {
+    id: "commercial-municipal-industrial",
+    title: "Commercial / Municipal / Industrial",
+    image: "/building-type-commercial.png",
+    tooltip: "Apartment, hotel, factory, storage centers, municipal, church, etc.",
+  },
 ];
 
 function getAvailableBuildingTypes(inspectionType: string) {
@@ -1211,10 +1226,11 @@ export default function SubmitInspectionPage() {
                             <div
                               data-error-type="step1"
                               data-field-name="inspectionType"
-                              className={`grid gap-2 p-2 rounded-xl transition-all grid-cols-2 ${showBuildingType ? "sm:grid-cols-3" : "sm:grid-cols-4"} ${showErrors && !formData.inspectionType
-                                ? "bg-gray-100/50 dark:bg-gray-800/10 ring-1 ring-gray-300"
-                                : "bg-gray-50/30 dark:bg-white/5"
-                                }`}
+                              className={`grid grid-cols-2 gap-2 p-2 rounded-xl transition-all ${showBuildingType ? "md:grid-cols-3" : "sm:grid-cols-3 md:grid-cols-4"} ${
+                                showErrors && !formData.inspectionType
+                                  ? "bg-gray-100/50 dark:bg-gray-800/10 ring-1 ring-gray-300"
+                                  : "bg-gray-50/30 dark:bg-white/5"
+                              }`}
                             >
                               {INSPECTION_TYPES.map((t) => (
                                 <SelectCard
@@ -1222,6 +1238,7 @@ export default function SubmitInspectionPage() {
                                   label={t.title}
                                   value={t.id}
                                   image={t.image}
+                                  containImage
                                   selected={formData.inspectionType === t.title}
                                   dimmed={!!formData.inspectionType && formData.inspectionType !== t.title}
                                   onSelect={() => {
@@ -1259,6 +1276,9 @@ export default function SubmitInspectionPage() {
                                     label={b.title}
                                     value={b.id}
                                     image={b.image}
+                                    containImage
+                                    compactImage
+                                    tooltip={b.tooltip}
                                     selected={formData.buildingType === b.title}
                                     dimmed={!!formData.buildingType && formData.buildingType !== b.title}
                                     onSelect={() => {

@@ -3,7 +3,17 @@
 export const SWI_SECTION_SHELL =
   "mx-auto w-full max-w-[1440px] min-w-0 px-4 sm:px-6 md:px-8 lg:px-8";
 
-export const SWI_CONTENT_WIDTH = "mx-auto w-full max-w-5xl";
+export const SWI_CONTENT_WIDTH = "mx-auto w-full max-w-5xl min-w-0";
+
+/** Same horizontal text inset as Claims tab (centered max-w-5xl column) */
+export const SWI_TAB_TEXT_INSET_LEFT =
+  "px-4 sm:px-6 md:px-8 lg:pl-[calc(2rem+max(0px,(min(100vw,1440px)-4rem-64rem)/2))]";
+
+export const SWI_TAB_TWO_COL_TEXT_IMAGE_LEFT =
+  "px-4 sm:px-6 md:px-8 lg:pl-10 lg:pr-8 xl:pl-12 xl:pr-10";
+
+export const SWI_TAB_TWO_COL_TEXT_IMAGE_RIGHT =
+  `${SWI_TAB_TEXT_INSET_LEFT} lg:pr-10 xl:pr-12`;
 
 export const SWI_HERO = {
   titleLightLine1: "Weather Reporting",

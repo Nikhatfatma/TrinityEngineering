@@ -2,51 +2,13 @@
 
 import Link from "next/link";
 import { ChevronDown, Send } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
-
-const HERO_VIDEO_SRC = "/Trinity%20Engineering%20Hero%20Video%20VER2.mov";
-const HERO_VIDEO_POSTER = "/hero-background.png";
+import HeroVideoBackground from "@/components/hero/HeroVideoBackground";
 
 export default function Hero() {
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const [reduceMotion, setReduceMotion] = useState(false);
-
-  useEffect(() => {
-    const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
-    const update = () => setReduceMotion(mq.matches);
-    update();
-    mq.addEventListener("change", update);
-    return () => mq.removeEventListener("change", update);
-  }, []);
-
-  useEffect(() => {
-    if (reduceMotion || !videoRef.current) return;
-    videoRef.current.play().catch(() => {});
-  }, [reduceMotion]);
-
   return (
     <header className="relative min-h-[min(100dvh,680px)] sm:min-h-[min(100dvh,720px)] lg:min-h-screen w-full min-w-0 overflow-x-clip bg-black flex flex-col">
       <div className="absolute inset-0 z-0 overflow-hidden">
-        {reduceMotion ? (
-          <img
-            src={HERO_VIDEO_POSTER}
-            alt=""
-            className="absolute inset-0 w-full h-full object-cover pointer-events-none"
-          />
-        ) : (
-          <video
-            ref={videoRef}
-            src={HERO_VIDEO_SRC}
-            poster={HERO_VIDEO_POSTER}
-            autoPlay
-            muted
-            loop
-            playsInline
-            preload="auto"
-            className="absolute inset-0 w-full h-full object-cover pointer-events-none"
-            aria-hidden
-          />
-        )}
+        <HeroVideoBackground />
         <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-transparent to-black/50 pointer-events-none" />
       </div>
 

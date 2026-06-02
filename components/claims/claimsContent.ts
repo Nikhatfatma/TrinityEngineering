@@ -4,7 +4,7 @@
 export const CLAIMS_SECTION_SHELL =
   "mx-auto w-full max-w-[1440px] min-w-0 px-4 sm:px-6 md:px-8 lg:px-8";
 
-export const CLAIMS_CONTENT_WIDTH = "mx-auto w-full max-w-5xl";
+export const CLAIMS_CONTENT_WIDTH = "mx-auto w-full max-w-5xl min-w-0";
 
 export const CLAIMS_HERO = {
   titleLine1: "Forensic Engineering",

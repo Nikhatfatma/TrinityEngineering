@@ -1,5 +1,5 @@
 import { CheckCircle2 } from "lucide-react";
-import { SWI_SOLUTION } from "./swiContent";
+import { SWI_SOLUTION, SWI_TAB_TWO_COL_TEXT_IMAGE_RIGHT } from "./swiContent";
 import {
   SITE_BODY_CLASS,
   SITE_FEATURE_TITLE_CLASS,
@@ -17,7 +17,9 @@ export default function SwiSolutionSection() {
   return (
     <section className="overflow-x-clip border-t border-gray-200 bg-[#F8FAFC] py-12 md:py-16 lg:py-20">
       <div className="grid grid-cols-1 lg:grid-cols-2 lg:items-stretch lg:gap-0">
-        <div className="flex items-start px-4 py-8 sm:px-6 md:px-8 md:py-10 lg:order-1 lg:py-12 lg:pl-8 lg:pr-10 xl:pl-10 xl:pr-12">
+        <div
+          className={`flex items-start py-8 md:py-10 lg:order-1 lg:py-12 ${SWI_TAB_TWO_COL_TEXT_IMAGE_RIGHT}`}
+        >
           <div className="w-full min-w-0">
             <h2
               className={`text-[#1A1A1A] ${SITE_SECTION_HEADING_CLASS}`}

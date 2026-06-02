@@ -9,7 +9,12 @@ export default function Navbar() {
   const [scrolled, setScrolled] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const pathname = usePathname();
-  const hasVideoHero = pathname === "/" || pathname === "/claims" || pathname === "/swi";
+  const hasVideoHero =
+    pathname === "/" ||
+    pathname === "/claims" ||
+    pathname === "/swi" ||
+    pathname === "/fortified" ||
+    pathname === "/careers";
   const isSolidHeader = scrolled || !hasVideoHero;
 
   useEffect(() => {
@@ -18,6 +23,13 @@ export default function Navbar() {
     };
     window.addEventListener("scroll", handleScroll);
     return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
+
+  useEffect(() => {
+    ["/logo-transparent.png", "/logo-navbar-dark.png"].forEach((src) => {
+      const img = new Image();
+      img.src = src;
+    });
   }, []);
 
   useEffect(() => {
@@ -65,24 +77,30 @@ export default function Navbar() {
             : "h-14 lg:h-[85px] xl:h-[110px] bg-black/30 backdrop-blur-sm lg:bg-transparent lg:backdrop-blur-none"
         }`}
       >
-        <div className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-6 xl:px-8 h-full flex items-center justify-between gap-1.5 sm:gap-2 lg:gap-3">
+        <div className="mx-auto flex h-full min-w-0 max-w-[1440px] items-center justify-between gap-1.5 px-4 sm:gap-2 sm:px-6 lg:gap-3 lg:px-6 xl:px-8">
           <Link
             href="/"
             className="flex items-center min-w-0 flex-1 lg:flex-none lg:w-[168px] xl:w-[250px] max-w-[42%] min-[400px]:max-w-[48%] sm:max-w-none shrink-0"
           >
-            {!isSolidHeader && hasVideoHero ? (
+            <span className="relative block h-6 w-full max-w-full min-[400px]:h-7 sm:h-8 lg:h-[55px] xl:h-[60px]">
+              {hasVideoHero && (
+                <img
+                  src="/logo-transparent.png"
+                  alt=""
+                  aria-hidden
+                  className={`absolute left-0 top-0 h-full w-auto max-w-full object-contain object-left transition-opacity duration-500 ${
+                    isSolidHeader ? "pointer-events-none opacity-0" : "opacity-100"
+                  }`}
+                />
+              )}
               <img
-                src="/logo-transparent.png"
+                src="/logo-navbar-dark.png"
                 alt="Trinity Engineering"
-                className="h-6 min-[400px]:h-7 sm:h-8 lg:h-[55px] w-auto max-w-full object-contain object-left"
+                className={`absolute left-0 top-0 h-full w-auto max-w-full object-contain object-left transition-opacity duration-500 ${
+                  hasVideoHero && !isSolidHeader ? "pointer-events-none opacity-0" : "opacity-100"
+                }`}
               />
-            ) : (
-              <img
-                src="/logo-white-bg-removed.png"
-                alt="Trinity Engineering"
-                className="h-6 min-[400px]:h-7 sm:h-8 lg:h-[50px] w-auto max-w-full object-contain object-left"
-              />
-            )}
+            </span>
           </Link>
 
           <div className="hidden lg:flex flex-1 min-w-0 items-center justify-center gap-0 xl:gap-1 px-1 xl:px-4">
@@ -188,9 +206,9 @@ export default function Navbar() {
             <div className="flex h-11 shrink-0 items-center justify-between border-b border-gray-100/90 px-3">
               <Link href="/" onClick={() => setMobileMenuOpen(false)} className="min-w-0">
                 <img
-                  src="/logo-white-bg-removed.png"
+                  src="/logo-navbar-dark.png"
                   alt="Trinity Engineering"
-                  className="h-6 w-auto object-contain"
+                  className="h-7 w-auto object-contain sm:h-8"
                 />
               </Link>
               <button

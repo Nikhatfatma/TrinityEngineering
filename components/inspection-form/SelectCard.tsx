@@ -1,6 +1,7 @@
 "use client";
 
 import { Check } from "lucide-react";
+import { useCallback, useEffect, useId, useRef, useState } from "react";
 
 interface SelectCardProps {
   label: string;
@@ -10,60 +11,174 @@ interface SelectCardProps {
   onSelect: () => void;
   dimmed?: boolean;
   horizontal?: boolean;
+  containImage?: boolean;
+  compactImage?: boolean;
+  tooltip?: string;
 }
 
 export default function SelectCard({
   label,
-  value,
   image,
   selected,
   onSelect,
   dimmed = false,
   horizontal = false,
+  containImage = false,
+  compactImage = false,
+  tooltip,
 }: SelectCardProps) {
-  return (
-    <button
-      type="button"
-      onClick={onSelect}
-      className={`group relative flex w-full transition-all duration-300 border overflow-hidden ${horizontal ? "flex-row items-center h-12 rounded-lg" : "flex-col items-center rounded-lg text-center"
-        } ${selected
-          ? "border-[3px] border-primary z-10 scale-[1.05] shadow-[0_0_15px_rgba(var(--primary-rgb),0.3)]"
-          : "border-gray-200 dark:border-gray-700 bg-white dark:bg-background-dark hover:shadow-lg hover:-translate-y-0.5 shadow-sm"
-        } ${dimmed && !selected ? "scale-[0.98]" : "opacity-100"}`}
-    >
-      {/* Image — adjusted for horizontal or vertical */}
-      <div className={`${horizontal ? "w-16 h-full border-r border-gray-100 dark:border-gray-800" : "w-full h-20 md:h-24"
-        } relative overflow-hidden flex-shrink-0`}>
-        <img
-          src={image}
-          alt={label}
-          className={`w-full h-full object-cover transition-transform duration-500 group-hover:scale-105 ${dimmed && !selected ? "opacity-50" : "opacity-100"}`}
-        />
-        {/* Black tint for unselected items */}
-        {dimmed && !selected && (
-          <div className="absolute inset-0 bg-black/60 z-0" />
-        )}
+  const tooltipId = useId();
+  const wrapperRef = useRef<HTMLDivElement>(null);
+  const [helpOpen, setHelpOpen] = useState(false);
+  const [isTouchLike, setIsTouchLike] = useState(false);
 
-        {/* Selected check overlay */}
-        {selected && (
-          <div className="absolute inset-0 flex items-center justify-center">
-            <div className={`${horizontal ? "w-4 h-4" : "w-6 h-6"} rounded-full bg-primary flex items-center justify-center shadow-md animate-scaleIn`}>
-              <Check className="text-white w-2.5 h-2.5" strokeWidth={3} />
-            </div>
-          </div>
-        )}
-      </div>
-      {/* Label */}
-      <div className={`w-full transition-colors flex items-center ${horizontal ? "px-3 h-full" : "px-1 py-1"
-        } ${selected ? "bg-white dark:bg-background-dark" : "bg-white dark:bg-background-dark"
-        }`}>
-        <span
-          className={`text-xs font-bold leading-tight block text-left transition-colors ${selected ? "text-primary dark:text-accent" : "text-gray-700 dark:text-gray-300"
-            }`}
+  useEffect(() => {
+    const mq = window.matchMedia("(hover: none), (pointer: coarse)");
+    const update = () => setIsTouchLike(mq.matches);
+    update();
+    mq.addEventListener("change", update);
+    return () => mq.removeEventListener("change", update);
+  }, []);
+
+  useEffect(() => {
+    if (!helpOpen) return;
+
+    const close = (event: PointerEvent) => {
+      if (wrapperRef.current && !wrapperRef.current.contains(event.target as Node)) {
+        setHelpOpen(false);
+      }
+    };
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setHelpOpen(false);
+    };
+
+    document.addEventListener("pointerdown", close);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("pointerdown", close);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [helpOpen]);
+
+  const showHelp = Boolean(tooltip && helpOpen);
+
+  const openHelp = useCallback(() => {
+    if (tooltip) setHelpOpen(true);
+  }, [tooltip]);
+
+  const closeHelp = useCallback(() => {
+    setHelpOpen(false);
+  }, []);
+
+  const toggleHelp = useCallback(
+    (event: React.MouseEvent) => {
+      if (!tooltip || !isTouchLike) return;
+      event.stopPropagation();
+      event.preventDefault();
+      setHelpOpen((open) => !open);
+    },
+    [tooltip, isTouchLike],
+  );
+
+  return (
+    <div
+      ref={wrapperRef}
+      className="relative w-full"
+      onMouseEnter={() => {
+        if (!isTouchLike) openHelp();
+      }}
+      onMouseLeave={() => {
+        if (!isTouchLike) closeHelp();
+      }}
+    >
+      <button
+        type="button"
+        onClick={onSelect}
+        aria-describedby={showHelp ? tooltipId : undefined}
+        className={`group/card relative flex w-full transition-all duration-300 border ${horizontal ? "flex-row items-center h-12 rounded-lg overflow-hidden" : containImage ? "flex-col items-stretch rounded-lg text-left overflow-hidden" : "flex-col items-center rounded-lg text-center overflow-hidden"
+          } ${selected
+            ? "border-[3px] border-primary z-10 scale-[1.05] shadow-[0_0_15px_rgba(var(--primary-rgb),0.3)]"
+            : "border-gray-200 dark:border-gray-700 bg-white dark:bg-background-dark hover:shadow-lg hover:-translate-y-0.5 shadow-sm"
+          } ${dimmed && !selected ? "scale-[0.98]" : "opacity-100"}`}
+      >
+        <div
+          className={`relative flex-shrink-0 ${
+            horizontal
+              ? "h-full w-16 overflow-hidden border-r border-gray-100 dark:border-gray-800"
+              : containImage
+                ? "flex h-[5.75rem] w-full shrink-0 items-center justify-center overflow-hidden bg-white sm:h-24 md:h-[6.75rem]"
+                : "h-20 w-full overflow-hidden md:h-24"
+          }`}
         >
-          {label}
-        </span>
-      </div>
-    </button>
+          <img
+            src={image}
+            alt={label}
+            className={`transition-transform duration-500 ${containImage ? "" : "group-hover/card:scale-105"} ${
+              containImage
+                ? `h-full w-full origin-center object-contain object-center ${compactImage ? "scale-[0.72]" : "scale-[1.24]"}`
+                : "h-full w-full object-cover"
+            } ${dimmed && !selected && !containImage ? "opacity-50" : "opacity-100"} ${dimmed && !selected && containImage ? "opacity-40" : ""}`}
+          />
+
+          {dimmed && !selected && !containImage && (
+            <div className="absolute inset-0 z-0 bg-black/60" aria-hidden />
+          )}
+
+          {selected && (
+            <div className="absolute inset-0 flex items-center justify-center">
+              <div className={`${horizontal ? "w-4 h-4" : "w-6 h-6"} rounded-full bg-primary flex items-center justify-center shadow-md animate-scaleIn`}>
+                <Check className="text-white w-2.5 h-2.5" strokeWidth={3} />
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div
+          className={`relative z-10 w-full shrink-0 bg-white dark:bg-background-dark ${horizontal ? "flex items-center px-3 h-full" : "px-2 py-1.5 min-h-[2.75rem]"}`}
+        >
+          <div className="flex w-full items-start justify-between gap-1.5">
+            <span
+              className={`text-xs font-bold leading-tight block transition-colors ${selected ? "text-primary dark:text-accent" : "text-gray-700 dark:text-gray-300"
+                }`}
+            >
+              {label}
+            </span>
+            {tooltip && isTouchLike && (
+              <span
+                role="button"
+                tabIndex={0}
+                onClick={toggleHelp}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    setHelpOpen((open) => !open);
+                  }
+                }}
+                className={`mt-0.5 shrink-0 text-[10px] font-bold uppercase tracking-wide underline-offset-2 transition-colors ${showHelp ? "text-primary underline dark:text-accent" : "text-primary/60 hover:text-primary dark:text-accent/60 dark:hover:text-accent"}`}
+              >
+                Info
+              </span>
+            )}
+          </div>
+
+          {tooltip && (
+            <div
+              id={tooltipId}
+              role="tooltip"
+              aria-hidden={!showHelp}
+              className={`grid transition-[grid-template-rows,opacity,margin] duration-200 ease-out ${showHelp ? "mt-1.5 grid-rows-[1fr] opacity-100" : "mt-0 grid-rows-[0fr] opacity-0"}`}
+            >
+              <div className="overflow-hidden">
+                <p className="rounded-md border border-primary/10 bg-primary/[0.04] px-2 py-1.5 text-[10px] font-normal leading-snug text-gray-600 dark:border-accent/15 dark:bg-accent/[0.06] dark:text-gray-300">
+                  {tooltip}
+                </p>
+              </div>
+            </div>
+          )}
+        </div>
+      </button>
+    </div>
   );
 }

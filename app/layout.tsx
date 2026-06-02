@@ -17,6 +17,8 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${mulish.variable} scroll-smooth`} suppressHydrationWarning>
       <head>
+        <link rel="preload" href="/hero-background.png" as="image" />
+        <link rel="preload" href="/hero-video.mp4" as="video" type="video/mp4" />
         <script
           dangerouslySetInnerHTML={{
             __html: `

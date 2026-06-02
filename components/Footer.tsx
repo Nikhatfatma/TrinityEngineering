@@ -48,9 +48,9 @@ export default function Footer() {
   );
 
   return (
-    <footer className="relative bg-[#05111D] py-12 text-white max-lg:overflow-x-clip max-lg:py-14">
+    <footer className="relative bg-[#05111D] py-8 text-white max-lg:overflow-x-clip max-lg:py-9">
       <div className="mx-auto max-w-[1440px] px-4 sm:px-6 lg:px-6 lg:pr-14 xl:px-8 xl:pr-8">
-        <div className="mb-12 grid grid-cols-1 gap-10 max-lg:mb-10 max-lg:justify-items-start max-lg:gap-8 lg:mb-16 lg:grid-cols-12 lg:gap-6 xl:gap-8">
+        <div className="mb-8 grid grid-cols-1 gap-8 max-lg:mb-7 max-lg:justify-items-start max-lg:gap-6 lg:mb-10 lg:grid-cols-12 lg:gap-6 xl:gap-8">
           
           {/* Logo Section */}
           <div className="flex w-full min-w-0 flex-col max-lg:items-start max-lg:justify-start lg:col-span-2 lg:justify-center xl:col-span-3">
@@ -100,25 +100,25 @@ export default function Footer() {
             <div className="min-w-0">
               <HeaderWithDot title="Contact" />
               <ul className="space-y-6 text-[13px] font-medium">
-                <li className="flex items-center gap-3 group cursor-pointer">
-                  <div className="p-2 bg-blue-500/10 rounded-sm group-hover:bg-blue-500/20 transition-colors">
+                <li className="group flex min-w-0 cursor-pointer items-start gap-3">
+                  <div className="shrink-0 rounded-sm bg-blue-500/10 p-2 transition-colors group-hover:bg-blue-500/20">
                     <Phone size={14} className="text-blue-500" />
                   </div>
-                  <a href="tel:+18559295888" className="hover:text-blue-400 transition-colors">(855) 929-5888</a>
+                  <a href="tel:+18559295888" className="min-w-0 break-words hover:text-blue-400 transition-colors">(855) 929-5888</a>
                 </li>
-                <li className="flex items-center gap-3 group cursor-pointer">
-                  <div className="p-2 bg-blue-500/10 rounded-sm group-hover:bg-blue-500/20 transition-colors">
+                <li className="group flex min-w-0 cursor-pointer items-start gap-3">
+                  <div className="shrink-0 rounded-sm bg-blue-500/10 p-2 transition-colors group-hover:bg-blue-500/20">
                     <Mail size={14} className="text-blue-500" />
                   </div>
-                  <a href="mailto:claims@trinitypllc.com" className="hover:text-blue-400 transition-colors">claims@trinitypllc.com</a>
+                  <a href="mailto:claims@trinitypllc.com" className="min-w-0 break-all hover:text-blue-400 transition-colors sm:break-words">claims@trinitypllc.com</a>
                 </li>
-                <li className="flex items-center gap-3 group cursor-pointer">
-                  <div className="p-2 bg-blue-500/10 rounded-sm group-hover:bg-blue-500/20 transition-colors">
+                <li className="group flex min-w-0 cursor-pointer items-start gap-3">
+                  <div className="shrink-0 rounded-sm bg-blue-500/10 p-2 transition-colors group-hover:bg-blue-500/20">
                     <Mail size={14} className="text-blue-500" />
                   </div>
-                  <a href="mailto:fortified@trinitypllc.com" className="hover:text-blue-400 transition-colors">fortified@trinitypllc.com</a>
+                  <a href="mailto:fortified@trinitypllc.com" className="min-w-0 break-all hover:text-blue-400 transition-colors sm:break-words">fortified@trinitypllc.com</a>
                 </li>
-                <li className="flex items-center gap-3 group">
+                <li className="group flex min-w-0 items-start gap-3">
                   <div className="p-2 bg-blue-500/10 rounded-sm group-hover:bg-blue-500/20 transition-colors">
                     <Clock size={14} className="text-blue-500" />
                   </div>
@@ -215,7 +215,7 @@ export default function Footer() {
           </div>
         </div>
 
-        <div className="pt-10 border-t border-white/5 flex flex-col md:flex-row items-center justify-between gap-6 text-center md:text-left text-[11px] font-bold text-white tracking-widest uppercase">
+        <div className="pt-6 border-t border-white/5 flex flex-col md:flex-row items-center justify-between gap-6 text-center md:text-left text-[11px] font-bold text-white tracking-widest uppercase">
           <p className="max-w-full break-words">© Trinitypllc.com 2022 All rights Reserved.</p>
           <div className="flex flex-wrap justify-center gap-6 sm:gap-12">
             <Link className="text-white hover:text-blue-400 transition-colors" href="/privacy">Privacy Policy</Link>

@@ -29,7 +29,7 @@ export default function ClaimsStatsSection() {
                 className="border border-gray-200 bg-white px-4 py-8 text-center md:px-5 md:py-10"
               >
                 <div className="text-4xl font-black leading-none text-[#0047AB] md:text-5xl">{stat.value}</div>
-                <p className={`mx-auto mt-4 max-w-[12rem] ${STATS_LABEL_CLASS}`}>{stat.label}</p>
+                <p className={`mx-auto mt-4 min-w-0 max-w-full px-1 ${STATS_LABEL_CLASS}`}>{stat.label}</p>
               </div>
             ))}
           </div>

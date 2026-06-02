@@ -10,7 +10,7 @@ const SOURCE_NAME_CLASS =
 
 export default function SwiSourcesSection() {
   return (
-    <section className="border-t border-gray-200 bg-[#F8FAFC] py-12 md:py-16 lg:py-20">
+    <section className="max-lg:overflow-x-clip border-t border-gray-200 bg-[#F8FAFC] py-12 md:py-16 lg:py-20">
       <div className={SWI_SECTION_SHELL}>
         <div className={`${SWI_CONTENT_WIDTH} text-center`}>
           <h2
@@ -24,9 +24,9 @@ export default function SwiSourcesSection() {
           <div className="mt-10 text-left md:mt-12">
             {SWI_SOURCES.items.map((source, index) => (
               <div key={source.name}>
-                <div className="grid grid-cols-1 items-start gap-4 py-6 md:grid-cols-[minmax(0,11rem)_1fr] md:items-center md:gap-8 md:py-8">
-                  <span className={SOURCE_NAME_CLASS}>{source.name}</span>
-                  <p className={SITE_BODY_CLASS}>{source.description}</p>
+                <div className="grid min-w-0 grid-cols-1 items-start gap-4 py-6 md:grid-cols-[minmax(0,11rem)_1fr] md:items-center md:gap-8 md:py-8">
+                  <span className={`min-w-0 break-words ${SOURCE_NAME_CLASS}`}>{source.name}</span>
+                  <p className={`min-w-0 break-words ${SITE_BODY_CLASS}`}>{source.description}</p>
                 </div>
                 {index < SWI_SOURCES.items.length - 1 && <div className="h-px w-full bg-gray-200" />}
               </div>

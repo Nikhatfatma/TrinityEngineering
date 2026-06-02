@@ -50,7 +50,7 @@ export default function SwiMethodologySection() {
                     {step.number}
                   </div>
                   {index < SWI_METHODOLOGY.steps.length - 1 && (
-                    <div className="hidden w-px flex-1 bg-[#60A5FA] md:block" aria-hidden />
+                    <div className="w-px flex-1 bg-[#60A5FA]" aria-hidden />
                   )}
                 </div>
                 <div className="min-w-0 flex-1 pb-8 md:pb-10">
