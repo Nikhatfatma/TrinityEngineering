@@ -9,18 +9,19 @@ export default function Navbar() {
   const [scrolled, setScrolled] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const pathname = usePathname();
-  const hasVideoHero =
+  const hasMediaHero =
     pathname === "/" ||
     pathname === "/claims" ||
     pathname === "/swi" ||
     pathname === "/fortified" ||
     pathname === "/careers";
-  const isSolidHeader = scrolled || !hasVideoHero;
+  const isSolidHeader = scrolled || !hasMediaHero;
 
   useEffect(() => {
     const handleScroll = () => {
       setScrolled(window.scrollY > 50);
     };
+    handleScroll();
     window.addEventListener("scroll", handleScroll);
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
@@ -83,7 +84,7 @@ export default function Navbar() {
             className="flex items-center min-w-0 flex-1 lg:flex-none lg:w-[168px] xl:w-[250px] max-w-[42%] min-[400px]:max-w-[48%] sm:max-w-none shrink-0"
           >
             <span className="relative block h-6 w-full max-w-full min-[400px]:h-7 sm:h-8 lg:h-[55px] xl:h-[60px]">
-              {hasVideoHero && (
+              {hasMediaHero && (
                 <img
                   src="/logo-transparent.png"
                   alt=""
@@ -97,7 +98,7 @@ export default function Navbar() {
                 src="/logo-navbar-dark.png"
                 alt="Trinity Engineering"
                 className={`absolute left-0 top-0 h-full w-auto max-w-full object-contain object-left transition-opacity duration-500 ${
-                  hasVideoHero && !isSolidHeader ? "pointer-events-none opacity-0" : "opacity-100"
+                  hasMediaHero && !isSolidHeader ? "pointer-events-none opacity-0" : "opacity-100"
                 }`}
               />
             </span>

@@ -16,7 +16,7 @@ export default function WeatherScrutiny() {
             HISTORICAL WEATHER ANALYSIS
           </div>
           <h2
-            className={`px-2 text-center text-xl leading-[1.2] tracking-tight text-[#1A1A1A] sm:text-2xl md:text-3xl lg:font-serif lg:font-normal lg:text-4xl ${HOME_SECTION_HEADING}`}
+            className={`px-2 text-center text-xl leading-[1.2] tracking-tight text-[#1A1A1A] sm:text-2xl md:text-3xl lg:font-semibold lg:text-4xl ${HOME_SECTION_HEADING}`}
             style={{ fontSize: "clamp(1.5rem, 3vw, 3rem)" }}
           >
             Weather Reporting Built To <span className="lg:font-bold">Withstand Scrutiny.</span>

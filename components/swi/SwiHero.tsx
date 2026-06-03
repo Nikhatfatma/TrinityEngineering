@@ -2,17 +2,14 @@
 
 import Link from "next/link";
 import { ChevronDown } from "lucide-react";
-import HeroVideoBackground from "@/components/hero/HeroVideoBackground";
+import HeroMediaShell from "@/components/hero/HeroMediaShell";
 import { SWI_CONTENT_WIDTH, SWI_HERO, SWI_SECTION_SHELL } from "./swiContent";
 import { SITE_HERO_BODY_CLASS } from "@/components/home/HomeContent";
 
 export default function SwiHero() {
   return (
     <header className="relative flex min-h-[min(100dvh,680px)] w-full min-w-0 flex-col overflow-x-clip bg-black sm:min-h-[min(100dvh,720px)] lg:min-h-screen">
-      <div className="absolute inset-0 z-0 overflow-hidden">
-        <HeroVideoBackground />
-        <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-black/45 via-black/35 to-black/55" />
-      </div>
+      <HeroMediaShell imageSrc={SWI_HERO.heroImage} strongShade />
 
       <div
         className={`relative z-10 flex w-full flex-1 flex-col justify-center pb-16 pt-[4.5rem] text-white sm:pb-20 sm:pt-24 ${SWI_SECTION_SHELL}`}

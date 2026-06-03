@@ -53,14 +53,13 @@ const INSPECTION_TYPES = [
   { id: "storm-damage", title: "Residential Storm Damage", image: "/inspection-type-storm-damage.png" },
   { id: "structural-loss", title: "Structural Loss", image: "/inspection-type-structural-loss.png" },
   { id: "large-complex-loss", title: "Large / Complex Loss", image: "/inspection-type-large-complex-loss.png" },
-  { id: "interior-water-loss", title: "Interior Water Loss", image: "/inspection-type-interior-water-loss.png" },
+  { id: "water-loss", title: "Water Loss", image: "/inspection-type-water-loss.png" },
   { id: "lightning-damage", title: "Lightning Damage", image: "/inspection-type-lightning-damage.png" },
   { id: "vandalism", title: "Vandalism", image: "/inspection-type-vandalism.png" },
   { id: "chimney-fire-collapse", title: "Chimney Fire / Collapse", image: "/inspection-type-chimney-fire-collapse.png" },
   { id: "component-failure", title: "Component Failure", image: "/inspection-type-component-failure.png" },
   { id: "hvac-electrical", title: "HVAC / Electrical", image: "/inspection-type-hvac-electrical.png" },
   { id: "small-fire", title: "Small Fire", image: "/inspection-type-small-fire.png" },
-  { id: "plumbing-failure", title: "Plumbing Failure", image: "/inspection-type-plumbing-failure.png" },
 ];
 
 const BUILDING_TYPES = [

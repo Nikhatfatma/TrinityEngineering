@@ -24,6 +24,7 @@ export default {
         "accent-light": "#60A5FA",
       },
       fontFamily: {
+        sans: ["var(--font-mulish)", "sans-serif"],
         display: ["var(--font-mulish)", "sans-serif"],
       },
       borderRadius: {

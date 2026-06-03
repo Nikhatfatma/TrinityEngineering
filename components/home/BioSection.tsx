@@ -29,7 +29,7 @@ export default function BioSection() {
           {/* Bio Text - Spanning to the right */}
           <div className="flex-1 min-w-0 text-sm sm:text-[15px] md:text-[18px] leading-relaxed opacity-95 relative text-center md:text-left">
             {/* Stylized Quote Icon */}
-            <div className="text-4xl md:text-6xl text-blue-500/20 font-serif absolute -top-6 md:-top-10 left-1/2 md:left-[-24px] -translate-x-1/2 md:translate-x-0 pointer-events-none">&ldquo;</div>
+            <div className="text-4xl md:text-6xl text-blue-500/20 absolute -top-6 md:-top-10 left-1/2 md:left-[-24px] -translate-x-1/2 md:translate-x-0 pointer-events-none">&ldquo;</div>
             
             <p className="mb-8 md:mb-12 font-light text-gray-300 relative z-10 italic max-w-4xl mx-auto md:mx-0">
               Scott has inspected over 1000 residential and commercial roofs and performed advanced research into the materials, methods, and tools necessary for performing proper repairs. He is a certified trainer, a qualified national and founding researcher in the TRI Method™. Trinity&apos;s own standardized methodology for assessing repairability.

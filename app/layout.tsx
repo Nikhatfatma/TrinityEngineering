@@ -18,7 +18,6 @@ export default function RootLayout({
     <html lang="en" className={`${mulish.variable} scroll-smooth`} suppressHydrationWarning>
       <head>
         <link rel="preload" href="/hero-background.png" as="image" />
-        <link rel="preload" href="/hero-video.mp4" as="video" type="video/mp4" />
         <script
           dangerouslySetInnerHTML={{
             __html: `
@@ -26,11 +25,23 @@ export default function RootLayout({
                 const theme = localStorage.getItem('theme') || 'light';
                 document.documentElement.classList.add(theme);
               } catch (e) {}
+              try {
+                var c = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+                var slow = c && (c.saveData || /^(slow-2g|2g)$/.test(c.effectiveType || '') || (c.effectiveType === '3g' && c.downlink > 0 && c.downlink < 1.5));
+                if (!slow) {
+                  var v = document.createElement('link');
+                  v.rel = 'preload';
+                  v.href = '/hero-video.mp4';
+                  v.as = 'video';
+                  v.type = 'video/mp4';
+                  document.head.appendChild(v);
+                }
+              } catch (e) {}
             `,
           }}
         />
       </head>
-      <body className={`${mulish.className} bg-white dark:bg-background-dark font-display text-gray-900 dark:text-gray-300 antialiased max-lg:overflow-x-clip`}>
+      <body className={`${mulish.className} bg-white dark:bg-background-dark font-sans text-gray-900 dark:text-gray-300 antialiased max-lg:overflow-x-clip`}>
         <ThemeProvider>
           {children}
           <FloatingSubmitButton />

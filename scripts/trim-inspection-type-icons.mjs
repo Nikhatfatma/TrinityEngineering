@@ -12,7 +12,7 @@ const files = [
   "inspection-type-storm-damage.png",
   "inspection-type-structural-loss.png",
   "inspection-type-large-complex-loss.png",
-  "inspection-type-interior-water-loss.png",
+  "inspection-type-water-loss.png",
   "inspection-type-lightning-damage.png",
   "inspection-type-vandalism.png",
   "inspection-type-chimney-fire-collapse.png",

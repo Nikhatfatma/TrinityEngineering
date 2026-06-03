@@ -15,28 +15,28 @@ const FORTIFIED_ITEMS = [
   "Round Roof",
 ];
 
+const FORTIFIED_SLIDES = [
+  { image: "/fortified-beach.png", alt: "FORTIFIED Roof program coastal community" },
+  { image: "/fortified-deck.png", alt: "Rooftop deck eligibility solution" },
+  { image: "/fortified-knee-wall.png", alt: "Knee wall on roof eligibility solution" },
+  { image: "/fortified-mounted.png", alt: "Rooftop mounted equipment eligibility solution" },
+  { image: "/fortified-handrail.png", alt: "Handrail through flat roof eligibility solution" },
+  { image: "/fortified-walkable.png", alt: "Walkable flat roof eligibility solution" },
+  { image: "/fortified-timber.png", alt: "Timber rafters eligibility solution" },
+  { image: "/fortified-round.png", alt: "Round roof eligibility solution" },
+] as const;
+
 export default function FortifiedSection() {
   const [currentSlide, setCurrentSlide] = useState(0);
 
-  const slides = [
-    { image: "/fortified-beach.png", tag: null, showLogo: true },
-    { image: "/fortified-deck.png", tag: "/tag-rooftop-deck.png" },
-    { image: "/fortified-knee-wall.png", tag: "/tag-knee-wall.png" },
-    { image: "/fortified-mounted.png", tag: "/tag-rooftop-mounted.png" },
-    { image: "/fortified-handrail.png", tag: "/tag-handrail.png" },
-    { image: "/fortified-walkable.png", tag: "/tag-walkable-roof.png" },
-    { image: "/fortified-timber.png", tag: "/tag-timber-rafters.png" },
-    { image: "/fortified-round.png", tag: "/tag-round-roof.png" },
-  ];
-
   useEffect(() => {
     const timer = setInterval(() => {
-      setCurrentSlide((prev) => (prev + 1) % slides.length);
+      setCurrentSlide((prev) => (prev + 1) % FORTIFIED_SLIDES.length);
     }, 3000);
     return () => clearInterval(timer);
-  }, [slides.length]);
+  }, []);
 
-  const nextSlide = () => setCurrentSlide((prev) => (prev + 1) % slides.length);
+  const nextSlide = () => setCurrentSlide((prev) => (prev + 1) % FORTIFIED_SLIDES.length);
   const goToSlide = (index: number) => setCurrentSlide(index);
 
   return (
@@ -54,7 +54,6 @@ export default function FortifiedSection() {
         <div className="w-full bg-[#001D3D] pb-[6.5rem] pt-8 text-white max-lg:text-left lg:text-center sm:pb-[8rem] sm:pt-10 md:pb-[11.5rem] md:pt-12 lg:pb-[15rem] lg:pt-14">
           <div className={`${HOME_CONTENT_CLASS} relative z-10`}>
             <div className="mx-auto w-full max-w-6xl min-w-0">
-              {/* Mobile + tablet — Figma list layout (desktop uses paragraph below) */}
               <div className="w-full min-w-0 lg:hidden md:w-[68%] md:max-w-[36rem]">
                 <p className="text-left text-sm font-bold leading-snug md:text-lg">Whether You Have:</p>
                 <ul className="mt-4 space-y-2.5 md:mt-5 md:grid md:grid-cols-2 md:gap-x-8 md:gap-y-3 md:space-y-0">
@@ -68,7 +67,6 @@ export default function FortifiedSection() {
                     </li>
                   ))}
                 </ul>
-                {/* Mobile + tablet — 2 lines */}
                 <div className="mt-8 text-left text-sm font-bold leading-snug md:mt-10 md:text-[17px]">
                   <span className="block">
                     We are <span className="text-blue-400">The only engineering firm</span>
@@ -80,7 +78,6 @@ export default function FortifiedSection() {
                 </div>
               </div>
 
-              {/* Desktop — original paragraph */}
               <h2 className="hidden px-1 text-lg font-light leading-snug tracking-tight lg:block lg:text-2xl">
                 <span className="block">
                   Whether you have a rooftop deck, knee-wall, or equipment such as solar electric or hot water panels,
@@ -99,45 +96,27 @@ export default function FortifiedSection() {
 
         <div className="relative z-10 -mt-[clamp(2.5rem,10vw,4rem)] overflow-x-clip overflow-y-visible pb-8 sm:-mt-[clamp(3rem,12vw,5.5rem)] sm:pb-10 md:-mt-[clamp(4rem,14vw,7rem)] md:pb-14 lg:-mt-[8.5rem]">
           <div className={`${HOME_CONTENT_CLASS} min-w-0`}>
-            <div className="relative w-full max-w-5xl min-w-0 mx-auto">
-                <div className="relative flex w-full justify-center overflow-hidden">
-                  <div className="relative w-fit max-w-full">
-                    <img
-                      src={slides[currentSlide].image}
-                      alt={`Fortified slide ${currentSlide + 1}`}
-                      className="block h-auto w-auto max-w-full max-h-[16rem] object-contain object-center transition-opacity duration-700 sm:max-h-[18rem] md:max-h-[20rem] lg:max-h-[22rem]"
-                    />
-                    {slides[currentSlide].tag && (
-                      <div className="absolute bottom-3 right-2 z-20 sm:bottom-4 sm:right-3">
-                        <img
-                          src={slides[currentSlide].tag}
-                          alt="Tag"
-                          className="h-7 w-auto sm:h-8 md:h-11 drop-shadow-lg"
-                        />
-                      </div>
-                    )}
-                    {slides[currentSlide].showLogo && (
-                      <div className="absolute inset-0 z-20 flex items-center justify-center p-4">
-                        <img
-                          src="/fortified-logo.png"
-                          alt="Fortified Roof Logo"
-                          className="h-auto w-[min(55%,12rem)] max-w-[18rem] drop-shadow-2xl md:max-w-[22rem]"
-                        />
-                      </div>
-                    )}
-                  </div>
-                  <button
-                    type="button"
-                    onClick={nextSlide}
-                    className="absolute right-3 top-1/2 z-30 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full bg-[#00A859] text-white shadow-md transition-transform hover:scale-105 sm:right-4 sm:h-10 sm:w-10 md:h-11 md:w-11"
-                    aria-label="Next slide"
-                  >
-                    <ChevronRight className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6" strokeWidth={3} />
-                  </button>
+            <div className="relative mx-auto w-full max-w-5xl min-w-0">
+              <div className="relative flex w-full justify-center overflow-hidden">
+                <div className="relative w-fit max-w-full">
+                  <img
+                    src={FORTIFIED_SLIDES[currentSlide].image}
+                    alt={FORTIFIED_SLIDES[currentSlide].alt}
+                    className="block h-auto w-auto max-h-[16rem] max-w-full object-contain object-center transition-opacity duration-700 sm:max-h-[18rem] md:max-h-[20rem] lg:max-h-[22rem]"
+                  />
                 </div>
+                <button
+                  type="button"
+                  onClick={nextSlide}
+                  className="absolute right-3 top-1/2 z-30 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full bg-[#00A859] text-white shadow-md transition-transform hover:scale-105 sm:right-4 sm:h-10 sm:w-10 md:h-11 md:w-11"
+                  aria-label="Next slide"
+                >
+                  <ChevronRight className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6" strokeWidth={3} />
+                </button>
+              </div>
 
               <div className="mt-3 flex w-full justify-center gap-1.5">
-                {slides.map((_, dotIndex) => (
+                {FORTIFIED_SLIDES.map((_, dotIndex) => (
                   <button
                     key={dotIndex}
                     type="button"

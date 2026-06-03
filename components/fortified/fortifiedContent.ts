@@ -17,6 +17,8 @@ export const FORTIFIED_TAB_TWO_COL_TEXT_IMAGE_RIGHT =
   `${FORTIFIED_TAB_TEXT_INSET_LEFT} lg:pr-10 xl:pr-12`;
 
 export const FORTIFIED_HERO = {
+  heroImage: "/fortified-hero.png",
+  heroImageObjectPosition: "center center",
   title: "FORTIFIED Roof™ Eligibility Solutions",
   subtitle:
     "Trinity Engineering specializes in resolving FORTIFIED Roof™ eligibility issues that block many homes from IBHS designation. We assess complex conditions and deliver targeted engineering design solutions to bring the property into compliance. As the leading provider of these specialized services, we help homeowners, roofers, and contractors achieve designations efficiently, to receive the benefits of the Fortified Roof™ program.",

@@ -4,13 +4,29 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import {
   HERO_VIDEO_FALLBACK_IMAGE,
   HERO_VIDEO_MP4,
-  HERO_VIDEO_MOV,
 } from "./heroVideoConfig";
+import {
+  getConnectionTier,
+  subscribeConnectionTier,
+} from "./heroVideoConnection";
 
-export default function HeroVideoBackground() {
+type StaticFallbackReason = "slow-connection" | "error";
+
+type HeroVideoBackgroundProps = {
+  strongShade?: boolean;
+};
+
+const MEDIA_LAYER = "transition-opacity duration-200";
+
+export default function HeroVideoBackground({ strongShade = false }: HeroVideoBackgroundProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [reduceMotion, setReduceMotion] = useState(false);
-  const [isPlaying, setIsPlaying] = useState(false);
+  const [videoActive, setVideoActive] = useState(false);
+  const [staticFallback, setStaticFallback] = useState<StaticFallbackReason | null>(
+    null,
+  );
+
+  const gridClass = `hero-media-grid${strongShade ? " hero-media-grid--strong-shade" : ""}`;
 
   useEffect(() => {
     const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
@@ -20,35 +36,84 @@ export default function HeroVideoBackground() {
     return () => mq.removeEventListener("change", update);
   }, []);
 
-  const tryPlay = useCallback(() => {
-    const video = videoRef.current;
-    if (!video || reduceMotion) return;
-    if (video.readyState >= 2) {
-      void video.play().catch(() => {});
+  useEffect(() => {
+    if (getConnectionTier() === "slow") {
+      setStaticFallback("slow-connection");
     }
-  }, [reduceMotion]);
+    return subscribeConnectionTier((nextTier) => {
+      if (nextTier === "slow") {
+        setStaticFallback("slow-connection");
+      }
+    });
+  }, []);
+
+  const useStaticOnly = reduceMotion || staticFallback !== null;
+
+  const startPlayback = useCallback(() => {
+    const video = videoRef.current;
+    if (!video || useStaticOnly) return;
+
+    video.muted = true;
+
+    void video
+      .play()
+      .then(() => {
+        setVideoActive(true);
+      })
+      .catch((err: DOMException) => {
+        if (err.name === "AbortError") {
+          window.requestAnimationFrame(startPlayback);
+        }
+      });
+  }, [useStaticOnly]);
 
   useEffect(() => {
-    tryPlay();
-  }, [tryPlay]);
+    if (useStaticOnly) return;
 
-  if (reduceMotion) {
+    const video = videoRef.current;
+    if (!video) return;
+
+    video.muted = true;
+
+    const onReady = () => startPlayback();
+    const onPlaying = () => setVideoActive(true);
+    const onError = () => setStaticFallback("error");
+
+    video.addEventListener("loadeddata", onReady);
+    video.addEventListener("canplay", onReady);
+    video.addEventListener("playing", onPlaying);
+    video.addEventListener("error", onError);
+
+    if (video.readyState >= 2) {
+      startPlayback();
+    }
+
+    return () => {
+      video.removeEventListener("loadeddata", onReady);
+      video.removeEventListener("canplay", onReady);
+      video.removeEventListener("playing", onPlaying);
+      video.removeEventListener("error", onError);
+    };
+  }, [useStaticOnly, startPlayback]);
+
+  const strongShadeLayer = strongShade ? <div className="hero-media-strong-shade" aria-hidden /> : null;
+
+  if (useStaticOnly) {
     return (
-      <img
-        src={HERO_VIDEO_FALLBACK_IMAGE}
-        alt=""
-        className="pointer-events-none absolute inset-0 h-full w-full object-cover"
-      />
+      <div className={gridClass}>
+        <img src={HERO_VIDEO_FALLBACK_IMAGE} alt="" className={MEDIA_LAYER} />
+        {strongShadeLayer}
+      </div>
     );
   }
 
   return (
-    <>
+    <div className={gridClass}>
       <img
         src={HERO_VIDEO_FALLBACK_IMAGE}
         alt=""
-        className={`pointer-events-none absolute inset-0 z-[1] h-full w-full object-cover transition-opacity duration-300 ${
-          isPlaying ? "opacity-0" : "opacity-100"
+        className={`${MEDIA_LAYER} transition-opacity duration-200 ${
+          videoActive ? "opacity-0" : "opacity-100"
         }`}
         aria-hidden
       />
@@ -59,17 +124,18 @@ export default function HeroVideoBackground() {
         loop
         playsInline
         preload="auto"
-        onLoadedData={tryPlay}
-        onCanPlay={tryPlay}
-        onPlaying={() => setIsPlaying(true)}
-        className={`pointer-events-none absolute inset-0 z-[2] h-full w-full object-cover transition-opacity duration-300 ${
-          isPlaying ? "opacity-100" : "opacity-0"
+        onLoadedData={startPlayback}
+        onCanPlay={startPlayback}
+        onPlaying={() => setVideoActive(true)}
+        onError={() => setStaticFallback("error")}
+        className={`${MEDIA_LAYER} transition-opacity duration-200 ${
+          videoActive ? "opacity-100" : "opacity-0"
         }`}
         aria-hidden
       >
         <source src={HERO_VIDEO_MP4} type="video/mp4" />
-        <source src={HERO_VIDEO_MOV} type="video/quicktime" />
       </video>
-    </>
+      {strongShadeLayer}
+    </div>
   );
 }

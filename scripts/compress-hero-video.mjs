@@ -26,7 +26,7 @@ if (!existsSync(input)) {
   process.exit(1);
 }
 
-console.log("Compressing hero video…");
+console.log("Compressing hero video (1080p, 24fps, H.264, faststart)…");
 execFileSync(
   ffmpeg,
   [
@@ -37,13 +37,15 @@ execFileSync(
     "-c:v",
     "libx264",
     "-crf",
-    "26",
+    "27",
     "-preset",
-    "medium",
+    "slow",
     "-movflags",
     "+faststart",
     "-vf",
-    "scale=-2:1080",
+    "fps=24,scale=-2:1080",
+    "-pix_fmt",
+    "yuv420p",
     output,
   ],
   { stdio: "inherit" },

@@ -85,14 +85,17 @@ function mapFormDataToCreator(data) {
         "commercial-municipal-industrial": "Commercial/Municipal/Ind",
         "structural-loss": "Structural Damage",
         "large-complex-loss": "Large / Complex Loss",
-        "interior-water-loss": "Interior Water Loss",
+        "water-loss": "Water Loss",
+        "interior-water-loss": "Water Loss",
+        "plumbing-failure": "Water Loss",
+        "Interior Water Loss": "Water Loss",
+        "Plumbing Failure": "Water Loss",
         "lightning-damage": "Lightning Damage",
         "vandalism": "Vandalism",
         "chimney-fire-collapse": "Chimney Fire / Collapse",
         "component-failure": "Component Failure",
         "hvac-electrical": "HVAC/Electrical",
         "small-fire": "Small Fire",
-        "plumbing-failure": "Plumbing Failure"
     };
 
     const buildingMapping = {

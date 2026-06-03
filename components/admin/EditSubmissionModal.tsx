@@ -51,14 +51,13 @@ const INSPECTION_TYPES = [
   { id: "storm-damage", title: "Residential Storm Damage", image: "https://images.unsplash.com/photo-1527482797697-8795b05a13fe?w=800&q=80" },
   { id: "structural-loss", title: "Structural Loss", image: "https://images.unsplash.com/photo-1503387762-592deb58ef4e?w=800&q=80" },
   { id: "large-complex-loss", title: "Large / Complex Loss", image: "https://images.unsplash.com/photo-1541888946425-d81bb19240f5?w=800&q=80" },
-  { id: "interior-water-loss", title: "Interior Water Loss", image: "https://images.unsplash.com/photo-1584622650111-993a426fbf0a?w=800&q=80" },
+  { id: "water-loss", title: "Water Loss", image: "/inspection-type-water-loss.png" },
   { id: "lightning-damage", title: "Lightning Damage", image: "https://images.unsplash.com/photo-1605727216801-e27ce1d0cc28?w=800&q=80" },
   { id: "vandalism", title: "Vandalism", image: "https://images.unsplash.com/photo-1589829545856-d10d557cf95f?w=800&q=80" },
   { id: "chimney-fire-collapse", title: "Chimney Fire / Collapse", image: "https://images.unsplash.com/photo-1582268611958-ebfd161ef9cf?w=800&q=80" },
   { id: "component-failure", title: "Component Failure", image: "https://images.unsplash.com/photo-1621905251918-48416bd8575a?w=800&q=80" },
   { id: "hvac-electrical", title: "HVAC / Electrical", image: "https://images.unsplash.com/photo-1581094794329-c8112a89af12?w=800&q=80" },
   { id: "small-fire", title: "Small Fire", image: "https://images.unsplash.com/photo-1583508915901-b5f84c1dcde1?w=800&q=80" },
-  { id: "plumbing-failure", title: "Plumbing Failure", image: "https://images.unsplash.com/photo-1607472586893-edb57bdc0e39?w=800&q=80" },
 ];
 
 const BUILDING_TYPES = [
@@ -456,7 +455,7 @@ export default function EditSubmissionModal({
 
             <div className="bg-white dark:bg-section-dark rounded-xl p-4 border border-gray-100 dark:border-gray-800 shadow-sm">
               {(() => {
-                const showBuildingType = !!formData.inspectionType && !["Component Failure", "Residential Storm Damage", "Structural Loss", "Large / Complex Loss", "Interior Water Loss"].includes(formData.inspectionType);
+                const showBuildingType = !!formData.inspectionType && !["Component Failure", "Residential Storm Damage", "Structural Loss", "Large / Complex Loss", "Water Loss"].includes(formData.inspectionType);
                 return (
                   <div className={`grid grid-cols-1 gap-4 items-start transition-all duration-300 ${showBuildingType ? "md:grid-cols-4" : "md:grid-cols-1"}`}>
                     {/* Inspection Type */}
@@ -470,6 +469,7 @@ export default function EditSubmissionModal({
                             label={t.title}
                             value={t.id}
                             image={t.image}
+                            containImage
                             selected={formData.inspectionType === t.title}
                             dimmed={!!formData.inspectionType && formData.inspectionType !== t.title}
                             onSelect={() => setFormData({ ...formData, inspectionType: t.title, buildingType: t.id === "component-failure" ? "" : formData.buildingType })}

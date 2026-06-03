@@ -16,6 +16,7 @@ export const SWI_TAB_TWO_COL_TEXT_IMAGE_RIGHT =
   `${SWI_TAB_TEXT_INSET_LEFT} lg:pr-10 xl:pr-12`;
 
 export const SWI_HERO = {
+  heroImage: "/swi-hero.png",
   titleLightLine1: "Weather Reporting",
   titleLightLine2: "Built To",
   titleBoldLine: "Withstand Scrutiny.",

@@ -2,17 +2,14 @@
 
 import Link from "next/link";
 import { ChevronDown, Send } from "lucide-react";
-import HeroVideoBackground from "@/components/hero/HeroVideoBackground";
+import HeroMediaShell from "@/components/hero/HeroMediaShell";
 import { CAREERS_HERO, CAREERS_SECTION_SHELL } from "./careersContent";
 import { SITE_HERO_BODY_CLASS } from "@/components/home/HomeContent";
 
 export default function CareersHero() {
   return (
     <header className="relative flex min-h-[min(100dvh,680px)] w-full min-w-0 flex-col overflow-x-clip bg-black sm:min-h-[min(100dvh,720px)] lg:min-h-screen">
-      <div className="absolute inset-0 z-0 overflow-hidden">
-        <HeroVideoBackground />
-        <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-black/45 via-black/35 to-black/55" />
-      </div>
+      <HeroMediaShell strongShade />
 
       <div
         className={`relative z-10 flex w-full flex-1 flex-col pt-[4.5rem] text-white sm:pt-24 ${CAREERS_SECTION_SHELL}`}
