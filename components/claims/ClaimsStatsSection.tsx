@@ -2,7 +2,7 @@ import { CLAIMS_CONTENT_WIDTH, CLAIMS_SECTION_SHELL, CLAIMS_STATS } from "./clai
 import {
   SITE_BODY_CLASS,
   SITE_SECTION_HEADING_CLASS,
-  SITE_SECTION_HEADING_STYLE,
+  SITE_TAB_SECTION_PY,
 } from "@/components/home/HomeContent";
 
 const STATS_LABEL_CLASS =
@@ -10,19 +10,16 @@ const STATS_LABEL_CLASS =
 
 export default function ClaimsStatsSection() {
   return (
-    <section className="border-t border-gray-200 bg-[#F8FAFC] py-12 md:py-16 lg:py-20">
+    <section className={`border-t border-gray-200 bg-[#F8FAFC] ${SITE_TAB_SECTION_PY}`}>
       <div className={CLAIMS_SECTION_SHELL}>
         <div className={`${CLAIMS_CONTENT_WIDTH} text-center`}>
-          <h2
-            className={`text-[#1A1A1A] ${SITE_SECTION_HEADING_CLASS}`}
-            style={SITE_SECTION_HEADING_STYLE}
-          >
+          <h2 className={`break-words text-[#1A1A1A] ${SITE_SECTION_HEADING_CLASS}`}>
             <span className="block">{CLAIMS_STATS.titleLine1}</span>
             <span className="block">{CLAIMS_STATS.titleLine2}</span>
           </h2>
           <p className={`mt-4 ${SITE_BODY_CLASS}`}>{CLAIMS_STATS.intro}</p>
 
-          <div className="mt-10 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:mt-12 lg:grid-cols-4 lg:gap-5">
+          <div className="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-2 sm:mt-10 lg:mt-12 lg:grid-cols-4 lg:gap-5">
             {CLAIMS_STATS.items.map((stat) => (
               <div
                 key={stat.label}
@@ -34,7 +31,7 @@ export default function ClaimsStatsSection() {
             ))}
           </div>
 
-          <blockquote className="mt-10 md:mt-12">
+          <blockquote className="mt-8 sm:mt-10 md:mt-12">
             <p className={`${SITE_BODY_CLASS} italic text-gray-600`}>&ldquo;{CLAIMS_STATS.quote}&rdquo;</p>
             <footer className={`mt-3 ${STATS_LABEL_CLASS} text-gray-400`}>{CLAIMS_STATS.citation}</footer>
           </blockquote>

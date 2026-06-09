@@ -1,6 +1,6 @@
 "use client";
 
-import { HOME_CONTENT_CLASS, HOME_SECTION_CLASS, HOME_SECTION_HEADING } from "./HomeContent";
+import { HOME_CONTENT_CLASS, HOME_SECTION_CLASS, SITE_SECTION_HEADING_CLASS, HOME_TEXT_WIDTH } from "./HomeContent";
 
 type LogoSizing = "nspe" | "wide-md" | "badge";
 
@@ -50,16 +50,14 @@ export default function CredentialsSection() {
       className={`${HOME_SECTION_CLASS} py-10 sm:py-12 bg-[#F5F5F5] border-t border-gray-100 overflow-hidden`}
     >
       <div className={`${HOME_CONTENT_CLASS} relative z-10`}>
-        <div className="text-center mb-8 px-2 sm:mb-10 sm:px-4">
-          <h2
-            className={`mx-auto w-full text-[#1A1A1A] text-center tracking-tight leading-[1.2] lg:font-semibold ${HOME_SECTION_HEADING}`}
-            style={{ fontSize: "clamp(0.8125rem, 2.19vw, 2.625rem)" }}
-          >
+        <div className={HOME_TEXT_WIDTH}>
+        <div className="text-center mb-8 sm:mb-10">
+          <h2 className={`mx-auto w-full break-words text-center text-[#1A1A1A] ${SITE_SECTION_HEADING_CLASS}`}>
             <span className="block">Professional Certifications & Memberships</span>
           </h2>
         </div>
 
-        <div className="mx-auto grid w-full max-w-6xl grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-6 lg:gap-5">
+        <div className="grid w-full grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-6 lg:gap-5">
           {CREDENTIALS.map((credential) => (
             <div
               key={credential.src}
@@ -72,6 +70,7 @@ export default function CredentialsSection() {
               />
             </div>
           ))}
+        </div>
         </div>
       </div>
     </section>

@@ -32,7 +32,7 @@ export default function FortifiedHero() {
           </div>
 
           <h1
-            className="mx-auto w-full break-words font-bold leading-[1.12] tracking-tight text-white"
+            className="mx-auto w-full break-words font-normal leading-[1.12] tracking-tight text-white"
             style={{ fontSize: "clamp(1.75rem, 3.8vw, 3.5rem)" }}
           >
             {FORTIFIED_HERO.title}

@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { ChevronRight } from "lucide-react";
 import SectionDivider from "./SectionDivider";
-import { HOME_CONTENT_CLASS, HOME_SECTION_CLASS } from "./HomeContent";
+import { HOME_CONTENT_CLASS, HOME_SECTION_CLASS, HOME_TEXT_WIDTH } from "./HomeContent";
 
 const FORTIFIED_ITEMS = [
   "Rooftop Decks",
@@ -43,9 +43,11 @@ export default function FortifiedSection() {
     <>
       <section className={`${HOME_SECTION_CLASS} bg-white py-6 sm:py-8 text-center`}>
         <div className={HOME_CONTENT_CLASS}>
+          <div className={`${HOME_TEXT_WIDTH} text-center`}>
           <SectionDivider viaClass="via-[#00A859]" className="mb-6 sm:mb-8" />
           <div className="inline-block max-w-[95vw] bg-[#00A859] text-white text-[9px] sm:text-[10px] md:text-[11px] font-bold px-4 sm:px-6 py-2 uppercase tracking-[0.2em] sm:tracking-[0.3em] rounded-full shadow-sm">
             FORTIFIED ELIGIBILITY SOLUTIONS
+          </div>
           </div>
         </div>
       </section>
@@ -53,7 +55,7 @@ export default function FortifiedSection() {
       <section className={`${HOME_SECTION_CLASS} bg-white`}>
         <div className="w-full bg-[#001D3D] pb-[6.5rem] pt-8 text-white max-lg:text-left lg:text-center sm:pb-[8rem] sm:pt-10 md:pb-[11.5rem] md:pt-12 lg:pb-[15rem] lg:pt-14">
           <div className={`${HOME_CONTENT_CLASS} relative z-10`}>
-            <div className="mx-auto w-full max-w-6xl min-w-0">
+            <div className={HOME_TEXT_WIDTH}>
               <div className="w-full min-w-0 lg:hidden md:w-[68%] md:max-w-[36rem]">
                 <p className="text-left text-sm font-bold leading-snug md:text-lg">Whether You Have:</p>
                 <ul className="mt-4 space-y-2.5 md:mt-5 md:grid md:grid-cols-2 md:gap-x-8 md:gap-y-3 md:space-y-0">
@@ -96,7 +98,7 @@ export default function FortifiedSection() {
 
         <div className="relative z-10 -mt-[clamp(2.5rem,10vw,4rem)] overflow-x-clip overflow-y-visible pb-8 sm:-mt-[clamp(3rem,12vw,5.5rem)] sm:pb-10 md:-mt-[clamp(4rem,14vw,7rem)] md:pb-14 lg:-mt-[8.5rem]">
           <div className={`${HOME_CONTENT_CLASS} min-w-0`}>
-            <div className="relative mx-auto w-full max-w-5xl min-w-0">
+            <div className={`relative ${HOME_TEXT_WIDTH}`}>
               <div className="relative flex w-full justify-center overflow-hidden">
                 <div className="relative w-fit max-w-full">
                   <img

@@ -107,7 +107,9 @@ export default function SelectCard({
             horizontal
               ? "h-full w-16 overflow-hidden border-r border-gray-100 dark:border-gray-800"
               : containImage
-                ? "flex h-[5.75rem] w-full shrink-0 items-center justify-center overflow-hidden bg-white sm:h-24 md:h-[6.75rem]"
+                ? compactImage
+                  ? "flex h-[5.25rem] w-full shrink-0 items-center justify-center overflow-hidden bg-white sm:h-[5.5rem] md:h-[6.25rem]"
+                  : "flex h-[5.75rem] w-full shrink-0 items-center justify-center overflow-hidden bg-white sm:h-24 md:h-[6.75rem]"
                 : "h-20 w-full overflow-hidden md:h-24"
           }`}
         >
@@ -116,7 +118,7 @@ export default function SelectCard({
             alt={label}
             className={`transition-transform duration-500 ${containImage ? "" : "group-hover/card:scale-105"} ${
               containImage
-                ? `h-full w-full origin-center object-contain object-center ${compactImage ? "scale-[0.72]" : "scale-[1.24]"}`
+                ? `h-full w-full origin-center object-contain object-center ${compactImage ? "scale-[0.66]" : "scale-[1.24]"}`
                 : "h-full w-full object-cover"
             } ${dimmed && !selected && !containImage ? "opacity-50" : "opacity-100"} ${dimmed && !selected && containImage ? "opacity-40" : ""}`}
           />

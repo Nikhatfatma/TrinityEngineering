@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { HOME_CONTENT_CLASS, HOME_SECTION_CLASS, HOME_SECTION_HEADING } from "./HomeContent";
+import { HOME_CONTENT_CLASS, HOME_SECTION_CLASS, SITE_SECTION_HEADING_CLASS, HOME_TEXT_WIDTH } from "./HomeContent";
 
 function Counter({
   value,
@@ -94,14 +94,12 @@ export default function StatsSection() {
         />
 
         <div className={`${HOME_CONTENT_CLASS} relative z-10 flex min-h-[inherit] flex-col justify-center py-2 text-center sm:py-4`}>
-          <h2
-            className={`mx-auto w-full text-[#1A1A1A] text-center tracking-tight leading-[1.2] mb-7 px-2 sm:mb-8 md:mb-10 lg:font-semibold ${HOME_SECTION_HEADING}`}
-            style={{ fontSize: "clamp(0.8125rem, 2.19vw, 2.625rem)" }}
-          >
+          <div className={HOME_TEXT_WIDTH}>
+          <h2 className={`mx-auto mb-7 w-full break-words text-center text-[#1A1A1A] sm:mb-8 md:mb-10 ${SITE_SECTION_HEADING_CLASS}`}>
             Industry-Recognized Insurance Claims Expertise
           </h2>
 
-          <div className="relative z-10 mx-auto grid w-full max-w-sm min-w-0 grid-cols-1 gap-5 sm:max-w-none sm:grid-cols-2 sm:gap-6 lg:grid-cols-4 lg:gap-8">
+          <div className="relative z-10 grid w-full min-w-0 grid-cols-1 gap-5 sm:grid-cols-2 sm:gap-6 lg:grid-cols-4 lg:gap-8">
             {stats.map((stat, index) => (
               <Counter
                 key={index}
@@ -110,6 +108,7 @@ export default function StatsSection() {
                 animate={stat.animate}
               />
             ))}
+          </div>
           </div>
         </div>
       </section>

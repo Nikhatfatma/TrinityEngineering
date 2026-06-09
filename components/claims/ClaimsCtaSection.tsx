@@ -3,7 +3,7 @@ import { CLAIMS_CONTENT_WIDTH, CLAIMS_CTA, CLAIMS_SECTION_SHELL } from "./claims
 import {
   SITE_BODY_CLASS,
   SITE_SECTION_HEADING_CLASS,
-  SITE_SECTION_HEADING_STYLE,
+  SITE_TAB_CTA_SECTION_CLASS,
 } from "@/components/home/HomeContent";
 
 const CTA_EYEBROW_CLASS =
@@ -11,7 +11,7 @@ const CTA_EYEBROW_CLASS =
 
 export default function ClaimsCtaSection() {
   return (
-    <section className="relative overflow-hidden bg-[#000B29] py-16 md:py-20 lg:py-24">
+    <section className={`${SITE_TAB_CTA_SECTION_CLASS} overflow-hidden bg-[#000B29]`}>
       <div
         className="pointer-events-none absolute inset-0 opacity-30"
         style={{
@@ -31,10 +31,7 @@ export default function ClaimsCtaSection() {
       <div className={`relative z-10 text-center ${CLAIMS_SECTION_SHELL}`}>
         <div className={CLAIMS_CONTENT_WIDTH}>
           <p className={CTA_EYEBROW_CLASS}>{CLAIMS_CTA.eyebrow}</p>
-          <h2
-            className={`mt-4 text-white ${SITE_SECTION_HEADING_CLASS}`}
-            style={SITE_SECTION_HEADING_STYLE}
-          >
+          <h2 className={`mt-4 break-words text-white ${SITE_SECTION_HEADING_CLASS}`}>
             <span className="block">{CLAIMS_CTA.titleLine1}</span>
             <span className="block">{CLAIMS_CTA.titleLine2}</span>
           </h2>

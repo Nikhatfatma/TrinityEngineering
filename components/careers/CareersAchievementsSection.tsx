@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { CAREERS_ACHIEVEMENTS, CAREERS_SECTION_SHELL } from "./careersContent";
-import { SITE_CARD_TITLE_CLASS } from "@/components/home/HomeContent";
+import { SITE_CARD_TITLE_CLASS, SITE_TAB_SECTION_PY } from "@/components/home/HomeContent";
 
 function AchievementBadge({
   imageSrc,
@@ -53,7 +53,7 @@ function AchievementBadge({
 
 export default function CareersAchievementsSection() {
   return (
-    <section className="bg-[#F5F5F5] py-12 md:py-16 lg:py-20">
+    <section className={`bg-[#F5F5F5] ${SITE_TAB_SECTION_PY}`}>
       <div className={CAREERS_SECTION_SHELL}>
         <p className={`text-center ${SITE_CARD_TITLE_CLASS}`}>
           {CAREERS_ACHIEVEMENTS.eyebrow}

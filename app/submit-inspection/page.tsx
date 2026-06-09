@@ -1174,13 +1174,13 @@ export default function SubmitInspectionPage() {
         <Navbar />
       </div>
 
-      <main className={`${isSubmitted ? "h-[calc(100vh-64px)] flex items-start justify-center pt-24" : "pt-24 pb-8"}`}>
+      <main className={`${isSubmitted ? "h-[calc(100vh-64px)] flex items-start justify-center pt-24" : "pt-20 pb-8"}`}>
         <div className={`${isSubmitted ? "max-w-xl" : "max-w-5xl"} mx-auto ${currentStep === 4 ? "px-12" : "px-6"}`}>
 
           {/* ── Sticky Wrapper – Only visible for Wizard Steps ── */}
           {!isSubmitted && (
-            <div className="sticky top-16 z-40 bg-gray-50 dark:bg-background-dark pt-2 pb-4 mb-2 -mx-6 px-6 transition-all duration-500">
-              <div className="bg-white dark:bg-section-dark px-1 py-0 shadow-md rounded-full border border-gray-200 dark:border-gray-800 flex flex-col justify-center max-w-5xl mx-auto w-full">
+            <div className="sticky top-14 z-40 -mx-6 bg-gray-50 px-6 pb-3 pt-[0.625rem] mb-2 transition-all duration-500 dark:bg-background-dark lg:top-[75px]">
+              <div className="relative z-10 mx-auto flex w-full max-w-5xl flex-col justify-center rounded-full border border-gray-200 bg-white px-1 py-0 shadow-md dark:border-gray-800 dark:bg-section-dark">
                 <div className="text-center mb-0.5 flex justify-center items-center gap-2">
                   {(() => {
                     const Icon = WIZARD_STEPS[currentStep]?.icon;

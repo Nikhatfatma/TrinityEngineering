@@ -168,3 +168,14 @@ body {
 .hero-media-grid--strong-shade video {
   filter: brightness(0.82) contrast(1.04);
 }
+
+/* Shared tab section headings — larger mobile; desktop uses site default clamp */
+.site-section-heading {
+  font-size: clamp(1.125rem, 3.8vw, 2.625rem);
+}
+
+@media (min-width: 1024px) {
+  .site-section-heading {
+    font-size: clamp(0.8125rem, 2.19vw, 2.625rem);
+  }
+}

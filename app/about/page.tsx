@@ -8,7 +8,6 @@ import {
   SITE_FEATURE_TITLE_CLASS,
   SITE_HERO_BODY_CLASS,
   SITE_SECTION_HEADING_CLASS,
-  SITE_SECTION_HEADING_STYLE,
   SITE_STAT_LABEL_CLASS,
 } from "@/components/home/HomeContent";
 
@@ -133,8 +132,7 @@ export default function AboutPage() {
           <div className="grid lg:grid-cols-2 gap-12 items-center">
             <div>
               <h2
-                className={`text-gray-900 dark:text-white mb-6 ${SITE_SECTION_HEADING_CLASS}`}
-                style={SITE_SECTION_HEADING_STYLE}
+                className={`mb-6 break-words text-gray-900 dark:text-white ${SITE_SECTION_HEADING_CLASS}`}
               >
                 Our Mission
               </h2>
@@ -161,8 +159,7 @@ export default function AboutPage() {
         <div className="max-w-7xl mx-auto px-6">
           <div className="text-center mb-16">
             <h2
-              className={`text-gray-900 dark:text-white mb-6 ${SITE_SECTION_HEADING_CLASS}`}
-              style={SITE_SECTION_HEADING_STYLE}
+              className={`mb-6 break-words text-gray-900 dark:text-white ${SITE_SECTION_HEADING_CLASS}`}
             >
               Our Core Values
             </h2>
@@ -199,8 +196,7 @@ export default function AboutPage() {
         <div className="max-w-5xl mx-auto px-6">
           <div className="text-center mb-16">
             <h2
-              className={`text-gray-900 dark:text-white mb-6 ${SITE_SECTION_HEADING_CLASS}`}
-              style={SITE_SECTION_HEADING_STYLE}
+              className={`mb-6 break-words text-gray-900 dark:text-white ${SITE_SECTION_HEADING_CLASS}`}
             >
               Our Journey
             </h2>
@@ -243,8 +239,7 @@ export default function AboutPage() {
       <section className="py-20 bg-gradient-to-r from-primary to-primary-dark dark:from-accent dark:to-accent-light">
         <div className="max-w-4xl mx-auto px-6 text-center">
           <h2
-            className={`text-white mb-6 ${SITE_SECTION_HEADING_CLASS}`}
-            style={SITE_SECTION_HEADING_STYLE}
+            className={`mb-6 break-words text-white ${SITE_SECTION_HEADING_CLASS}`}
           >
             Partner With the Best
           </h2>

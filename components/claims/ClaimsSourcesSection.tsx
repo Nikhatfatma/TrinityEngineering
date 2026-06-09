@@ -2,7 +2,7 @@ import { CLAIMS_CONTENT_WIDTH, CLAIMS_SECTION_SHELL, CLAIMS_SOURCES } from "./cl
 import {
   SITE_BODY_CLASS,
   SITE_SECTION_HEADING_CLASS,
-  SITE_SECTION_HEADING_STYLE,
+  SITE_TAB_SECTION_PY,
 } from "@/components/home/HomeContent";
 
 const SOURCE_NAME_CLASS =
@@ -13,13 +13,10 @@ const ACTIVE_BADGE_CLASS =
 
 export default function ClaimsSourcesSection() {
   return (
-    <section className="max-lg:overflow-x-clip border-t border-gray-200 bg-white py-12 md:py-16 lg:py-20">
+    <section className={`max-lg:overflow-x-clip border-t border-gray-200 bg-white ${SITE_TAB_SECTION_PY}`}>
       <div className={CLAIMS_SECTION_SHELL}>
         <div className={`${CLAIMS_CONTENT_WIDTH} text-center`}>
-          <h2
-            className={`text-[#1A1A1A] ${SITE_SECTION_HEADING_CLASS}`}
-            style={SITE_SECTION_HEADING_STYLE}
-          >
+          <h2 className={`break-words text-[#1A1A1A] ${SITE_SECTION_HEADING_CLASS}`}>
             {CLAIMS_SOURCES.title}
           </h2>
           <p className={`mt-4 ${SITE_BODY_CLASS}`}>{CLAIMS_SOURCES.intro}</p>

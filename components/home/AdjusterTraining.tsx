@@ -5,9 +5,10 @@ import {
   HOME_CONTENT_CLASS,
   HOME_IMAGE_BLEED_LEFT,
   HOME_SECTION_CLASS,
-  HOME_SECTION_HEADING,
   HOME_STACKED_IMAGE_CLASS,
   HOME_STICKY_IMAGE_CLASS,
+  HOME_TEXT_WIDTH,
+  SITE_SECTION_HEADING_CLASS,
 } from "./HomeContent";
 
 export default function AdjusterTraining() {
@@ -41,16 +42,14 @@ export default function AdjusterTraining() {
       </div>
 
       <div className={`${HOME_CONTENT_CLASS} relative z-10`}>
+        <div className={HOME_TEXT_WIDTH}>
         <div className="w-full min-w-0 grid grid-cols-1 lg:grid-cols-[48%_minmax(0,1fr)] xl:grid-cols-[44%_minmax(0,1fr)] max-lg:gap-y-4 gap-6 md:gap-8 xl:gap-12 items-start">
           <div className="col-span-full text-center max-lg:mb-1 mb-8 md:mb-10">
             <SectionDivider viaClass="via-[#0047AB]" />
             <div className="inline-block bg-[#0047AB] text-white text-[9px] md:text-[10px] font-bold px-4 md:px-5 py-1.5 mb-4 uppercase tracking-[0.3em] rounded-full shadow-sm">
               ADJUSTER TEAM TRAININGS
             </div>
-            <h2
-              className={`mx-auto w-full text-[#1A1A1A] text-center tracking-tight leading-[1.2] lg:font-semibold ${HOME_SECTION_HEADING}`}
-              style={{ fontSize: "clamp(0.8125rem, 2.19vw, 2.625rem)" }}
-            >
+            <h2 className={`mx-auto w-full break-words text-center text-[#1A1A1A] ${SITE_SECTION_HEADING_CLASS}`}>
               <span className="block">Get Your Adjusters The Training They Need</span>
             </h2>
           </div>
@@ -84,6 +83,7 @@ export default function AdjusterTraining() {
                 </div>
               ))}
           </div>
+        </div>
         </div>
       </div>
     </section>

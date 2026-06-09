@@ -7,12 +7,12 @@ import {
 import {
   SITE_BODY_CLASS,
   SITE_SECTION_HEADING_CLASS,
-  SITE_SECTION_HEADING_STYLE,
+  SITE_TAB_CTA_SECTION_CLASS,
 } from "@/components/home/HomeContent";
 
 export default function FortifiedCtaSection() {
   return (
-    <section className="relative overflow-hidden border-t border-gray-200 py-16 md:py-20 lg:py-24">
+    <section className={`${SITE_TAB_CTA_SECTION_CLASS} overflow-hidden border-t border-gray-200`}>
       <img
         src={FORTIFIED_CTA.backgroundImage}
         alt=""
@@ -24,8 +24,7 @@ export default function FortifiedCtaSection() {
       <div className={`relative z-10 text-center text-white ${FORTIFIED_SECTION_SHELL}`}>
         <div className={FORTIFIED_CONTENT_WIDTH}>
           <h2
-            className={`text-white ${SITE_SECTION_HEADING_CLASS}`}
-            style={SITE_SECTION_HEADING_STYLE}
+            className={`break-words text-white ${SITE_SECTION_HEADING_CLASS}`}
           >
             {FORTIFIED_CTA.title}
           </h2>

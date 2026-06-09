@@ -7,9 +7,8 @@ import {
 } from "./fortifiedContent";
 import {
   SITE_BODY_CLASS,
-  SITE_FEATURE_TITLE_CLASS,
   SITE_SECTION_HEADING_CLASS,
-  SITE_SECTION_HEADING_STYLE,
+  SITE_TAB_SECTION_PY,
 } from "@/components/home/HomeContent";
 
 const ITEM_CLASS =
@@ -35,18 +34,17 @@ function SolutionColumn({ items }: { items: readonly string[] }) {
 
 export default function FortifiedSolutionsSection() {
   return (
-    <section id="fortified-solutions" className="overflow-x-clip border-t border-gray-200 bg-white py-12 md:py-16 lg:py-20">
+    <section id="fortified-solutions" className={`overflow-x-clip border-t border-gray-200 bg-white ${SITE_TAB_SECTION_PY}`}>
       <div className={FORTIFIED_SECTION_SHELL}>
-        <div className={`${FORTIFIED_CONTENT_WIDTH} text-center`}>
+        <div className={`${FORTIFIED_CONTENT_WIDTH} text-left`}>
           <h2
-            className={`text-[#1A1A1A] ${SITE_SECTION_HEADING_CLASS}`}
-            style={SITE_SECTION_HEADING_STYLE}
+            className={`break-words text-[#1A1A1A] ${SITE_SECTION_HEADING_CLASS}`}
           >
             {FORTIFIED_SOLUTIONS.title}
           </h2>
           <p className={`mt-4 ${SITE_BODY_CLASS}`}>{FORTIFIED_SOLUTIONS.subtitle}</p>
 
-          <div className="mt-10 grid grid-cols-1 gap-8 text-left md:mt-12 md:grid-cols-2 md:gap-12 lg:gap-16">
+          <div className="mt-8 grid grid-cols-1 gap-8 text-left sm:mt-10 md:grid-cols-2 md:gap-12 lg:mt-12 lg:gap-16">
             <SolutionColumn items={FORTIFIED_SOLUTIONS.columnLeft} />
             <SolutionColumn items={FORTIFIED_SOLUTIONS.columnRight} />
           </div>
@@ -68,7 +66,9 @@ export default function FortifiedSolutionsSection() {
           className={`flex items-start pb-8 pt-2 md:pb-10 md:pt-3 lg:order-2 lg:pb-12 lg:pt-4 ${FORTIFIED_TAB_TWO_COL_TEXT_IMAGE_LEFT}`}
         >
           <div className="w-full min-w-0">
-            <h3 className={SITE_FEATURE_TITLE_CLASS}>{FORTIFIED_STANDARD.title}</h3>
+            <h2 className={`break-words text-[#1A1A1A] ${SITE_SECTION_HEADING_CLASS}`}>
+              {FORTIFIED_STANDARD.title}
+            </h2>
             <div className={`mt-4 space-y-4 ${SITE_BODY_CLASS}`}>
               {FORTIFIED_STANDARD.paragraphs.map((paragraph) => (
                 <p key={paragraph}>{paragraph}</p>

@@ -13,8 +13,8 @@ export default function Navbar() {
     pathname === "/" ||
     pathname === "/claims" ||
     pathname === "/swi" ||
-    pathname === "/fortified" ||
-    pathname === "/careers";
+    pathname === "/fortified";
+  // pathname === "/careers"; // In-app careers tab — restore when re-enabled
   const isSolidHeader = scrolled || !hasMediaHero;
 
   useEffect(() => {
@@ -58,7 +58,17 @@ export default function Navbar() {
 
   const navItems = ["HOME", "CLAIMS", "SWI", "FORTIFIED", "CAREERS"];
 
-  const getNavHref = (item: string) => (item === "HOME" ? "/" : `/${item.toLowerCase()}`);
+  /** External careers portal — replace internal `/careers` route for now */
+  const CAREERS_EXTERNAL_URL = "https://careers.trinitypllc.com/jobs/Careers";
+
+  const getNavHref = (item: string) => {
+    if (item === "HOME") return "/";
+    if (item === "CAREERS") return CAREERS_EXTERNAL_URL;
+    // if (item === "CAREERS") return "/careers"; // In-app careers tab — restore when re-enabled
+    return `/${item.toLowerCase()}`;
+  };
+
+  const isExternalNavItem = (item: string) => item === "CAREERS";
 
   const isNavActive = (item: string) => {
     const href = getNavHref(item);
@@ -108,12 +118,7 @@ export default function Navbar() {
             {navItems.map((item) => {
               const href = getNavHref(item);
               const isActive = isNavActive(item);
-              return (
-                <Link
-                  key={item}
-                  href={href}
-                  aria-current={isActive ? "page" : undefined}
-                  className={`relative shrink-0 px-2.5 py-2 text-[10px] tracking-[0.14em] transition-colors duration-300 group xl:px-6 xl:text-[12px] xl:tracking-[0.2em] ${
+              const linkClass = `relative shrink-0 px-2.5 py-2 text-[10px] tracking-[0.14em] transition-colors duration-300 group xl:px-6 xl:text-[12px] xl:tracking-[0.2em] ${
                     isActive
                       ? isSolidHeader
                         ? "font-semibold text-[#0047AB]"
@@ -121,14 +126,34 @@ export default function Navbar() {
                       : isSolidHeader
                         ? "font-medium text-gray-600 hover:text-[#0047AB]"
                         : "font-medium text-white/80 hover:text-white"
-                  }`}
-                >
+                  }`;
+              const linkChildren = (
+                <>
                   <span className="relative z-10">{item}</span>
                   <div
                     className={`absolute bottom-0 left-1/2 h-[2px] -translate-x-1/2 transition-all duration-300 ${
                       isActive ? "w-1/2" : "w-0 group-hover:w-1/2"
                     } ${isSolidHeader || isActive ? "bg-[#0047AB]" : "bg-white"}`}
                   />
+                </>
+              );
+
+              return isExternalNavItem(item) ? (
+                <a
+                  key={item}
+                  href={href}
+                  className={linkClass}
+                >
+                  {linkChildren}
+                </a>
+              ) : (
+                <Link
+                  key={item}
+                  href={href}
+                  aria-current={isActive ? "page" : undefined}
+                  className={linkClass}
+                >
+                  {linkChildren}
                 </Link>
               );
             })}
@@ -227,17 +252,28 @@ export default function Navbar() {
                 {navItems.map((item) => {
                   const href = getNavHref(item);
                   const isActive = isNavActive(item);
-                  return (
+                  const mobileLinkClass = `rounded-md px-2.5 py-2 text-[11px] font-semibold tracking-[0.12em] transition-all duration-200 ${
+                    isActive
+                      ? "bg-[#0047AB]/10 text-[#0047AB] ring-1 ring-[#0047AB]/20"
+                      : "text-gray-700 hover:bg-gray-50 hover:text-[#0047AB]"
+                  }`;
+
+                  return isExternalNavItem(item) ? (
+                    <a
+                      key={item}
+                      href={href}
+                      onClick={() => setMobileMenuOpen(false)}
+                      className={mobileLinkClass}
+                    >
+                      {item}
+                    </a>
+                  ) : (
                     <Link
                       key={item}
                       href={href}
                       aria-current={isActive ? "page" : undefined}
                       onClick={() => setMobileMenuOpen(false)}
-                      className={`rounded-md px-2.5 py-2 text-[11px] font-semibold tracking-[0.12em] transition-all duration-200 ${
-                        isActive
-                          ? "bg-[#0047AB]/10 text-[#0047AB] ring-1 ring-[#0047AB]/20"
-                          : "text-gray-700 hover:bg-gray-50 hover:text-[#0047AB]"
-                      }`}
+                      className={mobileLinkClass}
                     >
                       {item}
                     </Link>

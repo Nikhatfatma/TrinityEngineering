@@ -3,6 +3,9 @@
 import Link from "next/link";
 import { Phone, Mail, Clock, ChevronRight } from "lucide-react";
 
+const FOOTER_TAGLINE =
+  "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.";
+
 const SERVICES_COL_LEFT = [
   "Structural Investigations",
   "Storm Damage",
@@ -48,7 +51,7 @@ export default function Footer() {
   );
 
   return (
-    <footer className="relative bg-[#05111D] py-8 text-white max-lg:overflow-x-clip max-lg:py-9">
+    <footer className="relative bg-[#18222F] py-8 text-white max-lg:overflow-x-clip max-lg:py-9">
       <div className="mx-auto max-w-[1440px] px-4 sm:px-6 lg:px-6 lg:pr-14 xl:px-8 xl:pr-8">
         <div className="mb-8 grid grid-cols-1 gap-8 max-lg:mb-7 max-lg:justify-items-start max-lg:gap-6 lg:mb-10 lg:grid-cols-12 lg:gap-6 xl:gap-8">
           
@@ -58,9 +61,13 @@ export default function Footer() {
               <img 
                 src="/logo-transparent.png" 
                 alt="Trinity Engineering" 
-                className="h-[76px] w-auto object-contain object-left sm:h-[96px] lg:h-[112px]"
+                className="h-[56px] w-auto object-contain object-left sm:h-[72px] lg:h-[84px]"
               />
             </Link>
+            <p className="mt-4 max-w-full text-left text-[13px] font-normal leading-relaxed text-white/75 sm:mt-5 sm:text-[14px] lg:hidden">
+              {FOOTER_TAGLINE}
+            </p>
+            <div className="mt-5 w-full border-b border-white/10 lg:hidden" aria-hidden />
           </div>
 
           {/* Tablet — left services + right services above Contact column */}

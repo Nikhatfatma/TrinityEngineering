@@ -1,8 +1,9 @@
 import { CAREERS_CONTENT_WIDTH, CAREERS_GRID, CAREERS_SECTION_SHELL } from "./careersContent";
+import { SITE_TAB_SECTION_PY } from "@/components/home/HomeContent";
 
 export default function CareersGridSection() {
   return (
-    <section id={CAREERS_GRID.id} className="bg-[#F5F5F5] py-8 md:py-10 lg:py-12">
+    <section id={CAREERS_GRID.id} className={`bg-[#F5F5F5] ${SITE_TAB_SECTION_PY}`}>
       <div className={CAREERS_SECTION_SHELL}>
         <div className={CAREERS_CONTENT_WIDTH}>
           <p className="text-left text-[10px] font-bold uppercase tracking-[0.22em] text-[#2563EB] sm:text-[11px] md:tracking-[0.28em]">

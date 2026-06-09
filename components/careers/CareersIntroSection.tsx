@@ -13,7 +13,7 @@ import {
   SITE_CARD_TITLE_CLASS,
   HOME_IMAGE_BLEED_LEFT,
   SITE_SECTION_HEADING_CLASS,
-  SITE_SECTION_HEADING_STYLE,
+  SITE_TAB_SECTION_PY,
 } from "@/components/home/HomeContent";
 
 function useScrollReveal(threshold = 0.12) {
@@ -67,13 +67,10 @@ function ScrollReveal({
 
 export default function CareersIntroSection() {
   return (
-    <section className="max-lg:overflow-x-clip bg-[#F5F5F5] py-12 md:py-16 lg:py-20">
+    <section className={`max-lg:overflow-x-clip bg-[#F5F5F5] ${SITE_TAB_SECTION_PY}`}>
       <div className={CAREERS_SECTION_SHELL}>
         <ScrollReveal className={CAREERS_CONTENT_WIDTH}>
-          <h2
-            className={`break-words text-left text-[#1A1A1A] ${SITE_SECTION_HEADING_CLASS}`}
-            style={SITE_SECTION_HEADING_STYLE}
-          >
+          <h2 className={`break-words text-left text-[#1A1A1A] ${SITE_SECTION_HEADING_CLASS}`}>
             {CAREERS_INTRO.title}
           </h2>
         </ScrollReveal>

@@ -2,7 +2,7 @@ import { CLAIMS_CONTENT_WIDTH, CLAIMS_PROCESS, CLAIMS_SECTION_SHELL } from "./cl
 import {
   SITE_BODY_CLASS,
   SITE_SECTION_HEADING_CLASS,
-  SITE_SECTION_HEADING_STYLE,
+  SITE_TAB_SECTION_PY,
 } from "@/components/home/HomeContent";
 
 const PROCESS_EYEBROW_CLASS =
@@ -28,20 +28,17 @@ function ProcessTags({ tags }: { tags: readonly string[] }) {
 
 export default function ClaimsProcessSection() {
   return (
-    <section className="border-t border-gray-200 bg-white py-12 md:py-16 lg:py-20">
+    <section className={`border-t border-gray-200 bg-white ${SITE_TAB_SECTION_PY}`}>
       <div className={CLAIMS_SECTION_SHELL}>
         <div className={`${CLAIMS_CONTENT_WIDTH} text-center`}>
-          <h2
-            className={`text-[#1A1A1A] ${SITE_SECTION_HEADING_CLASS}`}
-            style={SITE_SECTION_HEADING_STYLE}
-          >
+          <h2 className={`break-words text-[#1A1A1A] ${SITE_SECTION_HEADING_CLASS}`}>
             {CLAIMS_PROCESS.title}
           </h2>
           {CLAIMS_PROCESS.intro && (
             <p className={`mt-3 ${SITE_BODY_CLASS}`}>{CLAIMS_PROCESS.intro}</p>
           )}
 
-          <div className="mt-14 text-left md:mt-16 lg:mt-20">
+          <div className="relative mt-10 text-left sm:mt-12 md:mt-14 lg:mt-20">
             {CLAIMS_PROCESS.steps.map((step, index) => (
               <div key={step.number} className="flex items-start gap-4 md:gap-6">
                 <div className="flex w-9 shrink-0 flex-col items-center self-stretch md:w-10">

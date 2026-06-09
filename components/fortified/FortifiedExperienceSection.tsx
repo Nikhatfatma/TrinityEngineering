@@ -5,9 +5,8 @@ import {
 } from "./fortifiedContent";
 import {
   SITE_BODY_CLASS,
-  SITE_EYEBROW_CLASS,
   SITE_SECTION_HEADING_CLASS,
-  SITE_SECTION_HEADING_STYLE,
+  SITE_TAB_SECTION_PY,
 } from "@/components/home/HomeContent";
 
 const STAT_LABEL_CLASS =
@@ -15,18 +14,15 @@ const STAT_LABEL_CLASS =
 
 export default function FortifiedExperienceSection() {
   return (
-    <section className="border-t border-gray-200 bg-[#F8FAFC] py-12 md:py-16 lg:py-20">
+    <section className={`border-t border-gray-200 bg-[#F8FAFC] ${SITE_TAB_SECTION_PY}`}>
       <div className={FORTIFIED_SECTION_SHELL}>
         <div className={`${FORTIFIED_CONTENT_WIDTH} text-left`}>
           <h2
-            className={`text-[#1A1A1A] ${SITE_SECTION_HEADING_CLASS}`}
-            style={SITE_SECTION_HEADING_STYLE}
+            className={`break-words text-[#1A1A1A] ${SITE_SECTION_HEADING_CLASS}`}
           >
             <span className="block">{FORTIFIED_EXPERIENCE.titleLine1}</span>
             <span className="block">{FORTIFIED_EXPERIENCE.titleLine2}</span>
           </h2>
-
-          <p className={`mt-4 ${SITE_EYEBROW_CLASS}`}>{FORTIFIED_EXPERIENCE.eyebrow}</p>
 
           <div className={`mt-4 space-y-4 ${SITE_BODY_CLASS}`}>
             {FORTIFIED_EXPERIENCE.paragraphs.map((paragraph) => (
@@ -34,16 +30,26 @@ export default function FortifiedExperienceSection() {
             ))}
           </div>
 
-          <div className="mt-10 grid grid-cols-1 gap-4 sm:grid-cols-3 lg:mt-12 lg:gap-5">
-            {FORTIFIED_EXPERIENCE.stats.map((stat) => (
-              <div
-                key={stat.label}
-                className="border border-gray-200 bg-white px-4 py-8 text-center shadow-sm md:px-5 md:py-10"
-              >
-                <div className="text-4xl font-black leading-none text-[#0047AB] md:text-5xl">{stat.value}</div>
-                <p className={`mx-auto mt-4 min-w-0 max-w-full px-1 ${STAT_LABEL_CLASS}`}>{stat.label}</p>
-              </div>
-            ))}
+          <div className="mt-8 grid grid-cols-2 gap-3 sm:mt-10 sm:gap-4 lg:mt-12 lg:grid-cols-3 lg:gap-5">
+            {FORTIFIED_EXPERIENCE.stats.map((stat, index) => {
+              const isLast = index === FORTIFIED_EXPERIENCE.stats.length - 1;
+
+              return (
+                <div
+                  key={stat.label}
+                  className={`border border-gray-200 bg-white px-2 py-5 text-center shadow-sm sm:px-4 sm:py-8 md:px-5 md:py-10 ${
+                    isLast ? "col-span-2 w-full lg:col-span-1" : ""
+                  }`}
+                >
+                  <div className="text-3xl font-bold leading-none text-[#0047AB] sm:text-4xl md:text-5xl">
+                    {stat.value}
+                  </div>
+                  <p className={`mx-auto mt-3 min-w-0 max-w-full break-words px-0.5 sm:mt-4 sm:px-1 ${STAT_LABEL_CLASS}`}>
+                    {stat.label}
+                  </p>
+                </div>
+              );
+            })}
           </div>
         </div>
       </div>

@@ -3,48 +3,43 @@ import { SWI_CONTENT_WIDTH, SWI_CTA, SWI_SECTION_SHELL } from "./swiContent";
 import {
   SITE_BODY_CLASS,
   SITE_SECTION_HEADING_CLASS,
-  SITE_SECTION_HEADING_STYLE,
+  SITE_TAB_CTA_SECTION_CLASS,
 } from "@/components/home/HomeContent";
 
 const CTA_EYEBROW_CLASS =
-  "text-[11px] font-medium normal-case tracking-normal text-[#60A5FA] md:text-[12px]";
+  "text-[11px] font-medium normal-case tracking-normal text-white md:text-[12px]";
 
 export default function SwiCtaSection() {
   return (
     <section
       id={SWI_CTA.id}
-      className="relative overflow-hidden bg-[#000B29] py-16 md:py-20 lg:py-24"
+      className={SITE_TAB_CTA_SECTION_CLASS}
     >
-      <div
-        className="pointer-events-none absolute inset-0 opacity-30"
-        style={{
-          backgroundImage:
-            "radial-gradient(circle at 20% 30%, rgba(59,130,246,0.35) 0%, transparent 45%), radial-gradient(circle at 80% 70%, rgba(37,99,235,0.25) 0%, transparent 40%)",
-        }}
-      />
-      <div
-        className="pointer-events-none absolute inset-0 opacity-[0.08]"
-        style={{
-          backgroundImage:
-            "linear-gradient(rgba(255,255,255,0.5) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.5) 1px, transparent 1px)",
-          backgroundSize: "48px 48px",
-        }}
-      />
+      <div className="hero-media-grid [&::after]:hidden">
+        <img
+          src={SWI_CTA.backgroundImage}
+          alt=""
+          className="block h-full w-full min-h-full min-w-full object-cover"
+        />
+        <div
+          className="z-[1] bg-[rgba(14,24,47,0.7)] backdrop-blur-[5px] pointer-events-none"
+          aria-hidden
+        />
+      </div>
 
       <div className={`relative z-10 text-center ${SWI_SECTION_SHELL}`}>
         <div className={SWI_CONTENT_WIDTH}>
           <p className={CTA_EYEBROW_CLASS}>{SWI_CTA.eyebrow}</p>
           <h2
-            className={`mt-4 text-white ${SITE_SECTION_HEADING_CLASS}`}
-            style={SITE_SECTION_HEADING_STYLE}
+            className={`mt-4 break-words text-white ${SITE_SECTION_HEADING_CLASS}`}
           >
             <span className="block">{SWI_CTA.titleLine1}</span>
             <span className="block">{SWI_CTA.titleLine2}</span>
           </h2>
-          <p className={`mt-4 text-white/80 ${SITE_BODY_CLASS}`}>{SWI_CTA.subtitle}</p>
+          <p className={`mx-auto mt-4 max-w-3xl px-1 text-white/80 ${SITE_BODY_CLASS}`}>{SWI_CTA.subtitle}</p>
           <Link
             href={SWI_CTA.cta.href}
-            className="mt-8 inline-flex min-w-[12rem] items-center justify-center bg-[#00A859] px-8 py-3 text-[11px] font-bold normal-case tracking-normal text-white transition-colors hover:bg-[#008f4c] sm:mt-10 sm:min-w-[14rem] sm:text-sm md:text-base"
+            className="mx-auto mt-6 inline-flex w-fit max-w-[min(100%,16.5rem)] items-center justify-center bg-[#00A859] px-5 py-2 text-[10px] font-bold normal-case leading-snug tracking-normal text-white transition-colors hover:bg-[#008f4c] sm:mt-8 sm:max-w-none sm:min-w-[14rem] sm:px-8 sm:py-3 sm:text-sm md:mt-10 md:text-base"
           >
             {SWI_CTA.cta.label}
           </Link>

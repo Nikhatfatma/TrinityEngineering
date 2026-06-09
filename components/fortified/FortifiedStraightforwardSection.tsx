@@ -6,7 +6,7 @@ import {
 import {
   SITE_BODY_CLASS,
   SITE_SECTION_HEADING_CLASS,
-  SITE_SECTION_HEADING_STYLE,
+  SITE_TAB_SECTION_PY,
 } from "@/components/home/HomeContent";
 
 const STEEP_IMAGE_CLASS =
@@ -28,15 +28,14 @@ function StraightforwardBullet({ label }: { label: string }) {
 
 export default function FortifiedStraightforwardSection() {
   return (
-    <section className="overflow-x-clip border-t border-gray-200 bg-[#F5F5F5] py-6 pb-8 md:py-10 md:pb-12 lg:pt-8 lg:pb-14">
+    <section className={`overflow-x-clip border-t border-gray-200 bg-[#F5F5F5] ${SITE_TAB_SECTION_PY}`}>
       <div className="grid grid-cols-1 lg:grid-cols-2 lg:items-stretch lg:gap-0">
         <div
-          className={`flex items-start pb-8 pt-0 md:pb-10 md:pt-1 lg:order-1 lg:pb-12 lg:pt-2 ${FORTIFIED_TAB_TWO_COL_TEXT_IMAGE_RIGHT}`}
+          className={`flex items-start py-6 sm:py-8 md:py-10 lg:order-1 lg:py-12 ${FORTIFIED_TAB_TWO_COL_TEXT_IMAGE_RIGHT}`}
         >
           <div className="w-full min-w-0">
             <h2
-              className={`text-[#1A1A1A] ${SITE_SECTION_HEADING_CLASS}`}
-              style={SITE_SECTION_HEADING_STYLE}
+              className={`break-words text-[#1A1A1A] ${SITE_SECTION_HEADING_CLASS}`}
             >
               {FORTIFIED_STRAIGHTFORWARD.title}
             </h2>

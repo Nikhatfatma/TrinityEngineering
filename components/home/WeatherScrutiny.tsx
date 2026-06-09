@@ -1,7 +1,7 @@
 "use client";
 
 import SectionDivider from "./SectionDivider";
-import { HOME_CONTENT_CLASS, HOME_SECTION_CLASS, HOME_SECTION_HEADING } from "./HomeContent";
+import { HOME_CONTENT_CLASS, HOME_SECTION_CLASS, HOME_SECTION_HEADING, HOME_TEXT_WIDTH } from "./HomeContent";
 
 export default function WeatherScrutiny() {
   return (
@@ -10,13 +10,14 @@ export default function WeatherScrutiny() {
       <div className="absolute inset-0 opacity-[0.03] pointer-events-none" style={{ backgroundImage: 'radial-gradient(#1a1a1a 0.5px, transparent 0.5px)', backgroundSize: '24px 24px' }}></div>
       
       <div className={`${HOME_CONTENT_CLASS} relative z-10`}>
-        <div className="text-center mb-8 md:mb-10 px-2 sm:px-4">
+        <div className="text-center mb-8 md:mb-10">
+          <div className={HOME_TEXT_WIDTH}>
           <SectionDivider viaClass="via-[#1a1a1a]" />
           <div className="inline-block bg-[#1a1a1a] text-white text-[9px] md:text-[10px] font-bold px-4 md:px-5 py-1.5 mb-4 uppercase tracking-[0.3em] rounded-full shadow-sm">
             HISTORICAL WEATHER ANALYSIS
           </div>
           <h2
-            className={`px-2 text-center text-xl leading-[1.2] tracking-tight text-[#1A1A1A] sm:text-2xl md:text-3xl lg:font-semibold lg:text-4xl ${HOME_SECTION_HEADING}`}
+            className={`text-center text-xl leading-[1.2] tracking-tight text-[#1A1A1A] sm:text-2xl md:text-3xl lg:font-semibold lg:text-4xl ${HOME_SECTION_HEADING}`}
             style={{ fontSize: "clamp(1.5rem, 3vw, 3rem)" }}
           >
             Weather Reporting Built To <span className="lg:font-bold">Withstand Scrutiny.</span>
@@ -30,8 +31,10 @@ export default function WeatherScrutiny() {
             </span>
             <span className="block">a methodology transparent enough for any deposition.</span>
           </p>
+          </div>
         </div>
 
+        <div className={HOME_TEXT_WIDTH}>
         {/* SWI Logo Section */}
         <div className="flex flex-col items-center mb-8 md:mb-10">
           <div className="w-[180px] md:w-[320px]">
@@ -44,7 +47,7 @@ export default function WeatherScrutiny() {
         </div>
 
         <div className="grid grid-cols-1 min-w-0 max-lg:gap-y-4 lg:grid-cols-3 lg:items-stretch gap-8 md:gap-10 xl:gap-16">
-          {/* Left: Weather Map — mobile: same full width as Insurance section image */}
+          {/* Left: Weather Map */}
           <div className="w-full min-w-0 max-lg:col-span-full self-start lg:col-span-1 lg:flex lg:items-center lg:justify-center">
             <img
               src="/weather-map.png"
@@ -81,7 +84,7 @@ export default function WeatherScrutiny() {
             </div>
           </div>
 
-          {/* Right: NOAA Station — mobile: same full width as Insurance section image */}
+          {/* Right: NOAA Station */}
           <div className="w-full min-w-0 max-lg:col-span-full self-start lg:col-span-1 lg:flex lg:items-center lg:justify-center">
             <img
               src="/noaa-station.png"
@@ -89,6 +92,7 @@ export default function WeatherScrutiny() {
               className="block w-full h-auto max-lg:object-contain max-lg:object-center lg:max-h-[32rem] lg:w-auto lg:border lg:border-white/50 lg:object-contain lg:shadow-[0_20px_50px_rgba(0,0,0,0.15)]"
             />
           </div>
+        </div>
         </div>
       </div>
     </section>

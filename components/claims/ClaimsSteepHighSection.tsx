@@ -8,7 +8,7 @@ import {
   SITE_EYEBROW_CLASS,
   SITE_FEATURE_TITLE_CLASS,
   SITE_SECTION_HEADING_CLASS,
-  SITE_SECTION_HEADING_STYLE,
+  SITE_TAB_SECTION_PY,
 } from "@/components/home/HomeContent";
 
 const STEEP_IMAGE_CLASS =
@@ -33,7 +33,7 @@ function FeatureRow({ eyebrow, title, paragraphs, imageSrc, imageAlt, imageLeft 
       }`}
     >
       <div
-        className={`flex items-start py-8 md:py-10 lg:py-12 ${textPad} ${imageLeft ? "lg:order-2" : "lg:order-1"}`}
+        className={`flex items-start py-6 sm:py-8 md:py-10 lg:py-12 ${textPad} ${imageLeft ? "lg:order-2" : "lg:order-1"}`}
       >
         <div className={STEEP_TEXT_INNER}>
           <p className={SITE_EYEBROW_CLASS}>{eyebrow}</p>
@@ -65,13 +65,10 @@ function FeatureRow({ eyebrow, title, paragraphs, imageSrc, imageAlt, imageLeft 
 
 export default function ClaimsSteepHighSection() {
   return (
-    <section id="steep-and-high-reports" className="overflow-x-clip border-t border-gray-200 bg-white py-12 md:py-16 lg:py-20">
+    <section id="steep-and-high-reports" className={`overflow-x-clip border-t border-gray-200 bg-white ${SITE_TAB_SECTION_PY}`}>
       <div className={CLAIMS_SECTION_SHELL}>
         <div className={CLAIMS_CONTENT_WIDTH}>
-          <h2
-            className={`text-[#1A1A1A] ${SITE_SECTION_HEADING_CLASS}`}
-            style={SITE_SECTION_HEADING_STYLE}
-          >
+          <h2 className={`break-words text-[#1A1A1A] ${SITE_SECTION_HEADING_CLASS}`}>
             {CLAIMS_STEEP_SECTION.title}
           </h2>
           <p className={`mt-4 ${SITE_BODY_CLASS}`}>

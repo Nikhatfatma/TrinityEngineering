@@ -3,14 +3,15 @@
 import Link from "next/link";
 import { ChevronDown, Send } from "lucide-react";
 import HeroMediaShell from "@/components/hero/HeroMediaShell";
+import { HOME_CONTENT_CLASS } from "@/components/home/HomeContent";
 
 export default function Hero() {
   return (
     <header className="relative min-h-[min(100dvh,680px)] sm:min-h-[min(100dvh,720px)] lg:min-h-screen w-full min-w-0 overflow-x-clip bg-black flex flex-col">
       <HeroMediaShell strongShade />
 
-      <div className="relative z-10 flex flex-1 flex-col w-full max-w-[1440px] mx-auto min-w-0 px-4 sm:px-6 lg:px-8 text-white pt-[4.5rem] sm:pt-24 min-h-0">
-        <div className="w-full min-w-0 pt-[22vh] sm:pt-[18vh] md:pt-[22vh] lg:pt-[30vh] xl:pt-[34vh] pb-16 sm:pb-20 md:pl-4 lg:pl-8 xl:pl-12">
+      <div className={`relative z-10 flex flex-1 flex-col w-full text-white pt-[4.5rem] sm:pt-24 min-h-0 ${HOME_CONTENT_CLASS}`}>
+        <div className="w-full min-w-0 pt-[22vh] sm:pt-[18vh] md:pt-[22vh] lg:pt-[30vh] xl:pt-[34vh] pb-16 sm:pb-20">
           <p
             className="text-left font-bold uppercase opacity-95 leading-snug max-w-4xl break-words tracking-[0.12em] sm:tracking-[0.18em] lg:tracking-[0.2em] drop-shadow-md text-[0.625rem] sm:text-[0.8rem] md:text-sm"
           >

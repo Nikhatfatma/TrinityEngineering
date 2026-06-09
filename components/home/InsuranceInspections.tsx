@@ -5,9 +5,10 @@ import {
   HOME_CONTENT_CLASS,
   HOME_IMAGE_BLEED_LEFT,
   HOME_SECTION_CLASS,
-  HOME_SECTION_HEADING,
   HOME_STACKED_IMAGE_CLASS,
   HOME_STICKY_IMAGE_CLASS,
+  HOME_TEXT_WIDTH,
+  SITE_SECTION_HEADING_CLASS,
 } from "./HomeContent";
 
 export default function InsuranceInspections() {
@@ -46,16 +47,14 @@ export default function InsuranceInspections() {
       </div>
 
       <div className={`${HOME_CONTENT_CLASS} pt-2 relative z-10`}>
+        <div className={HOME_TEXT_WIDTH}>
         <div className="w-full min-w-0 grid grid-cols-1 lg:grid-cols-[48%_minmax(0,1fr)] xl:grid-cols-[44%_minmax(0,1fr)] max-lg:gap-y-4 gap-6 md:gap-8 xl:gap-12 items-start">
-          <div className="col-span-full text-center max-lg:mb-1 mb-8 px-2 sm:px-4">
+          <div className="col-span-full text-center max-lg:mb-1 mb-8">
             <SectionDivider viaClass="via-[#001F3F]" />
             <div className="inline-block bg-[#001F3F] text-white text-[9px] md:text-[10px] font-bold px-4 md:px-5 py-1.5 mb-4 uppercase tracking-[0.3em] rounded-full shadow-sm">
               INSURANCE CLAIM INSPECTIONS
             </div>
-            <h2
-              className={`mx-auto w-full text-[#1A1A1A] text-center tracking-tight leading-[1.2] lg:font-semibold ${HOME_SECTION_HEADING}`}
-              style={{ fontSize: "clamp(0.8125rem, 2.19vw, 2.625rem)" }}
-            >
+            <h2 className={`mx-auto w-full break-words text-center text-[#1A1A1A] ${SITE_SECTION_HEADING_CLASS}`}>
               <span className="block">Get Clear, Definitive Answers On Damage And Repairability For You And</span>
               <span className="block">Your Clients - Fast</span>
             </h2>
@@ -90,6 +89,7 @@ export default function InsuranceInspections() {
               </div>
             ))}
           </div>
+        </div>
         </div>
       </div>
     </section>

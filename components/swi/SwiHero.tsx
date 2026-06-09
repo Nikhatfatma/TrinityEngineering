@@ -25,8 +25,8 @@ export default function SwiHero() {
           </div>
 
           <h1
-            className="mt-3 w-full min-w-0 max-w-[22rem] text-center leading-[1.05] tracking-tight text-white sm:mt-4 sm:max-w-[26rem] lg:mt-8 lg:max-w-[30rem] xl:mt-10 xl:max-w-[34rem]"
-            style={{ fontSize: "clamp(2rem, 3.6vw, 3.75rem)" }}
+            className="mt-3 w-full min-w-0 max-w-full break-words text-center leading-[1.05] tracking-tight text-white sm:mt-4 sm:max-w-[26rem] lg:mt-8 lg:max-w-[30rem] xl:mt-10 xl:max-w-[34rem]"
+            style={{ fontSize: "clamp(1.75rem, 3.6vw, 3.75rem)" }}
           >
             <span className="block font-extralight">{SWI_HERO.titleLightLine1}</span>
             <span className="block font-extralight">{SWI_HERO.titleLightLine2}</span>
@@ -35,21 +35,21 @@ export default function SwiHero() {
         </div>
 
         <p
-          className={`mx-auto mt-8 w-full text-center text-white sm:mt-10 lg:mt-12 ${SITE_HERO_BODY_CLASS}`}
+          className={`mx-auto mt-6 w-full max-w-3xl px-1 text-center text-white sm:mt-8 lg:mt-12 ${SITE_HERO_BODY_CLASS}`}
         >
           {SWI_HERO.subtitle}
         </p>
 
-        <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:mt-10 sm:flex-row sm:gap-4">
+        <div className="mt-6 flex w-full flex-col items-center justify-center gap-2.5 px-1 sm:mt-8 sm:flex-row sm:gap-4">
           <Link
             href={SWI_HERO.primaryCta.href}
-            className="inline-flex min-w-[10.5rem] items-center justify-center rounded-md bg-[#0047AB] px-7 py-2.5 text-[11px] font-bold transition-colors hover:bg-[#003580] sm:min-w-[11.5rem] sm:px-8 sm:py-3 sm:text-sm md:text-base"
+            className="inline-flex min-w-[10.5rem] items-center justify-center rounded-md bg-[#0047AB] px-5 py-2 text-[10px] font-bold transition-colors hover:bg-[#003580] sm:min-w-[11.5rem] sm:px-8 sm:py-3 sm:text-sm md:text-base"
           >
             {SWI_HERO.primaryCta.label}
           </Link>
           <Link
             href={SWI_HERO.secondaryCta.href}
-            className="inline-flex min-w-[10.5rem] items-center justify-center rounded-md border-2 border-white bg-black/25 px-7 py-2.5 text-[11px] font-bold text-white transition-colors hover:border-[#0047AB] hover:bg-[#0047AB] sm:min-w-[11.5rem] sm:px-8 sm:py-3 sm:text-sm md:text-base"
+            className="inline-flex min-w-[10.5rem] items-center justify-center rounded-md border-2 border-white bg-black/25 px-5 py-2 text-[10px] font-bold text-white transition-colors hover:border-[#0047AB] hover:bg-[#0047AB] sm:min-w-[11.5rem] sm:px-8 sm:py-3 sm:text-sm md:text-base"
           >
             {SWI_HERO.secondaryCta.label}
           </Link>
@@ -60,7 +60,7 @@ export default function SwiHero() {
       <button
         type="button"
         onClick={() => window.scrollTo({ top: window.innerHeight, behavior: "smooth" })}
-        className="absolute bottom-5 left-1/2 z-10 flex h-10 w-10 -translate-x-1/2 items-center justify-center rounded-full border border-white/50 bg-black/20 text-white/80 transition-colors hover:bg-white/10 sm:bottom-8"
+        className="absolute bottom-3 left-1/2 z-10 flex h-10 w-10 -translate-x-1/2 items-center justify-center rounded-full border border-white/50 bg-black/20 text-white/80 transition-colors hover:bg-white/10 sm:bottom-8"
         aria-label="Scroll down"
       >
         <ChevronDown className="h-5 w-5 sm:h-6 sm:w-6" />

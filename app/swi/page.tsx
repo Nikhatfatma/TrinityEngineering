@@ -10,7 +10,7 @@ import SwiCtaSection from "@/components/swi/SwiCtaSection";
 
 export default function SwiPage() {
   return (
-    <main className="min-h-screen w-full min-w-0 max-lg:overflow-x-clip bg-white [&_section]:scroll-mt-14 max-lg:[&_section]:scroll-mt-14">
+    <main className="min-h-screen w-full min-w-0 overflow-x-clip bg-white [&_section]:scroll-mt-14 max-lg:[&_section]:scroll-mt-14">
       <Navbar />
       <SwiHero />
       <SwiProblemSection />

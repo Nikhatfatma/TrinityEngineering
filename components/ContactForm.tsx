@@ -6,7 +6,6 @@ import {
   SITE_EYEBROW_CLASS,
   SITE_FEATURE_TITLE_CLASS,
   SITE_SECTION_HEADING_CLASS,
-  SITE_SECTION_HEADING_STYLE,
 } from "@/components/home/HomeContent";
 
 export default function ContactForm() {
@@ -67,8 +66,7 @@ export default function ContactForm() {
             </span>
           </div>
           <h2
-            className={`text-gray-900 dark:text-white mb-6 ${SITE_SECTION_HEADING_CLASS}`}
-            style={SITE_SECTION_HEADING_STYLE}
+            className={`mb-6 break-words text-gray-900 dark:text-white ${SITE_SECTION_HEADING_CLASS}`}
           >
             Submit Service Request
           </h2>

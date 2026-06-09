@@ -15,6 +15,19 @@ export const SWI_TAB_TWO_COL_TEXT_IMAGE_LEFT =
 export const SWI_TAB_TWO_COL_TEXT_IMAGE_RIGHT =
   `${SWI_TAB_TEXT_INSET_LEFT} lg:pr-10 xl:pr-12`;
 
+/** Full-bleed image on mobile/tablet — matches Claims tab */
+export const SWI_IMAGE_BLEED_CLASS =
+  "max-lg:left-1/2 max-lg:w-[100dvw] max-lg:max-w-none max-lg:-translate-x-1/2 lg:w-full";
+
+export const SWI_IMAGE_BLOCK_CLASS = [
+  "relative min-h-[200px] w-full sm:min-h-[260px]",
+  "lg:h-[340px] lg:min-h-[340px] xl:h-[380px] xl:min-h-[380px]",
+  SWI_IMAGE_BLEED_CLASS,
+].join(" ");
+
+/** @deprecated Size is included in SITE_SECTION_HEADING_CLASS */
+export { SITE_SECTION_HEADING_SIZE_CLASS as SWI_SECTION_HEADING_SIZE_CLASS } from "@/components/home/HomeContent";
+
 export const SWI_HERO = {
   heroImage: "/swi-hero.png",
   titleLightLine1: "Weather Reporting",
@@ -154,6 +167,7 @@ export const SWI_SOURCES = {
 export const SWI_CTA = {
   id: "get-started",
   eyebrow: "Get Started",
+  backgroundImage: "/swi-cta-background.png",
   titleLine1: "Request a forensic",
   titleLine2: "weather report.",
   subtitle:

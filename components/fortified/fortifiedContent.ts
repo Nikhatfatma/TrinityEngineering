@@ -16,6 +16,9 @@ export const FORTIFIED_TAB_TWO_COL_TEXT_IMAGE_LEFT =
 export const FORTIFIED_TAB_TWO_COL_TEXT_IMAGE_RIGHT =
   `${FORTIFIED_TAB_TEXT_INSET_LEFT} lg:pr-10 xl:pr-12`;
 
+/** @deprecated Size is included in SITE_SECTION_HEADING_CLASS */
+export { SITE_SECTION_HEADING_SIZE_CLASS as FORTIFIED_SECTION_HEADING_SIZE_CLASS } from "@/components/home/HomeContent";
+
 export const FORTIFIED_HERO = {
   heroImage: "/fortified-hero.png",
   heroImageObjectPosition: "center center",
@@ -114,13 +117,8 @@ export const FORTIFIED_STEPS = {
       heading: "Your Contractor Will Provide an Estimate Using Our Initial Guidance",
       paragraphs: [
         {
-          kind: "link",
-          before:
-            "Our report will include template details they can use to create an accurate price. You can then decide whether to move forward with those solutions. Verify on our website ",
-          linkLabel: "here",
-          linkHref: "/contact",
-          after:
-            " whether your contractor/roofer is already trained in your specific eligibility solution set.",
+          kind: "text",
+          text: "Our report will include template details they can use to create an accurate price. You can then decide whether to move forward with those solutions. Verify on our website here whether your contractor/roofer is already trained in your specific eligibility solution set.",
         },
         {
           kind: "text",
@@ -183,7 +181,7 @@ export const FORTIFIED_STEPS = {
           text: "IBHS is the final authority on all eligibility decisions; our guidance will incorporate their answers to your specific issues during step 1 but your roofer is responsible for all other FORTIFIED installation components.",
         },
         {
-          kind: "text",
+          kind: "bold",
           text: "We cannot provide the ECF without 1) the remote day-of inspection and 2) the required photos of the installation.",
         },
       ],
@@ -195,7 +193,6 @@ export const FORTIFIED_STEPS = {
 export const FORTIFIED_EXPERIENCE = {
   titleLine1: "Experience you can rely on.",
   titleLine2: "answers when you need them.",
-  eyebrow: "Forensic Defensibility",
   paragraphs: [
     "We keep you informed throughout the process. Every correspondence we will tell you the next steps, who is responsible, whether there is a fee, and the timeline for completion.",
     "You will never be charged a fee until you've been notified and agreed.",
@@ -213,5 +210,5 @@ export const FORTIFIED_CTA = {
   body: "At Trinity Engineering, we specialize in quickly assessing IBHS FORTIFIED Roof™ eligibility issues and delivering clear engineering designs that resolve them. Our streamlined process makes it simple for homeowners, roofers, and contractors to achieve official FORTIFIED designation.",
   emailLead: "Email us with any questions:",
   email: "fortified@trinitypllc.com",
-  backgroundImage: "/fortified-beach.png",
+  backgroundImage: "/fortified-cta-background.png",
 } as const;

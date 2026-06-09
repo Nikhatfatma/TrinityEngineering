@@ -1,6 +1,6 @@
 "use client";
 
-import { HOME_CONTENT_CLASS, HOME_SECTION_CLASS } from "./HomeContent";
+import { HOME_CONTENT_CLASS, HOME_SECTION_CLASS, HOME_TEXT_WIDTH } from "./HomeContent";
 
 export default function BioSection() {
   return (
@@ -11,7 +11,7 @@ export default function BioSection() {
       </div>
       
       <div className={`${HOME_CONTENT_CLASS} py-10 md:py-16 relative z-10`}>
-        <div className="flex flex-col md:flex-row items-center md:items-start gap-8 sm:gap-10 md:gap-16 lg:gap-20 text-white relative min-w-0">
+        <div className={`${HOME_TEXT_WIDTH} flex flex-col md:flex-row items-center md:items-start gap-8 sm:gap-10 md:gap-16 lg:gap-20 text-white relative min-w-0`}>
           
           {/* Profile Image */}
           <div className="w-40 h-40 sm:w-48 sm:h-48 md:w-72 md:h-72 flex-shrink-0 relative m-0 z-20 group">

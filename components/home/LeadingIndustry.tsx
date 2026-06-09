@@ -1,6 +1,6 @@
 "use client";
 
-import { HOME_CONTENT_CLASS, HOME_SECTION_CLASS, HOME_SECTION_HEADING } from "./HomeContent";
+import { HOME_CONTENT_CLASS, HOME_SECTION_CLASS, SITE_SECTION_HEADING_CLASS, HOME_TEXT_WIDTH } from "./HomeContent";
 
 export default function LeadingIndustry() {
   const cards = [
@@ -24,11 +24,9 @@ export default function LeadingIndustry() {
   return (
     <section className={`${HOME_SECTION_CLASS} py-10 md:py-12 bg-[#F4F7FA]`}>
       <div className={HOME_CONTENT_CLASS}>
-        <div className="text-center mb-8 md:mb-10 px-2 sm:px-4">
-          <h2
-            className={`mx-auto w-full text-[#1A1A1A] text-center tracking-tight leading-[1.2] lg:font-semibold ${HOME_SECTION_HEADING}`}
-            style={{ fontSize: "clamp(0.8125rem, 2.19vw, 2.625rem)" }}
-          >
+        <div className={HOME_TEXT_WIDTH}>
+        <div className="text-center mb-8 md:mb-10">
+          <h2 className={`mx-auto w-full break-words text-center text-[#1A1A1A] ${SITE_SECTION_HEADING_CLASS}`}>
             <span className="block">Leading The Industry</span>
           </h2>
         </div>
@@ -55,6 +53,7 @@ export default function LeadingIndustry() {
               </div>
             </article>
           ))}
+        </div>
         </div>
       </div>
     </section>
