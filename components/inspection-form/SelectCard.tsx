@@ -96,7 +96,7 @@ export default function SelectCard({
         type="button"
         onClick={onSelect}
         aria-describedby={showHelp ? tooltipId : undefined}
-        className={`group/card relative flex w-full transition-all duration-300 border ${horizontal ? "flex-row items-center h-12 rounded-lg overflow-hidden" : containImage ? "flex-col items-stretch rounded-lg text-left overflow-hidden" : "flex-col items-center rounded-lg text-center overflow-hidden"
+        className={`group/card relative flex w-full transition-all duration-300 border ${horizontal ? "flex-row items-center h-12 rounded-lg overflow-hidden" : containImage ? "flex-col items-stretch rounded-lg overflow-hidden text-center" : "flex-col items-center rounded-lg text-center overflow-hidden"
           } ${selected
             ? "border-[3px] border-primary z-10 scale-[1.05] shadow-[0_0_15px_rgba(var(--primary-rgb),0.3)]"
             : "border-gray-200 dark:border-gray-700 bg-white dark:bg-background-dark hover:shadow-lg hover:-translate-y-0.5 shadow-sm"
@@ -127,7 +127,7 @@ export default function SelectCard({
             <div className="absolute inset-0 z-0 bg-black/60" aria-hidden />
           )}
 
-          {selected && (
+          {selected && !containImage && (
             <div className="absolute inset-0 flex items-center justify-center">
               <div className={`${horizontal ? "w-4 h-4" : "w-6 h-6"} rounded-full bg-primary flex items-center justify-center shadow-md animate-scaleIn`}>
                 <Check className="text-white w-2.5 h-2.5" strokeWidth={3} />
@@ -136,12 +136,18 @@ export default function SelectCard({
           )}
         </div>
 
+        {selected && containImage && (
+          <div className="absolute right-2 top-2 z-20 flex h-5 w-5 items-center justify-center rounded-full bg-primary shadow-md animate-scaleIn">
+            <Check className="h-2.5 w-2.5 text-white" strokeWidth={3} />
+          </div>
+        )}
+
         <div
-          className={`relative z-10 w-full shrink-0 bg-white dark:bg-background-dark ${horizontal ? "flex items-center px-3 h-full" : "px-2 py-1.5 min-h-[2.75rem]"}`}
+          className={`relative z-10 w-full shrink-0 bg-white dark:bg-background-dark ${horizontal ? "flex items-center px-3 h-full" : containImage ? "px-2 py-2 min-h-[2.75rem] text-center" : "px-2 py-1.5 min-h-[2.75rem]"}`}
         >
-          <div className="flex w-full items-start justify-between gap-1.5">
+          <div className={`flex w-full gap-1.5 ${containImage ? "flex-col items-center justify-center" : "items-start justify-between"}`}>
             <span
-              className={`text-xs font-bold leading-tight block transition-colors ${selected ? "text-primary dark:text-accent" : "text-gray-700 dark:text-gray-300"
+              className={`text-xs font-bold leading-tight block transition-colors ${containImage ? "text-center" : ""} ${selected ? "text-primary dark:text-accent" : "text-gray-700 dark:text-gray-300"
                 }`}
             >
               {label}
@@ -158,7 +164,7 @@ export default function SelectCard({
                     setHelpOpen((open) => !open);
                   }
                 }}
-                className={`mt-0.5 shrink-0 text-[10px] font-bold uppercase tracking-wide underline-offset-2 transition-colors ${showHelp ? "text-primary underline dark:text-accent" : "text-primary/60 hover:text-primary dark:text-accent/60 dark:hover:text-accent"}`}
+                className={`${containImage ? "mt-0" : "mt-0.5"} shrink-0 text-[10px] font-bold uppercase tracking-wide underline-offset-2 transition-colors ${showHelp ? "text-primary underline dark:text-accent" : "text-primary/60 hover:text-primary dark:text-accent/60 dark:hover:text-accent"}`}
               >
                 Info
               </span>

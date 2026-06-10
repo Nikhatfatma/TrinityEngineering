@@ -141,11 +141,12 @@ body {
   );
 }
 
-/* Home, SWI, Fortified, Careers — Figma-matched heavy dark overlay */
+/* strongShade disables default ::after — overlay is .hero-media-strong-shade instead */
 .hero-media-grid--strong-shade::after {
   content: none;
 }
 
+/* Video heroes — lighter shade so footage stays visible */
 .hero-media-strong-shade {
   grid-area: 1 / 1;
   z-index: 1;
@@ -156,17 +157,32 @@ body {
   width: 100%;
   height: 100%;
   background:
+    linear-gradient(90deg, rgb(0 0 0 / 0.28) 0%, transparent 58%),
     linear-gradient(
       180deg,
-      rgb(0 0 0 / 0.62) 0%,
-      rgb(0 0 0 / 0.7) 45%,
-      rgb(0 0 0 / 0.82) 100%
+      rgb(0 0 0 / 0.3) 0%,
+      rgb(0 0 0 / 0.4) 50%,
+      rgb(0 0 0 / 0.52) 100%
     );
 }
 
-.hero-media-grid--strong-shade img,
-.hero-media-grid--strong-shade video {
-  filter: brightness(0.82) contrast(1.04);
+.hero-media-grid--video.hero-media-grid--strong-shade img,
+.hero-media-grid--video.hero-media-grid--strong-shade video {
+  filter: brightness(0.96) contrast(1.05) saturate(1.06);
+}
+
+/* Image heroes (SWI, Fortified) — dark overlay, slightly lighter than original */
+.hero-media-grid--image-shade .hero-media-strong-shade {
+  background: linear-gradient(
+    180deg,
+    rgb(0 0 0 / 0.52) 0%,
+    rgb(0 0 0 / 0.6) 45%,
+    rgb(0 0 0 / 0.72) 100%
+  );
+}
+
+.hero-media-grid--image-shade img {
+  filter: brightness(0.88) contrast(1.04);
 }
 
 /* Shared tab section headings — larger mobile; desktop uses site default clamp */

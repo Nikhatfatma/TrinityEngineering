@@ -1,29 +1,28 @@
 "use client";
 
 import Link from "next/link";
-import { ChevronDown, Send } from "lucide-react";
+import { Send } from "lucide-react";
 import HeroMediaShell from "@/components/hero/HeroMediaShell";
+import { HERO_CONTENT_LAYER_CLASS, HERO_HEADER_CLASS, HERO_STACKED_TITLE_CLASS } from "@/components/hero/heroLayout";
 import { CAREERS_HERO, CAREERS_SECTION_SHELL } from "./careersContent";
 import { SITE_HERO_BODY_CLASS } from "@/components/home/HomeContent";
 
 export default function CareersHero() {
   return (
-    <header className="relative flex min-h-[min(100dvh,680px)] w-full min-w-0 flex-col overflow-x-clip bg-black sm:min-h-[min(100dvh,720px)] lg:min-h-screen">
+    <header className={HERO_HEADER_CLASS}>
       <HeroMediaShell strongShade />
 
-      <div
-        className={`relative z-10 flex w-full flex-1 flex-col pt-[4.5rem] text-white sm:pt-24 ${CAREERS_SECTION_SHELL}`}
-      >
-        <div className="w-full min-w-0 pb-20 pt-[16vh] sm:pb-24 sm:pt-[18vh] md:pt-[20vh] lg:pb-28 lg:pt-[24vh] xl:pt-[28vh]">
+      <div className={`${HERO_CONTENT_LAYER_CLASS} w-full text-white ${CAREERS_SECTION_SHELL}`}>
+        <div className="w-full min-w-0 overflow-hidden pt-[10vh] sm:pt-[12vh] md:pt-[13vh] lg:pt-[14vh] xl:pt-[15vh]">
           <p className="max-w-4xl text-left text-[10px] font-medium uppercase leading-snug tracking-[0.22em] text-white/90 sm:text-[11px] md:text-xs md:tracking-[0.25em]">
             {CAREERS_HERO.eyebrow}
           </p>
 
           <h1 className="mt-4 max-w-4xl break-words text-left font-bold uppercase leading-[1.02] tracking-tight text-white sm:mt-5 lg:mt-6">
-            <span className="block text-[2rem] sm:text-[2.75rem] md:text-[3.25rem] lg:text-[4rem] xl:text-[4.75rem]">
+            <span className={`block ${HERO_STACKED_TITLE_CLASS}`}>
               {CAREERS_HERO.titleLine1}
             </span>
-            <span className="block text-[2rem] sm:text-[2.75rem] md:text-[3.25rem] lg:text-[4rem] xl:text-[4.75rem]">
+            <span className={`block ${HERO_STACKED_TITLE_CLASS}`}>
               {CAREERS_HERO.titleLine2}
             </span>
           </h1>
@@ -40,15 +39,6 @@ export default function CareersHero() {
           </div>
         </div>
       </div>
-
-      <button
-        type="button"
-        onClick={() => window.scrollTo({ top: window.innerHeight, behavior: "smooth" })}
-        className="absolute bottom-5 left-1/2 z-10 flex h-10 w-10 -translate-x-1/2 items-center justify-center rounded-full border border-white/50 bg-black/20 text-white/80 transition-colors hover:bg-white/10 sm:bottom-8"
-        aria-label="Scroll down"
-      >
-        <ChevronDown className="h-5 w-5 sm:h-6 sm:w-6" />
-      </button>
     </header>
   );
 }

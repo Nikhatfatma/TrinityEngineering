@@ -121,19 +121,19 @@ export default function Navbar() {
               const linkClass = `relative shrink-0 px-2.5 py-2 text-[10px] tracking-[0.14em] transition-colors duration-300 group xl:px-6 xl:text-[12px] xl:tracking-[0.2em] ${
                     isActive
                       ? isSolidHeader
-                        ? "font-semibold text-[#0047AB]"
-                        : "font-semibold text-white"
+                        ? "font-bold text-[#0047AB]"
+                        : "font-bold text-white"
                       : isSolidHeader
-                        ? "font-medium text-gray-600 hover:text-[#0047AB]"
-                        : "font-medium text-white/80 hover:text-white"
+                        ? "font-semibold text-gray-600 hover:text-[#0047AB]"
+                        : "font-semibold text-white hover:text-white"
                   }`;
               const linkChildren = (
                 <>
                   <span className="relative z-10">{item}</span>
                   <div
                     className={`absolute bottom-0 left-1/2 h-[2px] -translate-x-1/2 transition-all duration-300 ${
-                      isActive ? "w-1/2" : "w-0 group-hover:w-1/2"
-                    } ${isSolidHeader || isActive ? "bg-[#0047AB]" : "bg-white"}`}
+                      isActive ? "w-1/2" : "w-0"
+                    } ${isSolidHeader ? "bg-[#0047AB]" : "bg-white"}`}
                   />
                 </>
               );

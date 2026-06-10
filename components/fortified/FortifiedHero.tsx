@@ -1,8 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { ChevronDown } from "lucide-react";
 import HeroMediaShell from "@/components/hero/HeroMediaShell";
+import {
+  HERO_CENTERED_TITLE_SIZE,
+  HERO_CONTENT_LAYER_CENTERED_CLASS,
+  HERO_FORTIFIED_LOGO_WRAP_CLASS,
+  HERO_HEADER_CLASS,
+} from "@/components/hero/heroLayout";
 import {
   FORTIFIED_CONTENT_WIDTH,
   FORTIFIED_HERO,
@@ -12,18 +17,16 @@ import { SITE_HERO_BODY_CLASS } from "@/components/home/HomeContent";
 
 export default function FortifiedHero() {
   return (
-    <header className="relative flex min-h-[min(100dvh,680px)] w-full min-w-0 flex-col overflow-x-clip bg-black sm:min-h-[min(100dvh,720px)] lg:min-h-screen">
+    <header className={HERO_HEADER_CLASS}>
       <HeroMediaShell
         imageSrc={FORTIFIED_HERO.heroImage}
         imageObjectPosition={FORTIFIED_HERO.heroImageObjectPosition}
         strongShade
       />
 
-      <div
-        className={`relative z-10 flex w-full flex-1 flex-col items-center justify-center pb-16 pt-[4.5rem] text-white sm:pb-20 sm:pt-24 ${FORTIFIED_SECTION_SHELL}`}
-      >
+      <div className={`${HERO_CONTENT_LAYER_CENTERED_CLASS} w-full text-white ${FORTIFIED_SECTION_SHELL}`}>
         <div className={`${FORTIFIED_CONTENT_WIDTH} text-center`}>
-          <div className="mx-auto mb-5 w-[min(100%,170px)] sm:mb-6 sm:w-[min(100%,210px)] md:w-[250px]">
+          <div className={HERO_FORTIFIED_LOGO_WRAP_CLASS}>
             <img
               src={FORTIFIED_HERO.logoImage}
               alt="FORTIFIED Roof"
@@ -33,15 +36,15 @@ export default function FortifiedHero() {
 
           <h1
             className="mx-auto w-full break-words font-normal leading-[1.12] tracking-tight text-white"
-            style={{ fontSize: "clamp(1.75rem, 3.8vw, 3.5rem)" }}
+            style={{ fontSize: HERO_CENTERED_TITLE_SIZE }}
           >
             {FORTIFIED_HERO.title}
           </h1>
-          <p className={`mx-auto mt-5 w-full text-white sm:mt-6 md:mt-7 ${SITE_HERO_BODY_CLASS}`}>
+          <p className={`mx-auto mt-3 w-full text-white sm:mt-4 md:mt-5 ${SITE_HERO_BODY_CLASS}`}>
             {FORTIFIED_HERO.subtitle}
           </p>
 
-          <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:mt-10 sm:flex-row sm:gap-4">
+          <div className="mt-5 flex flex-col items-center justify-center gap-3 sm:mt-6 sm:flex-row sm:gap-4">
             <Link
               href={FORTIFIED_HERO.primaryCta.href}
               className="inline-flex min-w-[10.5rem] items-center justify-center rounded-md bg-[#0047AB] px-7 py-2.5 text-[11px] font-bold transition-colors hover:bg-[#003580] sm:min-w-[11.5rem] sm:px-8 sm:py-3 sm:text-sm md:text-base"
@@ -57,15 +60,6 @@ export default function FortifiedHero() {
           </div>
         </div>
       </div>
-
-      <button
-        type="button"
-        onClick={() => window.scrollTo({ top: window.innerHeight, behavior: "smooth" })}
-        className="absolute bottom-5 left-1/2 z-10 flex h-10 w-10 -translate-x-1/2 items-center justify-center rounded-full border border-white/50 bg-black/20 text-white/80 transition-colors hover:bg-white/10 sm:bottom-8"
-        aria-label="Scroll down"
-      >
-        <ChevronDown className="h-5 w-5 sm:h-6 sm:w-6" />
-      </button>
     </header>
   );
 }

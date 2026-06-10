@@ -13,7 +13,9 @@ export default function HeroImageBackground({
   strongShade = false,
 }: HeroImageBackgroundProps) {
   return (
-    <div className={`hero-media-grid${strongShade ? " hero-media-grid--strong-shade" : ""}`}>
+    <div
+      className={`hero-media-grid${strongShade ? " hero-media-grid--strong-shade hero-media-grid--image-shade" : ""}`}
+    >
       <img
         src={src}
         alt=""

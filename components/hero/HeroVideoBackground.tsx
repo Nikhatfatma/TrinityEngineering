@@ -26,7 +26,7 @@ export default function HeroVideoBackground({ strongShade = false }: HeroVideoBa
     null,
   );
 
-  const gridClass = `hero-media-grid${strongShade ? " hero-media-grid--strong-shade" : ""}`;
+  const gridClass = `hero-media-grid${strongShade ? " hero-media-grid--strong-shade hero-media-grid--video" : ""}`;
 
   useEffect(() => {
     const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
