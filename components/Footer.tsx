@@ -32,10 +32,6 @@ export default function Footer() {
 
   const ServiceLink = ({ item }: { item: string }) => (
     <Link className={footerLinkClass} href={serviceHref(item)}>
-      <ChevronRight
-        size={12}
-        className="w-0 opacity-0 group-hover:w-3 group-hover:opacity-100 transition-all duration-300 text-blue-500"
-      />
       <span>{item}</span>
     </Link>
   );
@@ -97,7 +93,9 @@ export default function Footer() {
                 {["Our Services", "Fortified", "Education", "Careers", "About Us", "Contact"].map((item) => (
                   <li key={item}>
                     <Link className={footerLinkClass} href={`/${item.toLowerCase().replace(/ /g, "-")}`}>
-                      <ChevronRight size={12} className="w-0 opacity-0 group-hover:w-3 group-hover:opacity-100 transition-all duration-300 text-blue-500" />
+                      {item !== "Education" && (
+                        <ChevronRight size={12} className="w-0 opacity-0 group-hover:w-3 group-hover:opacity-100 transition-all duration-300 text-blue-500" />
+                      )}
                       <span>{item}</span>
                     </Link>
                   </li>
@@ -182,7 +180,9 @@ export default function Footer() {
                 {["Our Services", "Fortified", "Education", "Careers", "About Us", "Contact"].map((item) => (
                   <li key={item}>
                     <Link className={footerLinkClass} href={`/${item.toLowerCase().replace(/ /g, "-")}`}>
-                      <ChevronRight size={12} className="w-0 opacity-0 group-hover:w-3 group-hover:opacity-100 transition-all duration-300 text-blue-500" />
+                      {item !== "Education" && (
+                        <ChevronRight size={12} className="w-0 opacity-0 group-hover:w-3 group-hover:opacity-100 transition-all duration-300 text-blue-500" />
+                      )}
                       <span>{item}</span>
                     </Link>
                   </li>

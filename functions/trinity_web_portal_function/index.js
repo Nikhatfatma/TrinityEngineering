@@ -139,7 +139,8 @@ function mapFormDataToCreator(data) {
                 last_name: data.iaLastName || ""
             },
             IA_Phone: data.iaPhone || "",
-            IA_Company: data.iaCompany || "",
+            IA_Company_Name: data.iaCompany || "",
+            IA_Company: data.iaCompanyName || "",
             Notification_Preferences: unifiedSubform,
             PH_Name_Individual: {
                 first_name: data.policyholderFirstName || "",
@@ -162,6 +163,7 @@ function mapFormDataToCreator(data) {
             },
             Date_of_Loss: data.dateOfLoss || "",
             Policy_Number: data.policyNumber || "",
+            Insurance_Document_URL: data.insuranceDocumentUrl || "",
             Adjuster_Company: data.adjusterCompany || "",
             Primary_Client: data.primaryClientType || "",
             Primary_Client_Type_Selection: data.primaryClientType ? [data.primaryClientType] : [],
@@ -227,6 +229,63 @@ async function getNewAccessToken() {
     })();
 
     return tokenPromise;
+}
+
+async function uploadFileToWorkDrive(accessToken, fileName, fileBuffer, mimeType, folderId) {
+    const formData = new FormData();
+    const blob = new Blob([fileBuffer], { type: mimeType || 'application/octet-stream' });
+    formData.append('content', blob, fileName);
+
+    const uploadUrl = `https://workdrive.zoho.com/api/v1/upload?filename=${encodeURIComponent(fileName)}&override-name-exist=true&parent_id=${encodeURIComponent(folderId)}`;
+    const response = await fetch(uploadUrl, {
+        method: 'POST',
+        headers: {
+            'Authorization': `Zoho-oauthtoken ${accessToken}`
+        },
+        body: formData
+    });
+
+    const responseData = await response.json();
+    if (!response.ok) {
+        throw new Error(`WorkDrive upload failed (HTTP ${response.status}): ${JSON.stringify(responseData)}`);
+    }
+
+    const resource = responseData?.data?.[0];
+    const attrs = resource?.attributes || {};
+    const documentUrl = attrs.permalink || attrs.Permalink || attrs.web_url || attrs.download_url;
+    const fileId = attrs.resource_id || resource?.id;
+
+    if (documentUrl) {
+        return documentUrl;
+    }
+    if (fileId) {
+        return `https://workdrive.zoho.com/file/${fileId}`;
+    }
+
+    throw new Error('WorkDrive upload succeeded but no document URL was returned.');
+}
+
+async function processInsuranceDocumentUpload(data, accessToken) {
+    if (!data?.insuranceDocument?.base64 || !data.insuranceDocument?.fileName) {
+        delete data.insuranceDocument;
+        return;
+    }
+
+    const folderId = (process.env.ZOHO_WORKDRIVE_FOLDER_ID || '').replace(/['"]/g, '').trim();
+    if (!folderId) {
+        throw new Error('Document upload is not configured. Please contact support.');
+    }
+
+    const buffer = Buffer.from(data.insuranceDocument.base64, 'base64');
+    data.insuranceDocumentUrl = await uploadFileToWorkDrive(
+        accessToken,
+        data.insuranceDocument.fileName,
+        buffer,
+        data.insuranceDocument.mimeType,
+        folderId
+    );
+    console.log('[WorkDrive] Uploaded insurance document:', data.insuranceDocumentUrl);
+    delete data.insuranceDocument;
 }
 
 async function notifyFailureOnCliq({ rowId, payload, claimNumber, adjusterEmail, errorDetails, createdTime }) {
@@ -459,9 +518,61 @@ module.exports = async (context, basicIO) => {
                 data.insuranceCompany = resolvedId;
             }
 
+            if (data.isIAClaim && data.iaCompany && data.iaCompany.trim()) {
+                const incomingIaValue = data.iaCompany.trim();
+                let resolvedIaId = null;
+
+                if (/^\d+$/.test(incomingIaValue)) {
+                    resolvedIaId = incomingIaValue;
+                    console.log("[IA Resolve] Using provided ID directly:", resolvedIaId);
+                } else {
+                    const safeIaName = incomingIaValue.replace(/'/g, "''");
+                    try {
+                        let token = await getNewAccessToken();
+                        const owner = (process.env.ZOHO_CREATOR_ACCOUNT_OWNER || 'trinity5').trim();
+                        const appName = process.env.ZOHO_COMPANIES_APP_NAME || process.env.ZOHO_CREATOR_APP_NAME || 'engineering-inspections';
+                        const criteria = encodeURIComponent(`((Company_Type=="IA Company")&&(Status=="Active")&&(Insurance_Company_Name=="${safeIaName}"))`);
+                        const reportUrl = `https://creator.zoho.com/api/v2/${owner}/${appName}/report/All_Companies_List?criteria=${criteria}&limit=1`;
+                        const response = await fetch(reportUrl, {
+                            method: 'GET',
+                            headers: { 'Authorization': `Zoho-oauthtoken ${token}` }
+                        });
+                        const zohoData = await response.json();
+                        if (zohoData.data && zohoData.data.length > 0) {
+                            resolvedIaId = String(zohoData.data[0].ID);
+                            console.log("[IA Resolve] Zoho HIT by name | ID:", resolvedIaId);
+                        }
+                    } catch (iaErr) {
+                        console.error("[IA Resolve] Zoho lookup failed:", iaErr.message);
+                    }
+                }
+
+                if (!resolvedIaId) {
+                    const iaErrMsg = `IA Company could not be resolved for value "${incomingIaValue}". Please select a company from the list.`;
+                    console.error('[IA Resolve]', iaErrMsg);
+                    basicIO.write(JSON.stringify({ success: false, error: iaErrMsg }));
+                    context.close();
+                    return;
+                }
+
+                if (!data.iaCompanyName) {
+                    data.iaCompanyName = incomingIaValue;
+                }
+                data.iaCompany = resolvedIaId;
+            }
+
             console.log("Contact Emails RAW:", data.contactEmails);
             const primaryAdj = (data.contactEmails || []).find(c => c.contactType === "Adjuster (Carrier)");
             console.log("Primary Adjuster sendCopy RAW:", primaryAdj?.sendCopy);
+
+            let token = await getNewAccessToken();
+            try {
+                await processInsuranceDocumentUpload(data, token);
+            } catch (uploadErr) {
+                basicIO.write(JSON.stringify({ success: false, error: uploadErr.message || 'Document upload failed.' }));
+                context.close();
+                return;
+            }
 
             const creatorPayload = mapFormDataToCreator(data);
 
@@ -475,8 +586,6 @@ module.exports = async (context, basicIO) => {
             }
 
             try {
-                let token = await getNewAccessToken();
-
                 async function submitToCreator(accessToken) {
                     const owner = (process.env.ZOHO_CREATOR_ACCOUNT_OWNER || 'owner').replace(/['"]/g, '').trim();
                     const appName = (process.env.ZOHO_CREATOR_APP_NAME || 'inspection-app').replace(/['"]/g, '').trim();
@@ -850,6 +959,85 @@ module.exports = async (context, basicIO) => {
                     claimNumber: 'N/A',
                     adjusterEmail: 'N/A',
                     errorDetails: `searchInsuranceCompanies failed for query "${search}": ${err.message}`,
+                    createdTime: new Date().toISOString()
+                });
+                basicIO.write(JSON.stringify({ success: false, error: err.message }));
+                context.close();
+            }
+
+            /* ================================================================ */
+            /*  ACTION: searchIaCompanies                                       */
+            /*  Live portal IA_Company_Name lookup: All_Companies_List where    */
+            /*  Company_Type == "IA Company" (Zoho form: engineering-inspections) */
+            /* ================================================================ */
+        } else if (action === 'searchIaCompanies') {
+            const search = (getArg('search') || '').trim().toLowerCase();
+
+            try {
+                let token = await getNewAccessToken();
+                const owner = (process.env.ZOHO_CREATOR_ACCOUNT_OWNER || 'trinity5').trim();
+                const appName = process.env.ZOHO_COMPANIES_APP_NAME || process.env.ZOHO_CREATOR_APP_NAME || 'engineering-inspections';
+
+                let allIaCompanies = [];
+                let from = 0;
+                const limit = 200;
+                let hasMore = true;
+
+                while (hasMore) {
+                    const criteria = encodeURIComponent('((Company_Type=="IA Company")&&(Status=="Active"))');
+                    const reportUrl = `https://creator.zoho.com/api/v2/${owner}/${appName}/report/All_Companies_List?criteria=${criteria}&from=${from}&limit=${limit}`;
+                    let response = await fetch(reportUrl, {
+                        method: 'GET',
+                        headers: { 'Authorization': `Zoho-oauthtoken ${token}` }
+                    });
+
+                    if (response.status === 401) {
+                        cachedToken = null;
+                        tokenExpiry = 0;
+                        token = await getNewAccessToken();
+                        response = await fetch(reportUrl, {
+                            method: 'GET',
+                            headers: { 'Authorization': `Zoho-oauthtoken ${token}` }
+                        });
+                    }
+
+                    const data = await response.json();
+                    if (!response.ok) {
+                        throw new Error(data.message || `Zoho report fetch failed (${response.status})`);
+                    }
+
+                    if (data.data && data.data.length > 0) {
+                        allIaCompanies = allIaCompanies.concat(data.data);
+                        from += limit;
+                        if (data.data.length < limit) hasMore = false;
+                    } else {
+                        hasMore = false;
+                    }
+                }
+
+                const results = allIaCompanies
+                    .map((row) => ({
+                        id: String(row.ID),
+                        name: String(row.Insurance_Company_Name || '').trim(),
+                        zoho_creator_id: String(row.ID),
+                        status: String(row.Status || '').trim(),
+                    }))
+                    .filter((row) => row.name)
+                    .filter((row) => row.status === 'Active')
+                    .filter((row) => !search || row.name.toLowerCase().includes(search))
+                    .sort((a, b) => a.name.localeCompare(b.name));
+
+                console.log(`[searchIaCompanies] Returning ${results.length} IA companies for search "${search}"`);
+                basicIO.write(JSON.stringify({ success: true, results, matchedBy: 'name' }));
+                context.close();
+            } catch (err) {
+                console.error("searchIaCompanies Error:", err);
+                await notifyFailureOnCliq({
+                    rowId: '',
+                    payload: JSON.stringify({ search }),
+                    claimNumber: 'N/A',
+                    adjusterEmail: 'N/A',
+                    errorDetails: `searchIaCompanies failed for query "${search}": ${err.message}`,
                     createdTime: new Date().toISOString()
                 });
                 basicIO.write(JSON.stringify({ success: false, error: err.message }));

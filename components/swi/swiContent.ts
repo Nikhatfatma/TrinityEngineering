@@ -1,5 +1,14 @@
 /** SWI page copy — aligned to Figma SWI tab */
 
+const SWI_CLAIMS_EMAIL = "claims@trinitypllc.com";
+
+function swiMailto(subject: string, body = "") {
+  const query = `subject=${encodeURIComponent(subject)}`;
+  return body
+    ? `mailto:${SWI_CLAIMS_EMAIL}?${query}&body=${encodeURIComponent(body)}`
+    : `mailto:${SWI_CLAIMS_EMAIL}?${query}`;
+}
+
 export const SWI_SECTION_SHELL =
   "mx-auto w-full max-w-[1440px] min-w-0 px-4 sm:px-6 md:px-8 lg:px-8";
 
@@ -35,8 +44,17 @@ export const SWI_HERO = {
   titleBoldLine: "Withstand Scrutiny.",
   subtitle:
     "Forensic-grade hail and severe weather analysis for insurance claims — backed by named, reproducible government datasets and a methodology transparent enough for any deposition.",
-  primaryCta: { label: "See How It Works", href: "#methodology" },
-  secondaryCta: { label: "Request a Report", href: "#get-started" },
+  primaryCta: {
+    label: "See How It Works",
+    href: swiMailto(
+      "SWI Demo Request",
+      "I would like to schedule a demo to understand how to use and request an SWI report.",
+    ),
+  },
+  secondaryCta: {
+    label: "Request a Report",
+    href: swiMailto("SWI Report Request", "Date of Loss:\n\nLocation:\n"),
+  },
 } as const;
 
 export const SWI_PROBLEM = {
@@ -172,5 +190,5 @@ export const SWI_CTA = {
   titleLine2: "weather report.",
   subtitle:
     "SWI reports are produced by Trinity Engineering as a professional service — not a downloadable app. Contact us with a property address and date of loss, and we'll deliver a defensible, citation-backed forensic weather analysis.",
-  cta: { label: "Contact Trinity Engineering", href: "/contact" },
+  cta: { label: "Contact Trinity Engineering", href: swiMailto("Info Request") },
 } as const;

@@ -40,7 +40,8 @@ import {
   Loader2,
   AlertTriangle,
   Calendar,
-  UserCheck
+  UserCheck,
+  Upload
 } from "lucide-react";
 import { isValidEmail, isValidPhoneNumber, isValidZipCode, validateIaRecipients, type IaRecipient, validateAdjusterEmails, type AdjusterEmail, isValidMMDDYYYY, type ContactEmail, validateContactEmails } from "@/lib/utils/validation";
 import { DatePicker } from "@/components/inspection-form/DatePicker";
@@ -239,6 +240,8 @@ export default function SubmitInspectionPage() {
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [insuranceCompanyQuery, setInsuranceCompanyQuery] = useState("");
   const [insuranceCompanyOpen, setInsuranceCompanyOpen] = useState(false);
+  const [iaCompanyQuery, setIaCompanyQuery] = useState("");
+  const [iaCompanyOpen, setIaCompanyOpen] = useState(false);
   const [isAddCompanyModalOpen, setIsAddCompanyModalOpen] = useState(false);
   const [newCompanyData, setNewCompanyData] = useState({ name: "", ccInvoicesTo: "", splitInvoice: false, invoiceEmail: "", priceList: "2025 Prices" });
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -254,6 +257,9 @@ export default function SubmitInspectionPage() {
   const [lastButtonState, setLastButtonState] = useState("Next");
   const [isValidationModalOpen, setIsValidationModalOpen] = useState(false);
   const [validationQueue, setValidationQueue] = useState<('roofer' | 'adjuster')[]>([]);
+  const [insuranceDocument, setInsuranceDocument] = useState<File | null>(null);
+
+  const MAX_INSURANCE_DOCUMENT_SIZE = 10 * 1024 * 1024;
 
   const getStep3ValidationConfig = (type: 'roofer' | 'adjuster' | null) => {
     if (type === 'roofer') {
@@ -286,6 +292,12 @@ export default function SubmitInspectionPage() {
   const [masterInsuranceList, setMasterInsuranceList] = useState<{ id: string; name: string; zoho_creator_id: string }[]>([]);
   const insuranceCacheRef = useRef<Record<string, { results: any[], matchedBy?: string }>>({});
 
+  /* ── IA Company (Zoho IA_Company_Name lookup) API Search State ── */
+  const [iaCompanySearchResults, setIaCompanySearchResults] = useState<{ id: string; name: string; zoho_creator_id: string }[]>([]);
+  const [iaCompanySearchLoading, setIaCompanySearchLoading] = useState(false);
+  const iaSearchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [masterIaCompanyList, setMasterIaCompanyList] = useState<{ id: string; name: string; zoho_creator_id: string }[]>([]);
+
   useEffect(() => {
     fetch('/api/insurance-companies', {
       method: 'POST',
@@ -301,6 +313,69 @@ export default function SubmitInspectionPage() {
       })
       .catch(err => console.error('Failed to fetch insurance companies:', err));
   }, []);
+
+  useEffect(() => {
+    fetch('/api/ia-companies', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'searchIaCompanies', search: '' }),
+    })
+      .then(res => res.json())
+      .then(data => {
+        if (data.success && data.results) {
+          setMasterIaCompanyList(data.results);
+          setIaCompanySearchResults(data.results);
+        }
+      })
+      .catch(err => console.error('Failed to fetch IA companies:', err));
+  }, []);
+
+  /** Debounced API call to search IA companies (Zoho All_Companies, Company_Type = IA Company) */
+  const searchIaCompanies = useCallback((query: string) => {
+    const trimmed = query.trim();
+
+    if (iaSearchTimeoutRef.current) clearTimeout(iaSearchTimeoutRef.current);
+
+    if (!trimmed && masterIaCompanyList.length > 0) {
+      setIaCompanySearchResults(masterIaCompanyList);
+      setIaCompanySearchLoading(false);
+      return;
+    }
+
+    if (trimmed && masterIaCompanyList.length > 0) {
+      const lower = trimmed.toLowerCase();
+      setIaCompanySearchResults(
+        masterIaCompanyList.filter((c) => c.name.toLowerCase().includes(lower))
+      );
+      setIaCompanySearchLoading(false);
+      return;
+    }
+
+    setIaCompanySearchLoading(true);
+    iaSearchTimeoutRef.current = setTimeout(async () => {
+      try {
+        const res = await fetch('/api/ia-companies', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'searchIaCompanies', search: trimmed }),
+        });
+        const data = await res.json();
+        if (data.success) {
+          setIaCompanySearchResults(data.results || []);
+          if (!trimmed && data.results) {
+            setMasterIaCompanyList(data.results);
+          }
+        } else {
+          setIaCompanySearchResults([]);
+        }
+      } catch (err) {
+        console.error('IA company search error:', err);
+        setIaCompanySearchResults([]);
+      } finally {
+        setIaCompanySearchLoading(false);
+      }
+    }, 300);
+  }, [masterIaCompanyList]);
 
   /** Debounced API call to search insurance companies */
   const searchInsuranceCompanies = useCallback((query: string) => {
@@ -459,7 +534,90 @@ export default function SubmitInspectionPage() {
     setInsuranceCompanyQuery(formData.insuranceCompany ?? "");
   }, [formData.insuranceCompany]);
 
+  useEffect(() => {
+    setIaCompanyQuery(formData.iaCompany ?? "");
+  }, [formData.iaCompany]);
+
   /* ---- handlers ---- */
+
+  const readInsuranceDocumentAsBase64 = (file: File) =>
+    new Promise<{ fileName: string; mimeType: string; base64: string }>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const result = reader.result as string;
+        const base64 = result.includes(",") ? result.split(",")[1] : result;
+        resolve({
+          fileName: file.name,
+          mimeType: file.type || "application/octet-stream",
+          base64,
+        });
+      };
+      reader.onerror = () => reject(new Error("Could not read the selected file."));
+      reader.readAsDataURL(file);
+    });
+
+  const renderInsuranceDocumentUpload = (extraClass = "") => (
+    <div
+      className={`mt-3 rounded-lg border border-primary/25 dark:border-accent/25 bg-primary/[0.04] dark:bg-accent/[0.07] p-2.5 ${extraClass}`}
+      data-field-name="insuranceDocument"
+    >
+      <label htmlFor="insurance-document-upload" className="text-[11px] font-semibold text-primary/90 dark:text-accent flex items-center gap-1 mb-1.5">
+        <Upload className="w-3.5 h-3.5" />
+        Upload Document
+      </label>
+      <div className="border border-dashed border-primary/35 dark:border-accent/35 rounded-lg p-3 text-center bg-white/70 dark:bg-background-dark/70 hover:border-primary/55 dark:hover:border-accent/55 transition-colors">
+        <input
+          type="file"
+          id="insurance-document-upload"
+          accept="image/*,.pdf,.doc,.docx,.heic,.heif"
+          onChange={(e) => {
+            const file = e.target.files?.[0];
+            if (!file) return;
+            if (file.size > MAX_INSURANCE_DOCUMENT_SIZE) {
+              setFieldErrors((prev) => ({ ...prev, insuranceDocument: "File must be 10MB or smaller." }));
+              e.target.value = "";
+              return;
+            }
+            setFieldErrors((prev) => {
+              const next = { ...prev };
+              delete next.insuranceDocument;
+              return next;
+            });
+            setInsuranceDocument(file);
+          }}
+          className="hidden"
+        />
+        <label htmlFor="insurance-document-upload" className="cursor-pointer block">
+          <Upload className="w-5 h-5 mx-auto mb-1 text-primary/70 dark:text-accent/80" />
+          <p className="text-[11px] font-semibold text-gray-700 dark:text-gray-200">Click to upload</p>
+          <p className="text-[9px] text-gray-500 dark:text-gray-400 mt-0.5">PDF, images, DOC (max 10MB)</p>
+        </label>
+      </div>
+      {fieldErrors.insuranceDocument && (
+        <p className="text-[10px] text-gray-900 font-black mt-1">{fieldErrors.insuranceDocument}</p>
+      )}
+      {insuranceDocument && (
+        <div className="mt-2 flex items-center justify-between p-2 bg-white dark:bg-background-dark rounded-lg border border-primary/20 dark:border-accent/20">
+          <div className="flex items-center gap-2 min-w-0">
+            <FileText className="w-3.5 h-3.5 text-primary/70 dark:text-accent/80 shrink-0" />
+            <span className="text-[11px] font-medium text-gray-800 dark:text-gray-200 truncate">{insuranceDocument.name}</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              setInsuranceDocument(null);
+              const input = document.getElementById("insurance-document-upload") as HTMLInputElement | null;
+              if (input) input.value = "";
+            }}
+            className="text-gray-400 hover:text-red-500 transition-colors shrink-0"
+            aria-label="Remove file"
+          >
+            <X className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      )}
+    </div>
+  );
 
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
@@ -837,6 +995,12 @@ export default function SubmitInspectionPage() {
       }
 
       // 4. Submission Payload Preparation
+      if (fieldErrors.insuranceDocument) {
+        setShowErrors(true);
+        setSubmitError("Please fix the document upload error before submitting.");
+        return;
+      }
+
       const functionUrl = '/api/submit-inspection';
       let submissionData = {
         ...formData,
@@ -854,18 +1018,33 @@ export default function SubmitInspectionPage() {
         submissionData.insuranceCompany = matchedComp.zoho_creator_id;
       }
 
+      const matchedIaComp = masterIaCompanyList.find(c => c.name.toLowerCase() === (submissionData.iaCompany || "").toLowerCase());
+      if (matchedIaComp && matchedIaComp.zoho_creator_id) {
+        (submissionData as any).iaCompanyName = submissionData.iaCompany;
+        submissionData.iaCompany = matchedIaComp.zoho_creator_id;
+      }
+
+      let insuranceDocumentPayload: { fileName: string; mimeType: string; base64: string } | undefined;
+      if (insuranceDocument) {
+        insuranceDocumentPayload = await readInsuranceDocumentAsBase64(insuranceDocument);
+      }
+
+      const payloadWithDocument = insuranceDocumentPayload
+        ? { ...submissionData, insuranceDocument: insuranceDocumentPayload }
+        : submissionData;
+
       // Date of Loss is already in MM/DD/YYYY format as requested
       console.group("Form Submission Triggered");
 
       console.group("Form Submission Triggered");
-      console.log("Payload:", submissionData);
+      console.log("Payload:", payloadWithDocument);
       console.groupEnd();
 
       // 5. API Submission
       const response = await fetch(functionUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'submitInspection', data: submissionData })
+        body: JSON.stringify({ action: 'submitInspection', data: payloadWithDocument })
       });
 
       const result = await response.json();
@@ -888,6 +1067,7 @@ export default function SubmitInspectionPage() {
 
   const handleReset = () => {
     setFormData(INITIAL_FORM_DATA);
+    setInsuranceDocument(null);
     setCurrentStep(0);
     setMaxCompletedStep(0);
     setIsSubmitted(false);
@@ -920,6 +1100,8 @@ export default function SubmitInspectionPage() {
   /* Insurance search results come from API, not from a hardcoded list */
   const filteredInsuranceCompanies = insuranceSearchResults;
 
+  const filteredIaCompanies = iaCompanySearchResults;
+
   /* Show "Add New Company" option when query doesn't exactly match an existing result */
   const canCreateInsuranceCompany = useMemo(() => {
     const trimmed = insuranceCompanyQuery.trim();
@@ -945,6 +1127,22 @@ export default function SubmitInspectionPage() {
       );
       if (err) nextErrors.insuranceCompany = err;
       else delete nextErrors.insuranceCompany;
+      return nextErrors;
+    });
+  };
+
+  const commitIaCompanyValue = (value: string) => {
+    const trimmed = value.trim();
+    const normalized = trimmed.toLowerCase();
+    const match = masterIaCompanyList.find((c) => c.name.toLowerCase() === normalized);
+    const next = match ? match.name : trimmed;
+    setFormData((prev) => ({ ...prev, iaCompany: next }));
+    setIaCompanyQuery(next);
+    setFieldErrors((prevErrors) => {
+      const nextErrors = { ...prevErrors };
+      const err = validateField("iaCompany", next, { ...formData, iaCompany: next });
+      if (err) nextErrors.iaCompany = err;
+      else delete nextErrors.iaCompany;
       return nextErrors;
     });
   };
@@ -1004,7 +1202,12 @@ export default function SubmitInspectionPage() {
       case "iaLastName":
         return v ? "" : "IA Last Name is required.";
       case "iaCompany":
-        return v ? "" : "IA Company Name is required.";
+        if (!v) return "";
+        if (data.isIAClaim && masterIaCompanyList.length > 0) {
+          const match = masterIaCompanyList.some((c) => c.name.toLowerCase() === v.toLowerCase());
+          if (!match) return "Please select an IA company from the list.";
+        }
+        return "";
       case "policyholderFirstName":
         return v ? "" : "Policyholder First Name is required.";
       case "policyholderLastName":
@@ -1081,7 +1284,7 @@ export default function SubmitInspectionPage() {
   const validateInsuranceStep = (data: FormData) => {
     const fields: (keyof FormData)[] = ["claimNumber"];
     if (data.isIAClaim) {
-      fields.push("iaCompany", "iaFirstName", "iaLastName", "iaPhone");
+      fields.push("iaFirstName", "iaLastName", "iaPhone");
     }
     return validateFields(data, fields);
   };
@@ -1322,7 +1525,6 @@ export default function SubmitInspectionPage() {
                         />
                       </div>
 
-
                       {/* Conditional Layout based on IA toggle */}
                       {formData.isIAClaim ? (
                         <div className="space-y-3">
@@ -1371,20 +1573,86 @@ export default function SubmitInspectionPage() {
                                 </div>
                               </div>
 
-                              {/* Row 1: IA Company Name (full width) */}
+                              {/* Row 1: IA Company Name (full width) — lookup list, same as live schedule portal */}
                               <div className="grid grid-cols-1">
-                                <InputField
-                                  label="IA Company Name"
-                                  name="iaCompany"
-                                  value={formData.iaCompany}
-                                  onChange={handleChange}
-                                  onBlur={handleBlur}
-                                  placeholder="Company Name"
-                                  icon={Building2}
-                                  required
-                                  invalid={!!fieldErrors.iaCompany}
-                                  error={fieldErrors.iaCompany}
-                                />
+                                <div className="space-y-0.5 relative">
+                                  <label htmlFor="iaCompany" className="text-[11px] font-semibold text-gray-700 dark:text-gray-300 flex items-center gap-1">
+                                    <Building2 className="text-primary dark:text-accent w-3 h-3" />
+                                    IA Company Name
+                                  </label>
+                                  <div className="relative">
+                                    <input
+                                      id="iaCompany"
+                                      name="iaCompany"
+                                      value={iaCompanyQuery}
+                                      onChange={(e) => {
+                                        const next = e.target.value;
+                                        setIaCompanyQuery(next);
+                                        setFormData((prev) => ({ ...prev, iaCompany: next }));
+                                        setFieldErrors((prevErrors) => {
+                                          const nextErrors = { ...prevErrors };
+                                          const err = validateField("iaCompany", next, { ...formData, iaCompany: next });
+                                          if (err) nextErrors.iaCompany = err;
+                                          else delete nextErrors.iaCompany;
+                                          return nextErrors;
+                                        });
+                                        setIaCompanyOpen(true);
+                                        searchIaCompanies(next);
+                                      }}
+                                      onFocus={(e) => {
+                                        e.target.select();
+                                        setIaCompanyOpen(true);
+                                        searchIaCompanies("");
+                                      }}
+                                      onBlur={() => {
+                                        setTimeout(() => setIaCompanyOpen(false), 200);
+                                        commitIaCompanyValue(iaCompanyQuery);
+                                      }}
+                                      placeholder="Search and select a company..."
+                                      className={`w-full bg-gray-50 dark:bg-background-dark border rounded-lg px-2.5 py-1.5 text-xs text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:border-transparent transition-all ${fieldErrors.iaCompany
+                                        ? "border-gray-300 focus:ring-gray-300 dark:border-gray-600 dark:focus:ring-gray-600"
+                                        : "border-gray-200 focus:ring-primary dark:border-gray-700 dark:focus:ring-accent"
+                                        }`}
+                                    />
+                                    {iaCompanySearchLoading && (
+                                      <div className="absolute right-2 top-1/2 -translate-y-1/2">
+                                        <Loader2 className="w-3.5 h-3.5 animate-spin text-gray-400" />
+                                      </div>
+                                    )}
+                                  </div>
+                                  {fieldErrors.iaCompany && (
+                                    <p className="text-[10px] text-gray-900 font-black -mt-0.5">{fieldErrors.iaCompany}</p>
+                                  )}
+                                  {iaCompanyOpen && (
+                                    <div className="absolute z-20 mt-1 w-full max-h-64 overflow-auto rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-section-dark shadow-lg">
+                                      {iaCompanySearchLoading && filteredIaCompanies.length === 0 ? (
+                                        <div className="p-4 flex flex-col items-center justify-center gap-2 text-gray-400">
+                                          <Loader2 className="w-5 h-5 animate-spin" />
+                                          <p className="text-[10px]">Searching...</p>
+                                        </div>
+                                      ) : filteredIaCompanies.length > 0 ? (
+                                        filteredIaCompanies.map((c) => (
+                                          <button
+                                            key={c.id}
+                                            type="button"
+                                            onMouseDown={(e) => e.preventDefault()}
+                                            onClick={() => {
+                                              commitIaCompanyValue(c.name);
+                                              setIaCompanyOpen(false);
+                                            }}
+                                            className={`w-full text-left px-3 py-2 text-[12px] hover:bg-gray-50 dark:hover:bg-background-dark transition-colors ${formData.iaCompany === c.name ? "font-bold text-primary dark:text-accent" : "text-gray-700 dark:text-gray-200"}`}
+                                          >
+                                            {c.name}
+                                          </button>
+                                        ))
+                                      ) : iaCompanyQuery && !iaCompanySearchLoading ? (
+                                        <div className="p-3 text-center text-gray-500 text-[10px]">
+                                          No matches found.
+                                        </div>
+                                      ) : null}
+                                    </div>
+                                  )}
+                                </div>
                               </div>
 
                               {/* Row 2: IA First Name (left) + IA Last Name (right) */}
@@ -1519,6 +1787,8 @@ export default function SubmitInspectionPage() {
                                   {formData.contactEmails.filter(c => c.contactType === "IA").length >= MAX_IA_EMAILS && (<p className="text-[11px] text-gray-500 dark:text-gray-400">Maximum of {MAX_IA_EMAILS} IA email recipients reached.</p>)}
                                 </div>
                               </div>
+
+                              {renderInsuranceDocumentUpload()}
                             </div>
 
                             {/* RIGHT COLUMN — Insurance & Adjuster */}
@@ -1656,9 +1926,11 @@ export default function SubmitInspectionPage() {
                               {/* Adjuster Details */}
                               <div className="bg-gray-50 dark:bg-background-dark rounded-lg p-2 border border-gray-200 dark:border-gray-700 space-y-2">
                                 <SectionHeader title={formData.isIAClaim ? "Carrier Adjuster Details" : "Adjuster Details"} />
+                                {/* Adjuster Company Name — hidden for now, restore when needed
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                                   <InputField label="Adjuster Company Name" name="adjusterCompany" value={formData.adjusterCompany} onChange={handleChange} placeholder="Company Name" icon={Building2} />
                                 </div>
+                                */}
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                                   <InputField label="First Name" name="adjusterFirstName" value={formData.adjusterFirstName} onChange={handleChange} onBlur={handleBlur} placeholder="First Name" required icon={UserRound} invalid={!!fieldErrors.adjusterFirstName} error={fieldErrors.adjusterFirstName} />
                                   <InputField label="Last Name" name="adjusterLastName" value={formData.adjusterLastName} onChange={handleChange} onBlur={handleBlur} placeholder="Last Name" required icon={UserRound} invalid={!!fieldErrors.adjusterLastName} error={fieldErrors.adjusterLastName} />
@@ -1975,14 +2247,17 @@ export default function SubmitInspectionPage() {
                                 />
                               </div>
                             </div>
+                            {renderInsuranceDocumentUpload("!mt-6 pt-2")}
                           </div>
 
                           {/* RIGHT COLUMN — Adjuster */}
                           <div className="bg-gray-50 dark:bg-background-dark rounded-lg p-2 border border-gray-200 dark:border-gray-700 space-y-2">
                             <SectionHeader title={formData.isIAClaim ? "Carrier Adjuster Details" : "Adjuster Details"} />
+                            {/* Adjuster Company Name — hidden for now, restore when needed
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                               <InputField label="Adjuster Company Name" name="adjusterCompany" value={formData.adjusterCompany} onChange={handleChange} placeholder="Company Name" icon={Building2} />
                             </div>
+                            */}
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                               <InputField label="First Name" name="adjusterFirstName" value={formData.adjusterFirstName} onChange={handleChange} onBlur={handleBlur} placeholder="First Name" required icon={UserRound} invalid={!!fieldErrors.adjusterFirstName} error={fieldErrors.adjusterFirstName} />
                               <InputField label="Last Name" name="adjusterLastName" value={formData.adjusterLastName} onChange={handleChange} onBlur={handleBlur} placeholder="Last Name" required icon={UserRound} invalid={!!fieldErrors.adjusterLastName} error={fieldErrors.adjusterLastName} />

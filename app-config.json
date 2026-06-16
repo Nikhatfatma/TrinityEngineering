@@ -9,10 +9,10 @@
     "NEXT_PUBLIC_CATALYST_FUNCTION_URL": "https://trinitywebportal-836373025.development.catalystserverless.com/server/trinity_web_portal_function/execute",
     "ADMIN_USERNAME": "trinity_admin",
     "ADMIN_PASSWORD": "T3am@Secure#2026",
-    "ZOHO_CLIENT_ID": "1000.E8FASHJGE81V5HA34B92EF69GWQGTR",
+    "ZOHO_CLIENT_ID": "1000.J9ER2GM901C8OCRCTW8EJ75GEUVZ9U",
     "ZOHO_CREATOR_APP_NAME": "inspection-app",
     "ZOHO_CREATOR_ACCOUNT_OWNER": "trinity5",
-    "ZOHO_CLIENT_SECRET": "d961fcb2c4670a764438906b30b85ce02ee8417f0e",
+    "ZOHO_CLIENT_SECRET": "1257b6c353e8871c11d0da94d181efd90f4c098466",
     "ZOHO_CREATOR_FORM_NAME": "Inspection_Request_Public_Submission",
     "ZOHO_REFRESH_TOKEN": "1000.b13fa0453d076b66bc2ac2c55f3988fa.5dc9706faeb8c150ec4c3d7fc49ff450",
     "NEXT_PUBLIC_GOOGLE_MAPS_API_KEY": "${NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}"

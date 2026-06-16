@@ -33,7 +33,7 @@ export const SITE_SECTION_HEADING_SIZE_CLASS = "site-section-heading";
 export const SITE_SECTION_HEADING_CLASS = `tracking-tight leading-[1.2] lg:font-semibold ${HOME_SECTION_HEADING} ${SITE_SECTION_HEADING_SIZE_CLASS}`;
 
 /** SWI / Fortified / Claims / Careers — matched section vertical padding */
-export const SITE_TAB_SECTION_PY = "py-6 md:py-10 lg:py-12";
+export const SITE_TAB_SECTION_PY = "py-10 md:py-14 lg:py-16";
 
 /** SWI / Fortified bottom CTA — matched min-height and vertical padding */
 export const SITE_TAB_CTA_SECTION_CLASS =
