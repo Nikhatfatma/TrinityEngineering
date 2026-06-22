@@ -16,7 +16,17 @@
 			"ADMIN_USERNAME": "trinity_admin",
 			"ZOHO_CRM_ZAPIKEY": "1003.f7c08221c5ca8b50a622305932817e35.29a199af53cccc57633c5a46aa5be77b",
 			"ZOHO_REFRESH_TOKEN": "1000.387eb58ac637b3a0aa64594f88b1e1e8.c0b7ea79accb40e08f91903aef2d924c",
-			"ZOHO_WORKDRIVE_FOLDER_ID": "1gy6sb0809709659042a2b84c367e9eb520e8"
+			"ZOHO_WORKDRIVE_FOLDER_ID": "1gy6sb0809709659042a2b84c367e9eb520e8",
+			"PORTAL_INVITE_API_SECRET": "Trinity_Portal_creatorandcatalystsecret",
+			"FROM_EMAIL": "nikhatabrtrial@gmail.com",
+			"SMTP_USER": "nikhatabrtrial@gmail.com",
+			"SMTP_PASSWORD": "eqrokqmnljrorfcm",
+			"SMTP_HOST": "smtp.gmail.com",
+			"SMTP_PORT": "465",
+			"ZOHO_CREATOR_CLAIMS_REPORT": "All_Inspections",
+			"PORTAL_OTP_EXPIRY_MINUTES": "10",
+			"PORTAL_OTP_RESEND_COOLDOWN_SECONDS": "60",
+			"PORTAL_SESSION_HOURS": "24"
 		}
 	},
 	"execution": {
@@ -25,6 +35,7 @@
 	"pack": {
 		"include": [
 			"index.js",
+			"portalAuth.js",
 			"package.json",
 			"node_modules/**"
 		],

@@ -1,4 +1,5 @@
 const catalyst = require('zcatalyst-sdk-node');
+const portalAuth = require('./portalAuth');
 
 // Helper to transform multi-select options for Zoho Creator
 const formatSendCopy = (prefs = []) => {
@@ -187,13 +188,109 @@ function mapFormDataToCreator(data) {
     };
 }
 
+const IA_COMPANY_TYPE = 'IA Company';
+
+function getRowCompanyType(row) {
+    return String(row?.InsuranceCompanies?.company_type || '').trim();
+}
+
+function getZohoCompanyType(company) {
+    return String(company?.Company_Type || '').trim();
+}
+
+function isInsuranceCompanyRow(row) {
+    return getRowCompanyType(row) !== IA_COMPANY_TYPE;
+}
+
+function isIaCompanyRow(row) {
+    return getRowCompanyType(row) === IA_COMPANY_TYPE;
+}
+
+async function fetchInsuranceCompanyRows(zcql, whereClause = '') {
+    const baseFields = 'ROWID, name, zoho_creator_id, status';
+    const where = whereClause ? ` WHERE ${whereClause}` : '';
+    try {
+        return await zcql.executeZCQLQuery(`SELECT ${baseFields}, company_type FROM InsuranceCompanies${where}`);
+    } catch (err) {
+        console.warn('[InsuranceCompanies] company_type unavailable, using legacy query:', err.message);
+        return await zcql.executeZCQLQuery(`SELECT ${baseFields} FROM InsuranceCompanies${where}`);
+    }
+}
+
+async function fetchIaCompaniesFromZoho() {
+    let token = await getNewAccessToken();
+    const owner = (process.env.ZOHO_CREATOR_ACCOUNT_OWNER || 'trinity5').trim();
+    const appName = process.env.ZOHO_COMPANIES_APP_NAME || process.env.ZOHO_CREATOR_APP_NAME || 'engineering-inspections';
+
+    let allIaCompanies = [];
+    let from = 0;
+    const limit = 200;
+    let hasMore = true;
+
+    while (hasMore) {
+        const criteria = encodeURIComponent('((Company_Type=="IA Company")&&(Status=="Active"))');
+        const reportUrl = `https://creator.zoho.com/api/v2/${owner}/${appName}/report/All_Companies_List?criteria=${criteria}&from=${from}&limit=${limit}`;
+        let response = await fetch(reportUrl, {
+            method: 'GET',
+            headers: { 'Authorization': `Zoho-oauthtoken ${token}` }
+        });
+
+        if (response.status === 401) {
+            cachedToken = null;
+            tokenExpiry = 0;
+            token = await getNewAccessToken();
+            response = await fetch(reportUrl, {
+                method: 'GET',
+                headers: { 'Authorization': `Zoho-oauthtoken ${token}` }
+            });
+        }
+
+        const data = await response.json();
+        if (!response.ok) {
+            throw new Error(data.message || `Zoho report fetch failed (${response.status})`);
+        }
+
+        if (data.data && data.data.length > 0) {
+            allIaCompanies = allIaCompanies.concat(data.data);
+            from += limit;
+            if (data.data.length < limit) hasMore = false;
+        } else {
+            hasMore = false;
+        }
+    }
+
+    return allIaCompanies;
+}
+
+async function resolveIaCompanyIdFromZoho(companyName) {
+    const safeIaName = companyName.replace(/'/g, "''");
+    let token = await getNewAccessToken();
+    const owner = (process.env.ZOHO_CREATOR_ACCOUNT_OWNER || 'trinity5').trim();
+    const appName = process.env.ZOHO_COMPANIES_APP_NAME || process.env.ZOHO_CREATOR_APP_NAME || 'engineering-inspections';
+    const criteria = encodeURIComponent(`((Company_Type=="IA Company")&&(Status=="Active")&&(Insurance_Company_Name=="${safeIaName}"))`);
+    const reportUrl = `https://creator.zoho.com/api/v2/${owner}/${appName}/report/All_Companies_List?criteria=${criteria}&limit=1`;
+    const response = await fetch(reportUrl, {
+        method: 'GET',
+        headers: { 'Authorization': `Zoho-oauthtoken ${token}` }
+    });
+    const zohoData = await response.json();
+    if (zohoData.data && zohoData.data.length > 0) {
+        return String(zohoData.data[0].ID);
+    }
+    return null;
+}
+
 let cachedToken = null;
 let tokenExpiry = 0;
 let tokenPromise = null;
 
-async function getNewAccessToken() {
-    if (cachedToken && Date.now() < tokenExpiry) {
+async function getNewAccessToken(forceRefresh = false) {
+    if (!forceRefresh && cachedToken && Date.now() < tokenExpiry) {
         return cachedToken;
+    }
+    if (forceRefresh) {
+        cachedToken = null;
+        tokenExpiry = 0;
     }
 
     if (tokenPromise) {
@@ -469,10 +566,10 @@ module.exports = async (context, basicIO) => {
                     try {
                         const zcqlResolve = catalystApp.zcql();
                         const safeCompanyName = companyName.replace(/'/g, "''");
-                        const resolveQuery = `SELECT ROWID, name, zoho_creator_id, status FROM InsuranceCompanies WHERE name = '${safeCompanyName}'`;
-                        const resolveResult = await zcqlResolve.executeZCQLQuery(resolveQuery);
-                        if (resolveResult && resolveResult.length > 0) {
-                            const activeRecord = resolveResult.find(r => r.InsuranceCompanies.status === 'Active') || resolveResult[0];
+                        const resolveResult = await fetchInsuranceCompanyRows(zcqlResolve, `name = '${safeCompanyName}'`);
+                        const insuranceMatches = (resolveResult || []).filter(isInsuranceCompanyRow);
+                        if (insuranceMatches.length > 0) {
+                            const activeRecord = insuranceMatches.find(r => r.InsuranceCompanies.status === 'Active') || insuranceMatches[0];
                             resolvedId = activeRecord.InsuranceCompanies.zoho_creator_id || null;
                             if (resolvedId) console.log("[Insurance Resolve] DB HIT by name | ID:", resolvedId);
                         }
@@ -528,22 +625,25 @@ module.exports = async (context, basicIO) => {
                 } else {
                     const safeIaName = incomingIaValue.replace(/'/g, "''");
                     try {
-                        let token = await getNewAccessToken();
-                        const owner = (process.env.ZOHO_CREATOR_ACCOUNT_OWNER || 'trinity5').trim();
-                        const appName = process.env.ZOHO_COMPANIES_APP_NAME || process.env.ZOHO_CREATOR_APP_NAME || 'engineering-inspections';
-                        const criteria = encodeURIComponent(`((Company_Type=="IA Company")&&(Status=="Active")&&(Insurance_Company_Name=="${safeIaName}"))`);
-                        const reportUrl = `https://creator.zoho.com/api/v2/${owner}/${appName}/report/All_Companies_List?criteria=${criteria}&limit=1`;
-                        const response = await fetch(reportUrl, {
-                            method: 'GET',
-                            headers: { 'Authorization': `Zoho-oauthtoken ${token}` }
-                        });
-                        const zohoData = await response.json();
-                        if (zohoData.data && zohoData.data.length > 0) {
-                            resolvedIaId = String(zohoData.data[0].ID);
-                            console.log("[IA Resolve] Zoho HIT by name | ID:", resolvedIaId);
+                        const zcqlResolve = catalystApp.zcql();
+                        const resolveResult = await fetchInsuranceCompanyRows(zcqlResolve, `name = '${safeIaName}'`);
+                        const iaMatches = (resolveResult || []).filter(isIaCompanyRow);
+                        if (iaMatches.length > 0) {
+                            const activeRecord = iaMatches.find(r => r.InsuranceCompanies.status === 'Active') || iaMatches[0];
+                            resolvedIaId = activeRecord.InsuranceCompanies.zoho_creator_id || null;
+                            if (resolvedIaId) console.log("[IA Resolve] DB HIT by name | ID:", resolvedIaId);
                         }
-                    } catch (iaErr) {
-                        console.error("[IA Resolve] Zoho lookup failed:", iaErr.message);
+                    } catch (dbErr) {
+                        console.error("[IA Resolve] DB lookup failed:", dbErr.message);
+                    }
+
+                    if (!resolvedIaId) {
+                        try {
+                            resolvedIaId = await resolveIaCompanyIdFromZoho(incomingIaValue);
+                            if (resolvedIaId) console.log("[IA Resolve] Zoho HIT by name | ID:", resolvedIaId);
+                        } catch (iaErr) {
+                            console.error("[IA Resolve] Zoho lookup failed:", iaErr.message);
+                        }
                     }
                 }
 
@@ -876,13 +976,13 @@ module.exports = async (context, basicIO) => {
                 let aliasFound = false;
 
                 // 1. Fetch all active companies and filter in JS (case-insensitive)
-                const nameQuery = `SELECT ROWID, name, zoho_creator_id, status FROM InsuranceCompanies WHERE status = 'Active'`;
-                console.log(`[ZCQL Name Search] Executing query: ${nameQuery}`);
-                const allCompanies = await zcql.executeZCQLQuery(nameQuery);
+                console.log(`[ZCQL Name Search] Fetching active companies for search: "${search}"`);
+                const allCompanies = await fetchInsuranceCompanyRows(zcql, "status = 'Active'");
                 console.log(`[ZCQL Name Search] Total active companies: ${allCompanies ? allCompanies.length : 0}`);
 
-                // Case-insensitive filter in application code
+                // Case-insensitive filter in application code (exclude IA companies)
                 const nameMatches = (allCompanies || []).filter(row =>
+                    isInsuranceCompanyRow(row) &&
                     (row.InsuranceCompanies.name || '').toLowerCase().includes(searchLower)
                 );
                 console.log(`[ZCQL Name Search] Matches for "${search}": ${nameMatches.length}`);
@@ -925,11 +1025,9 @@ module.exports = async (context, basicIO) => {
                             }
 
                             // ROWID is numeric BigInt — do not wrap in single quotes
-                            const companyQuery = `SELECT ROWID, name, zoho_creator_id, status FROM InsuranceCompanies WHERE ROWID = ${companyId} AND status = 'Active'`;
-                            console.log(`[ZCQL Company Lookup] Query: ${companyQuery}`);
-                            const companyResult = await zcql.executeZCQLQuery(companyQuery);
+                            const companyResult = await fetchInsuranceCompanyRows(zcql, `ROWID = ${companyId} AND status = 'Active'`);
                             console.log(`[ZCQL Company Lookup] Result: ${companyResult ? companyResult.length : 0}`);
-                            if (companyResult && companyResult.length > 0) {
+                            if (companyResult && companyResult.length > 0 && isInsuranceCompanyRow(companyResult[0])) {
                                 aliasFound = true;
                                 results.push({
                                     id: companyResult[0].InsuranceCompanies.ROWID,
@@ -967,67 +1065,54 @@ module.exports = async (context, basicIO) => {
 
             /* ================================================================ */
             /*  ACTION: searchIaCompanies                                       */
-            /*  Live portal IA_Company_Name lookup: All_Companies_List where    */
-            /*  Company_Type == "IA Company" (Zoho form: engineering-inspections) */
+            /*  Local InsuranceCompanies cache (company_type = IA Company),     */
+            /*  with Zoho fallback until sync populates local data              */
             /* ================================================================ */
         } else if (action === 'searchIaCompanies') {
             const search = (getArg('search') || '').trim().toLowerCase();
 
             try {
-                let token = await getNewAccessToken();
-                const owner = (process.env.ZOHO_CREATOR_ACCOUNT_OWNER || 'trinity5').trim();
-                const appName = process.env.ZOHO_COMPANIES_APP_NAME || process.env.ZOHO_CREATOR_APP_NAME || 'engineering-inspections';
+                const zcql = catalystApp.zcql();
+                let results = [];
+                let usedLocalDb = false;
 
-                let allIaCompanies = [];
-                let from = 0;
-                const limit = 200;
-                let hasMore = true;
+                try {
+                    const allActive = await fetchInsuranceCompanyRows(zcql, "status = 'Active'");
+                    const hasLocalIaData = (allActive || []).some(isIaCompanyRow);
 
-                while (hasMore) {
-                    const criteria = encodeURIComponent('((Company_Type=="IA Company")&&(Status=="Active"))');
-                    const reportUrl = `https://creator.zoho.com/api/v2/${owner}/${appName}/report/All_Companies_List?criteria=${criteria}&from=${from}&limit=${limit}`;
-                    let response = await fetch(reportUrl, {
-                        method: 'GET',
-                        headers: { 'Authorization': `Zoho-oauthtoken ${token}` }
-                    });
-
-                    if (response.status === 401) {
-                        cachedToken = null;
-                        tokenExpiry = 0;
-                        token = await getNewAccessToken();
-                        response = await fetch(reportUrl, {
-                            method: 'GET',
-                            headers: { 'Authorization': `Zoho-oauthtoken ${token}` }
-                        });
+                    if (hasLocalIaData) {
+                        usedLocalDb = true;
+                        results = (allActive || [])
+                            .filter(isIaCompanyRow)
+                            .filter(row => !search || (row.InsuranceCompanies.name || '').toLowerCase().includes(search))
+                            .map(row => ({
+                                id: row.InsuranceCompanies.zoho_creator_id,
+                                name: row.InsuranceCompanies.name,
+                                zoho_creator_id: row.InsuranceCompanies.zoho_creator_id,
+                                status: row.InsuranceCompanies.status
+                            }))
+                            .sort((a, b) => a.name.localeCompare(b.name));
                     }
-
-                    const data = await response.json();
-                    if (!response.ok) {
-                        throw new Error(data.message || `Zoho report fetch failed (${response.status})`);
-                    }
-
-                    if (data.data && data.data.length > 0) {
-                        allIaCompanies = allIaCompanies.concat(data.data);
-                        from += limit;
-                        if (data.data.length < limit) hasMore = false;
-                    } else {
-                        hasMore = false;
-                    }
+                } catch (localErr) {
+                    console.warn('[searchIaCompanies] Local lookup failed, falling back to Zoho:', localErr.message);
                 }
 
-                const results = allIaCompanies
-                    .map((row) => ({
-                        id: String(row.ID),
-                        name: String(row.Insurance_Company_Name || '').trim(),
-                        zoho_creator_id: String(row.ID),
-                        status: String(row.Status || '').trim(),
-                    }))
-                    .filter((row) => row.name)
-                    .filter((row) => row.status === 'Active')
-                    .filter((row) => !search || row.name.toLowerCase().includes(search))
-                    .sort((a, b) => a.name.localeCompare(b.name));
+                if (!usedLocalDb) {
+                    const allIaCompanies = await fetchIaCompaniesFromZoho();
+                    results = allIaCompanies
+                        .map((row) => ({
+                            id: String(row.ID),
+                            name: String(row.Insurance_Company_Name || '').trim(),
+                            zoho_creator_id: String(row.ID),
+                            status: String(row.Status || '').trim(),
+                        }))
+                        .filter((row) => row.name)
+                        .filter((row) => row.status === 'Active')
+                        .filter((row) => !search || row.name.toLowerCase().includes(search))
+                        .sort((a, b) => a.name.localeCompare(b.name));
+                }
 
-                console.log(`[searchIaCompanies] Returning ${results.length} IA companies for search "${search}"`);
+                console.log(`[searchIaCompanies] Returning ${results.length} IA companies for search "${search}" (source: ${usedLocalDb ? 'local' : 'zoho'})`);
                 basicIO.write(JSON.stringify({ success: true, results, matchedBy: 'name' }));
                 context.close();
             } catch (err) {
@@ -1062,13 +1147,13 @@ module.exports = async (context, basicIO) => {
             const safeName = companyName.replace(/'/g, "''");
 
             try {
-                // ── STEP 1: Search local DB ──
-                const localQuery = `SELECT ROWID, name, zoho_creator_id, status FROM InsuranceCompanies WHERE name = '${safeName}'`;
-                const localResult = await zcql.executeZCQLQuery(localQuery);
+                // ── STEP 1: Search local DB (insurance companies only) ──
+                const localResult = await fetchInsuranceCompanyRows(zcql, `name = '${safeName}'`);
+                const insuranceMatches = (localResult || []).filter(isInsuranceCompanyRow);
 
-                if (localResult && localResult.length > 0) {
+                if (insuranceMatches.length > 0) {
                     // Prioritize Active records
-                    const activeRecord = localResult.find(r => r.InsuranceCompanies.status === 'Active') || localResult[0];
+                    const activeRecord = insuranceMatches.find(r => r.InsuranceCompanies.status === 'Active') || insuranceMatches[0];
                     const resolvedId = activeRecord.InsuranceCompanies.zoho_creator_id;
 
                     console.log(`[resolveCompanyId] LOCAL_HIT | Company: "${companyName}" | ID: ${resolvedId}`);
@@ -1110,18 +1195,24 @@ module.exports = async (context, basicIO) => {
                 }
 
                 if (creatorData.data && creatorData.data.length > 0) {
-                    // Prioritize Active company
-                    const activeCompany = creatorData.data.find(c => c.Status === 'Active') || creatorData.data[0];
+                    // Prioritize Active company (exclude IA companies)
+                    const insuranceCompanies = creatorData.data.filter(c => getZohoCompanyType(c) !== IA_COMPANY_TYPE);
+
+                    if (insuranceCompanies.length > 0) {
+                    const activeCompany = insuranceCompanies.find(c => c.Status === 'Active') || insuranceCompanies[0];
                     const creatorId = String(activeCompany.ID);
+                    const companyType = getZohoCompanyType(activeCompany);
 
                     // Store in local DB for future lookups
                     try {
                         const table = catalystApp.datastore().table('InsuranceCompanies');
-                        await table.insertRow({
+                        const cacheRow = {
                             name: activeCompany.Insurance_Company_Name || companyName,
                             zoho_creator_id: creatorId,
                             status: activeCompany.Status || 'Active'
-                        });
+                        };
+                        if (companyType) cacheRow.company_type = companyType;
+                        await table.insertRow(cacheRow);
                     } catch (dbErr) {
                         console.error("Failed to cache company in local DB:", dbErr.message);
                     }
@@ -1135,6 +1226,7 @@ module.exports = async (context, basicIO) => {
                     }));
                     context.close();
                     return;
+                    }
                 }
 
                 // ── STEP 3: Create new company in Creator ──
@@ -1390,15 +1482,20 @@ module.exports = async (context, basicIO) => {
                     const creatorId = String(company.ID);
                     const companyName = company.Insurance_Company_Name || '';
                     const status = company.Status || 'Active';
+                    const companyType = getZohoCompanyType(company);
+                    const rowPayload = {
+                        name: companyName,
+                        zoho_creator_id: creatorId,
+                        status: status
+                    };
+                    if (companyType) rowPayload.company_type = companyType;
 
                     if (existingMap.has(creatorId)) {
                         // Update existing record
                         try {
                             await table.updateRow({
                                 ROWID: existingMap.get(creatorId),
-                                name: companyName,
-                                zoho_creator_id: creatorId,
-                                status: status
+                                ...rowPayload
                             });
                             updated++;
                         } catch (updateErr) {
@@ -1407,11 +1504,7 @@ module.exports = async (context, basicIO) => {
                     } else {
                         // Insert new record
                         try {
-                            await table.insertRow({
-                                name: companyName,
-                                zoho_creator_id: creatorId,
-                                status: status
-                            });
+                            await table.insertRow(rowPayload);
                             inserted++;
                         } catch (insertErr) {
                             console.error(`Failed to insert company ${companyName}:`, insertErr.message);
@@ -1561,8 +1654,9 @@ module.exports = async (context, basicIO) => {
                 let creatorId = String(basicIO.getArgument('zoho_creator_id') || '').trim();
                 let status = basicIO.getArgument('status');
                 let name = String(basicIO.getArgument('name') || '').trim();
+                let companyType = String(basicIO.getArgument('company_type') || '').trim();
 
-                console.log("[WEBHOOK] Incoming:", { creatorId, status, name });
+                console.log("[WEBHOOK] Incoming:", { creatorId, status, name, companyType });
 
                 // ❌ Block invalid ID
                 if (!creatorId) {
@@ -1607,6 +1701,9 @@ module.exports = async (context, basicIO) => {
                     if (nameToUpdate) {
                         updateData.name = nameToUpdate;
                     }
+                    if (companyType) {
+                        updateData.company_type = companyType;
+                    }
 
                     await table.updateRow(updateData);
 
@@ -1618,11 +1715,13 @@ module.exports = async (context, basicIO) => {
                     }));
                 } else {
                     // ✅ INSERT
-                    await table.insertRow({
+                    const insertData = {
                         name: nameToUpdate || creatorId, // Use ID as fallback name if Zoho only sends ID
                         status: status,
                         zoho_creator_id: creatorId
-                    });
+                    };
+                    if (companyType) insertData.company_type = companyType;
+                    await table.insertRow(insertData);
 
                     console.log("[WEBHOOK] CREATED:", creatorId);
 
@@ -1721,6 +1820,79 @@ module.exports = async (context, basicIO) => {
                 basicIO.write(JSON.stringify({ success: false, error: err.message }));
                 context.close();
             }
+
+        } else if (action === 'createInvite') {
+            const result = await portalAuth.handleCreateInvite(catalystApp, {
+                role: getArg('role'),
+                email: getArg('email'),
+                name: getArg('name'),
+                apiKey: getArg('apiKey') || getArg('api_key') || body.apiKey || body.api_key
+            });
+            basicIO.write(JSON.stringify(result));
+            context.close();
+
+        } else if (action === 'checkInvite') {
+            const result = await portalAuth.handleCheckInvite(catalystApp, {
+                email: getArg('email'),
+                role: getArg('role')
+            });
+            basicIO.write(JSON.stringify(result));
+            context.close();
+
+        } else if (action === 'requestOtp') {
+            try {
+                const result = await portalAuth.handleRequestOtp(catalystApp, {
+                    email: getArg('email'),
+                    role: getArg('role')
+                });
+                basicIO.write(JSON.stringify(result));
+            } catch (err) {
+                console.error('requestOtp Error:', err);
+                basicIO.write(JSON.stringify({ success: false, error: err.message }));
+            }
+            context.close();
+
+        } else if (action === 'verifyOtp') {
+            try {
+                const result = await portalAuth.handleVerifyOtp(catalystApp, {
+                    email: getArg('email'),
+                    otp: getArg('otp') || getArg('code'),
+                    role: getArg('role')
+                });
+                basicIO.write(JSON.stringify(result));
+            } catch (err) {
+                console.error('verifyOtp Error:', err);
+                basicIO.write(JSON.stringify({ success: false, error: err.message }));
+            }
+            context.close();
+
+        } else if (action === 'validateSession') {
+            const result = await portalAuth.handleValidateSession(catalystApp, {
+                sessionToken: getArg('sessionToken') || getArg('token')
+            });
+            basicIO.write(JSON.stringify(result));
+            context.close();
+
+        } else if (action === 'logout') {
+            const result = await portalAuth.handleLogout(catalystApp, {
+                sessionToken: getArg('sessionToken') || getArg('token')
+            });
+            basicIO.write(JSON.stringify(result));
+            context.close();
+
+        } else if (action === 'getMyClaims') {
+            try {
+                const result = await portalAuth.handleGetMyClaims(
+                    catalystApp,
+                    { sessionToken: getArg('sessionToken') || getArg('token') },
+                    getNewAccessToken
+                );
+                basicIO.write(JSON.stringify(result));
+            } catch (err) {
+                console.error('getMyClaims Error:', err);
+                basicIO.write(JSON.stringify({ success: false, error: err.message }));
+            }
+            context.close();
 
         } else {
             basicIO.write(JSON.stringify({ success: false, error: 'Invalid or missing action parameter' }));

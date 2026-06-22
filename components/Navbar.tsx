@@ -1,19 +1,26 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Menu, X, ArrowRight } from "lucide-react";
 
+interface PortalUser {
+  email: string;
+  name: string;
+}
+
 export default function Navbar() {
   const [scrolled, setScrolled] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [portalUser, setPortalUser] = useState<PortalUser | null>(null);
   const pathname = usePathname();
   const hasMediaHero =
     pathname === "/" ||
     pathname === "/claims" ||
     pathname === "/swi" ||
-    pathname === "/fortified";
+    pathname === "/fortified" ||
+    pathname.startsWith("/industry/");
   // pathname === "/careers"; // In-app careers tab — restore when re-enabled
   const isSolidHeader = scrolled || !hasMediaHero;
 
@@ -36,6 +43,42 @@ export default function Navbar() {
   useEffect(() => {
     setMobileMenuOpen(false);
   }, [pathname]);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/portal/session")
+      .then((res) => res.json())
+      .then((data) => {
+        if (cancelled) return;
+        if (data.valid && data.user) {
+          setPortalUser(data.user);
+        } else {
+          setPortalUser(null);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setPortalUser(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [pathname]);
+
+  const handleLogout = useCallback(async () => {
+    try {
+      await fetch("/api/portal/logout", { method: "POST" });
+    } finally {
+      setPortalUser(null);
+      setMobileMenuOpen(false);
+      window.location.href = "/login";
+    }
+  }, []);
+
+  const authLinkClass = `relative group/login flex items-center transition-all duration-500 uppercase tracking-[0.14em] font-black xl:tracking-[0.2em] ${
+    isSolidHeader
+      ? "text-gray-900 hover:text-[#0047AB]"
+      : "text-white hover:text-white"
+  }`;
 
   useEffect(() => {
     const mq = window.matchMedia("(min-width: 1024px)");
@@ -78,6 +121,8 @@ export default function Navbar() {
 
   const mobileHeaderText = isSolidHeader ? "text-gray-900" : "text-white";
   const mobilePhoneClass = `text-[9px] min-[380px]:text-[10px] sm:text-[11px] font-semibold tracking-wide whitespace-nowrap transition-colors hover:opacity-80 ${mobileHeaderText}`;
+  const isAuthFlowPage = pathname === "/login" || pathname.startsWith("/login/");
+  const showAuthNav = !isAuthFlowPage;
 
   return (
     <>
@@ -167,26 +212,42 @@ export default function Navbar() {
             <a href="tel:8559295888" className="transition-colors hover:opacity-70 whitespace-nowrap">
               (855) 929-5888
             </a>
-            <span className="hidden opacity-40 xl:inline">|</span>
-            <Link
-              href="/login"
-              className={`relative group/login flex items-center transition-all duration-500 uppercase tracking-[0.14em] font-black xl:tracking-[0.2em] ${
-                isSolidHeader
-                  ? "text-gray-900 hover:text-[#0047AB]"
-                  : "text-white hover:text-white"
-              }`}
-            >
-              <span className="relative z-10 transition-transform duration-500 group-hover/login:-translate-x-1">
-                LOGIN
-              </span>
-              <span
-                className={`absolute right-0 opacity-0 -translate-x-2 transition-all duration-500 group-hover/login:opacity-100 group-hover/login:translate-x-6 ${
-                  isSolidHeader ? "text-blue-500" : "text-white"
-                }`}
-              >
-                →
-              </span>
-            </Link>
+            {showAuthNav && (
+              <>
+                <span className="hidden opacity-40 xl:inline">|</span>
+                {portalUser ? (
+                <button
+                  type="button"
+                  onClick={handleLogout}
+                  className={authLinkClass}
+                >
+                  <span className="relative z-10 transition-transform duration-500 group-hover/login:-translate-x-1">
+                    LOGOUT
+                  </span>
+                  <span
+                    className={`absolute right-0 opacity-0 -translate-x-2 transition-all duration-500 group-hover/login:opacity-100 group-hover/login:translate-x-6 ${
+                      isSolidHeader ? "text-blue-500" : "text-white"
+                    }`}
+                  >
+                    →
+                  </span>
+                </button>
+              ) : (
+                <Link href="/login" className={authLinkClass}>
+                  <span className="relative z-10 transition-transform duration-500 group-hover/login:-translate-x-1">
+                    LOGIN
+                  </span>
+                  <span
+                    className={`absolute right-0 opacity-0 -translate-x-2 transition-all duration-500 group-hover/login:opacity-100 group-hover/login:translate-x-6 ${
+                      isSolidHeader ? "text-blue-500" : "text-white"
+                    }`}
+                  >
+                    →
+                  </span>
+                </Link>
+              )}
+              </>
+            )}
           </div>
 
           <div className="lg:hidden flex items-center gap-1 sm:gap-1.5 shrink-0">
@@ -281,16 +342,29 @@ export default function Navbar() {
                 })}
               </nav>
 
-              <div className="mt-3 border-t border-gray-100 pt-3">
-                <Link
-                  href="/login"
-                  onClick={() => setMobileMenuOpen(false)}
-                  className="flex items-center justify-center gap-1.5 rounded-md bg-[#001D3D] px-3 py-2.5 text-[10px] font-black tracking-[0.18em] text-white shadow-md transition-colors hover:bg-[#0047AB]"
-                >
-                  LOGIN
-                  <ArrowRight size={12} strokeWidth={2.5} className="shrink-0" />
-                </Link>
-              </div>
+              {showAuthNav && (
+                <div className="mt-3 border-t border-gray-100 pt-3 space-y-2">
+                  {portalUser ? (
+                    <button
+                      type="button"
+                      onClick={handleLogout}
+                      className="flex w-full items-center justify-center gap-1.5 rounded-md bg-[#001D3D] px-3 py-2.5 text-[10px] font-black tracking-[0.18em] text-white shadow-md transition-colors hover:bg-[#0047AB]"
+                    >
+                      LOGOUT
+                      <ArrowRight size={12} strokeWidth={2.5} className="shrink-0" />
+                    </button>
+                  ) : (
+                    <Link
+                      href="/login"
+                      onClick={() => setMobileMenuOpen(false)}
+                      className="flex items-center justify-center gap-1.5 rounded-md bg-[#001D3D] px-3 py-2.5 text-[10px] font-black tracking-[0.18em] text-white shadow-md transition-colors hover:bg-[#0047AB]"
+                    >
+                      LOGIN
+                      <ArrowRight size={12} strokeWidth={2.5} className="shrink-0" />
+                    </Link>
+                  )}
+                </div>
+              )}
             </div>
           </div>
         </div>

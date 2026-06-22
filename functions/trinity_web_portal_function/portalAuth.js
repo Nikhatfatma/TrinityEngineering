@@ -1,0 +1,633 @@
+const crypto = require('crypto');
+
+const ALLOWED_ROLES = ['IA', 'Adjuster'];
+const INVITE_STATUS_ACTIVE = 'Invited';
+
+const OTP_LENGTH = 6;
+const OTP_EXPIRY_MS = (Number(process.env.PORTAL_OTP_EXPIRY_MINUTES) || 10) * 60 * 1000;
+const OTP_RESEND_COOLDOWN_MS = (Number(process.env.PORTAL_OTP_RESEND_COOLDOWN_SECONDS) || 60) * 1000;
+const OTP_MAX_SEND_PER_HOUR = Number(process.env.PORTAL_OTP_MAX_SEND_PER_HOUR) || 5;
+const OTP_MAX_VERIFY_ATTEMPTS = Number(process.env.PORTAL_OTP_MAX_VERIFY_ATTEMPTS) || 5;
+const SESSION_TTL_MS = (Number(process.env.PORTAL_SESSION_HOURS) || 24) * 60 * 60 * 1000;
+
+function normalizeEmail(email) {
+    return String(email || '').trim().toLowerCase();
+}
+
+function isValidEmailFormat(email) {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+}
+
+function escapeZcql(value) {
+    return String(value || '').replace(/'/g, "''");
+}
+
+function hashOtp(code) {
+    return crypto.createHash('sha256').update(String(code)).digest('hex');
+}
+
+function generateOtp() {
+    const max = Math.pow(10, OTP_LENGTH);
+    const num = crypto.randomInt(0, max);
+    return String(num).padStart(OTP_LENGTH, '0');
+}
+
+function generateSessionToken() {
+    return crypto.randomBytes(32).toString('hex');
+}
+
+function isInviteActive(status) {
+    const normalized = String(status || INVITE_STATUS_ACTIVE).trim().toLowerCase();
+    const blocked = ['removed', 'revoked', 'inactive', 'cancelled', 'deleted'];
+    return !blocked.includes(normalized);
+}
+
+function normalizePortalRole(role) {
+    const trimmed = String(role || '').trim();
+    if (trimmed === 'IA') return 'IA';
+    if (trimmed === 'Adjuster') return 'Adjuster';
+    return '';
+}
+
+function getRoleLabel(role) {
+    return role === 'IA' ? 'Independent Adjuster (IA)' : 'Adjuster (Carrier)';
+}
+
+function validateSelectedRole(selectedRole, inviteRole) {
+    const selected = normalizePortalRole(selectedRole);
+    const invited = normalizePortalRole(inviteRole);
+
+    if (!selected || !ALLOWED_ROLES.includes(selected)) {
+        return { ok: false, error: 'Invalid role selected.' };
+    }
+
+    if (selected !== invited) {
+        return {
+            ok: false,
+            roleMismatch: true,
+            expectedRole: invited,
+            error: `This email is registered as ${getRoleLabel(invited)}. Please go back and select the correct role.`
+        };
+    }
+
+    return { ok: true };
+}
+
+function hasActiveOtpRecord(otpRecord) {
+    if (!otpRecord?.code_hash || otpRecord.code_hash === 'pending') return false;
+    const expiresAt = otpRecord.expires_at ? new Date(otpRecord.expires_at).getTime() : 0;
+    return expiresAt > Date.now();
+}
+
+const OTP_PLACEHOLDER_EXPIRES = '1970-01-01T00:00:00.000Z';
+const OTP_PLACEHOLDER_SENT = '1970-01-01T00:00:00.000Z';
+
+function getInviteApiSecret() {
+    return String(process.env.PORTAL_INVITE_API_SECRET || process.env.INVITE_API_SECRET || '').trim();
+}
+
+function verifyInviteApiKey(providedKey) {
+    const secret = getInviteApiSecret();
+    if (!secret) {
+        return { ok: false, error: 'Invite API is not configured (missing PORTAL_INVITE_API_SECRET)' };
+    }
+    const a = Buffer.from(String(providedKey || ''));
+    const b = Buffer.from(secret);
+    if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) {
+        return { ok: false, error: 'Unauthorized' };
+    }
+    return { ok: true };
+}
+
+async function findInvitation(zcql, email) {
+    const safeEmail = escapeZcql(email);
+    const rows = await zcql.executeZCQLQuery(
+        `SELECT ROWID, email, role, name, status FROM Invitations WHERE email = '${safeEmail}' LIMIT 1`
+    );
+    if (!rows || rows.length === 0) return null;
+    return rows[0].Invitations;
+}
+
+async function handleCreateInvite(catalystApp, { role, email, name, apiKey }) {
+    const auth = verifyInviteApiKey(apiKey);
+    if (!auth.ok) {
+        return { success: false, error: auth.error, statusCode: auth.error === 'Unauthorized' ? 401 : 500 };
+    }
+
+    const normalizedEmail = normalizeEmail(email);
+    const trimmedName = String(name || '').trim();
+    const trimmedRole = String(role || '').trim();
+
+    if (!normalizedEmail) {
+        return { success: false, error: 'Email is required' };
+    }
+    if (!isValidEmailFormat(normalizedEmail)) {
+        return { success: false, error: 'Email must be a valid email address' };
+    }
+    if (!trimmedName) {
+        return { success: false, error: 'Name is required' };
+    }
+    if (!trimmedRole) {
+        return { success: false, error: 'Role is required' };
+    }
+    if (!ALLOWED_ROLES.includes(trimmedRole)) {
+        return { success: false, error: `Role must be one of: ${ALLOWED_ROLES.join(', ')}` };
+    }
+
+    const zcql = catalystApp.zcql();
+    const existing = await findInvitation(zcql, normalizedEmail);
+    if (existing) {
+        return { success: false, error: 'already invited', message: 'This email has already been invited' };
+    }
+
+    const table = catalystApp.datastore().table('Invitations');
+    await table.insertRow({
+        email: normalizedEmail,
+        role: trimmedRole,
+        name: trimmedName,
+        status: INVITE_STATUS_ACTIVE
+    });
+
+    return {
+        success: true,
+        message: 'Invitation created successfully',
+        email: normalizedEmail,
+        role: trimmedRole
+    };
+}
+
+async function handleCheckInvite(catalystApp, { email, role }) {
+    const normalizedEmail = normalizeEmail(email);
+    if (!normalizedEmail || !isValidEmailFormat(normalizedEmail)) {
+        return { success: false, invited: false, error: 'Invalid email address' };
+    }
+
+    const invite = await findInvitation(catalystApp.zcql(), normalizedEmail);
+    if (!invite || !isInviteActive(invite.status)) {
+        return { success: true, invited: false, message: 'You are not invited to this portal.' };
+    }
+
+    if (role) {
+        const roleCheck = validateSelectedRole(role, invite.role);
+        if (!roleCheck.ok) {
+            return {
+                success: false,
+                invited: true,
+                roleMismatch: true,
+                expectedRole: roleCheck.expectedRole,
+                error: roleCheck.error
+            };
+        }
+    }
+
+    return {
+        success: true,
+        invited: true,
+        role: invite.role,
+        name: invite.name
+    };
+}
+
+async function getOrCreateOtpRecord(zcql, otpTable, email) {
+    const safeEmail = escapeZcql(email);
+    const rows = await zcql.executeZCQLQuery(
+        `SELECT ROWID, email, code_hash, expires_at, send_count, verify_attempts, last_sent_at FROM OtpCodes WHERE email = '${safeEmail}' LIMIT 1`
+    );
+    if (rows && rows.length > 0) {
+        return rows[0].OtpCodes;
+    }
+    const inserted = await otpTable.insertRow({
+        email,
+        code_hash: 'pending',
+        expires_at: OTP_PLACEHOLDER_EXPIRES,
+        send_count: 0,
+        verify_attempts: 0,
+        last_sent_at: OTP_PLACEHOLDER_SENT
+    });
+    const rowId = inserted?.ROWID || inserted;
+    return {
+        ROWID: rowId,
+        email,
+        code_hash: 'pending',
+        expires_at: OTP_PLACEHOLDER_EXPIRES,
+        send_count: 0,
+        verify_attempts: 0,
+        last_sent_at: OTP_PLACEHOLDER_SENT
+    };
+}
+
+async function sendOtpEmail(catalystApp, { toEmail, inviteName, otp, expiryMinutes }) {
+    const fromEmail = (process.env.FROM_EMAIL || 'nikhatabrtrial@gmail.com').trim();
+    const subject = 'Your Trinity Client Portal sign-in code';
+    const text = `Hello ${inviteName},\n\nYour one-time sign-in code is: ${otp}\n\nThis code expires in ${expiryMinutes} minutes. If you did not request this, you can ignore this email.\n\n— Trinity Engineering`;
+    const html = `<div style="font-family:sans-serif;max-width:480px"><p>Hello ${inviteName},</p><p>Your one-time sign-in code is:</p><p style="font-size:28px;font-weight:bold;letter-spacing:4px">${otp}</p><p>This code expires in ${expiryMinutes} minutes.</p><p style="color:#666;font-size:12px">If you did not request this, you can ignore this email.</p></div>`;
+
+    try {
+        await catalystApp.email().sendMail({
+            from_email: fromEmail,
+            to_email: [toEmail],
+            subject,
+            content: html,
+            html_mode: true,
+            display_name: 'Trinity Portal'
+        });
+        console.log('[sendOtpEmail] Sent via Catalyst to', toEmail);
+        return { sent: true, provider: 'catalyst' };
+    } catch (catalystErr) {
+        console.error('[sendOtpEmail] Catalyst failed:', catalystErr.message);
+    }
+
+    const smtpUser = (process.env.SMTP_USER || fromEmail).trim();
+    const smtpPass = (process.env.SMTP_PASSWORD || process.env.GMAIL_APP_PASSWORD || '').trim();
+    if (!smtpUser || !smtpPass) {
+        return {
+            sent: false,
+            error: 'SMTP not configured. Add SMTP_PASSWORD (Gmail App Password) in Catalyst env variables.'
+        };
+    }
+
+    try {
+        const nodemailer = require('nodemailer');
+        const transporter = nodemailer.createTransport({
+            host: process.env.SMTP_HOST || 'smtp.gmail.com',
+            port: Number(process.env.SMTP_PORT) || 465,
+            secure: String(process.env.SMTP_SECURE || 'true') !== 'false',
+            auth: { user: smtpUser, pass: smtpPass }
+        });
+        await transporter.sendMail({
+            from: `"Trinity Portal" <${smtpUser}>`,
+            to: toEmail,
+            subject,
+            text,
+            html
+        });
+        console.log('[sendOtpEmail] Sent via SMTP to', toEmail);
+        return { sent: true, provider: 'smtp' };
+    } catch (smtpErr) {
+        console.error('[sendOtpEmail] SMTP failed:', smtpErr.message);
+        return { sent: false, error: smtpErr.message };
+    }
+}
+
+async function handleRequestOtp(catalystApp, { email, role }) {
+    const normalizedEmail = normalizeEmail(email);
+    if (!normalizedEmail || !isValidEmailFormat(normalizedEmail)) {
+        return { success: false, error: 'Invalid email address' };
+    }
+
+    const invite = await findInvitation(catalystApp.zcql(), normalizedEmail);
+    if (!invite || !isInviteActive(invite.status)) {
+        return { success: false, notInvited: true, error: 'You are not invited to this portal.' };
+    }
+
+    const roleCheck = validateSelectedRole(role, invite.role);
+    if (!roleCheck.ok) {
+        return {
+            success: false,
+            roleMismatch: true,
+            expectedRole: roleCheck.expectedRole,
+            error: roleCheck.error
+        };
+    }
+
+    const zcql = catalystApp.zcql();
+    const otpTable = catalystApp.datastore().table('OtpCodes');
+    let otpRecord = await getOrCreateOtpRecord(zcql, otpTable, normalizedEmail);
+
+    const now = Date.now();
+    const lastSentRaw = otpRecord.last_sent_at;
+    const lastSent = lastSentRaw && lastSentRaw !== OTP_PLACEHOLDER_SENT
+        ? new Date(lastSentRaw).getTime()
+        : 0;
+
+    if (lastSent && now - lastSent < OTP_RESEND_COOLDOWN_MS) {
+        const waitSeconds = Math.ceil((OTP_RESEND_COOLDOWN_MS - (now - lastSent)) / 1000);
+        if (hasActiveOtpRecord(otpRecord)) {
+            return {
+                success: true,
+                message: 'Please enter the verification code sent to your email.',
+                email: normalizedEmail,
+                cooldownSeconds: waitSeconds,
+                emailSent: false,
+                existingOtp: true
+            };
+        }
+        return {
+            success: false,
+            error: `Please wait ${waitSeconds} seconds before requesting a new code`,
+            cooldownSeconds: waitSeconds
+        };
+    }
+
+    const sendCount = Number(otpRecord.send_count) || 0;
+    if (lastSent) {
+        const hourAgo = now - (60 * 60 * 1000);
+        if (lastSent > hourAgo && sendCount >= OTP_MAX_SEND_PER_HOUR) {
+            if (hasActiveOtpRecord(otpRecord)) {
+                return {
+                    success: true,
+                    message: 'Please enter the verification code sent to your email.',
+                    email: normalizedEmail,
+                    emailSent: false,
+                    existingOtp: true
+                };
+            }
+            return { success: false, error: 'Too many code requests. Please try again later.' };
+        }
+    }
+
+    const otp = generateOtp();
+    const expiresAt = new Date(now + OTP_EXPIRY_MS).toISOString();
+    const newSendCount = (lastSent && (now - lastSent) < 60 * 60 * 1000)
+        ? sendCount + 1
+        : 1;
+
+    await otpTable.updateRow({
+        ROWID: otpRecord.ROWID,
+        email: normalizedEmail,
+        code_hash: hashOtp(otp),
+        expires_at: expiresAt,
+        send_count: newSendCount,
+        verify_attempts: 0,
+        last_sent_at: new Date(now).toISOString()
+    });
+
+    const mailResult = await sendOtpEmail(catalystApp, {
+        toEmail: normalizedEmail,
+        inviteName: invite.name || 'there',
+        otp,
+        expiryMinutes: OTP_EXPIRY_MS / 60000
+    });
+
+    return {
+        success: true,
+        message: mailResult.sent
+            ? 'Verification code sent to your email.'
+            : 'Verification code generated. Email could not be delivered — contact support or try Resend.',
+        email: normalizedEmail,
+        cooldownSeconds: Math.ceil(OTP_RESEND_COOLDOWN_MS / 1000),
+        emailSent: mailResult.sent,
+        emailProvider: mailResult.provider || null,
+        ...(mailResult.error ? { emailError: mailResult.error } : {})
+    };
+}
+
+async function handleVerifyOtp(catalystApp, { email, otp, role }) {
+    const normalizedEmail = normalizeEmail(email);
+    const code = String(otp || '').trim();
+
+    if (!normalizedEmail || !isValidEmailFormat(normalizedEmail)) {
+        return { success: false, error: 'Invalid email address' };
+    }
+    if (!/^\d{6}$/.test(code)) {
+        return { success: false, error: 'Invalid verification code' };
+    }
+
+    const invite = await findInvitation(catalystApp.zcql(), normalizedEmail);
+    if (!invite || !isInviteActive(invite.status)) {
+        return { success: false, notInvited: true, error: 'You are not invited to this portal.' };
+    }
+
+    const roleCheck = validateSelectedRole(role, invite.role);
+    if (!roleCheck.ok) {
+        return {
+            success: false,
+            roleMismatch: true,
+            expectedRole: roleCheck.expectedRole,
+            error: roleCheck.error
+        };
+    }
+
+    const zcql = catalystApp.zcql();
+    const safeEmail = escapeZcql(normalizedEmail);
+    const rows = await zcql.executeZCQLQuery(
+        `SELECT ROWID, code_hash, expires_at, verify_attempts FROM OtpCodes WHERE email = '${safeEmail}' LIMIT 1`
+    );
+
+    if (!rows || rows.length === 0) {
+        return { success: false, error: 'No verification code found. Please request a new code.' };
+    }
+
+    const otpRecord = rows[0].OtpCodes;
+    const attempts = Number(otpRecord.verify_attempts) || 0;
+    if (attempts >= OTP_MAX_VERIFY_ATTEMPTS) {
+        return { success: false, error: 'Too many failed attempts. Please request a new code.' };
+    }
+
+    const expiresAt = new Date(otpRecord.expires_at).getTime();
+    if (!otpRecord.expires_at || Date.now() > expiresAt) {
+        return { success: false, error: 'Verification code has expired. Please request a new code.' };
+    }
+
+    if (hashOtp(code) !== otpRecord.code_hash) {
+        const otpTable = catalystApp.datastore().table('OtpCodes');
+        await otpTable.updateRow({
+            ROWID: otpRecord.ROWID,
+            verify_attempts: attempts + 1
+        });
+        return { success: false, error: 'Incorrect verification code. Please try again.' };
+    }
+
+    const sessionToken = generateSessionToken();
+    const sessionExpires = new Date(Date.now() + SESSION_TTL_MS).toISOString();
+    const sessionsTable = catalystApp.datastore().table('PortalSessions');
+
+    const existingSessions = await zcql.executeZCQLQuery(
+        `SELECT ROWID FROM PortalSessions WHERE email = '${safeEmail}'`
+    );
+    if (existingSessions && existingSessions.length > 0) {
+        for (const row of existingSessions) {
+            await sessionsTable.deleteRow(row.PortalSessions.ROWID);
+        }
+    }
+
+    await sessionsTable.insertRow({
+        token: sessionToken,
+        email: normalizedEmail,
+        role: invite.role,
+        name: invite.name,
+        expires_at: sessionExpires
+    });
+
+    const otpTable = catalystApp.datastore().table('OtpCodes');
+    await otpTable.updateRow({
+        ROWID: otpRecord.ROWID,
+        code_hash: '',
+        expires_at: '',
+        verify_attempts: 0
+    });
+
+    return {
+        success: true,
+        message: 'Signed in successfully',
+        sessionToken,
+        sessionExpires,
+        user: {
+            email: normalizedEmail,
+            role: invite.role,
+            name: invite.name
+        }
+    };
+}
+
+async function handleValidateSession(catalystApp, { sessionToken }) {
+    const token = String(sessionToken || '').trim();
+    if (!token) {
+        return { success: false, valid: false, error: 'No session' };
+    }
+
+    const zcql = catalystApp.zcql();
+    const safeToken = escapeZcql(token);
+    const rows = await zcql.executeZCQLQuery(
+        `SELECT ROWID, token, email, role, name, expires_at FROM PortalSessions WHERE token = '${safeToken}' LIMIT 1`
+    );
+
+    if (!rows || rows.length === 0) {
+        return { success: false, valid: false, error: 'Session not found' };
+    }
+
+    const session = rows[0].PortalSessions;
+    if (Date.now() > new Date(session.expires_at).getTime()) {
+        await catalystApp.datastore().table('PortalSessions').deleteRow(session.ROWID);
+        return { success: false, valid: false, error: 'Session expired' };
+    }
+
+    const invite = await findInvitation(zcql, session.email);
+    if (!invite || !isInviteActive(invite.status)) {
+        await catalystApp.datastore().table('PortalSessions').deleteRow(session.ROWID);
+        return { success: false, valid: false, error: 'Access revoked' };
+    }
+
+    return {
+        success: true,
+        valid: true,
+        user: {
+            email: session.email,
+            role: session.role,
+            name: session.name
+        }
+    };
+}
+
+async function handleLogout(catalystApp, { sessionToken }) {
+    const token = String(sessionToken || '').trim();
+    if (!token) {
+        return { success: true, message: 'Logged out' };
+    }
+
+    const zcql = catalystApp.zcql();
+    const safeToken = escapeZcql(token);
+    const rows = await zcql.executeZCQLQuery(
+        `SELECT ROWID FROM PortalSessions WHERE token = '${safeToken}' LIMIT 1`
+    );
+    if (rows && rows.length > 0) {
+        await catalystApp.datastore().table('PortalSessions').deleteRow(rows[0].PortalSessions.ROWID);
+    }
+
+    return { success: true, message: 'Logged out' };
+}
+
+async function fetchClaimsForUser(email, role, getNewAccessToken) {
+    const normalizedEmail = normalizeEmail(email);
+    const owner = (process.env.ZOHO_CREATOR_ACCOUNT_OWNER || 'trinity5').trim();
+    const appName = (process.env.ZOHO_CREATOR_APP_NAME || 'engineering-inspections').replace(/['"]/g, '').trim();
+    const reportName = (process.env.ZOHO_CREATOR_CLAIMS_REPORT || 'All_Inspection_Requests').replace(/['"]/g, '').trim();
+    const safeEmail = normalizedEmail.replace(/"/g, '\\"');
+
+    let criteria;
+    if (role === 'IA') {
+        criteria = `(IA_Email=="${safeEmail}")`;
+    } else {
+        criteria = `(Client_Email=="${safeEmail}")`;
+    }
+
+    let token = await getNewAccessToken();
+    let allClaims = [];
+    let from = 0;
+    const limit = 200;
+    let hasMore = true;
+
+    while (hasMore) {
+        const reportUrl = `https://creator.zoho.com/api/v2/${owner}/${appName}/report/${reportName}?criteria=${encodeURIComponent(criteria)}&from=${from}&limit=${limit}`;
+        let response = await fetch(reportUrl, {
+            method: 'GET',
+            headers: { Authorization: `Zoho-oauthtoken ${token}` }
+        });
+
+        if (response.status === 401) {
+            token = await getNewAccessToken(true);
+            response = await fetch(reportUrl, {
+                method: 'GET',
+                headers: { Authorization: `Zoho-oauthtoken ${token}` }
+            });
+        }
+
+        const data = await response.json();
+        if (!response.ok) {
+            throw new Error(data.message || `Failed to fetch claims (${response.status})`);
+        }
+
+        const batch = data.data || [];
+        if (batch.length > 0) {
+            allClaims = allClaims.concat(batch);
+            from += limit;
+            if (batch.length < limit) hasMore = false;
+        } else {
+            hasMore = false;
+        }
+    }
+
+    return allClaims.map((row) => ({
+        id: row.ID || row.id || '',
+        claimNumber: row.Claim_Number || row.claim_number || '',
+        inspectionType: row.Inspection_Type || row.inspection_type || '',
+        status: row.Status || row.status || row.Inspection_Status || '',
+        dateOfLoss: row.Date_of_Loss || row.date_of_loss || '',
+        policyholderName: formatPolicyholderName(row),
+        submittedAt: row.Added_Time || row.added_time || row.Created_Time || '',
+        insuranceCompany: row.Insurance_Company || row.insurance_company || ''
+    }));
+}
+
+function formatPolicyholderName(row) {
+    const phName = row.PH_Name_Individual || row.ph_name_individual;
+    if (phName && typeof phName === 'object') {
+        return [phName.first_name, phName.last_name].filter(Boolean).join(' ').trim();
+    }
+    if (typeof phName === 'string') return phName;
+    return row.Policyholder_Name || '';
+}
+
+async function handleGetMyClaims(catalystApp, { sessionToken }, getNewAccessToken) {
+    const sessionResult = await handleValidateSession(catalystApp, { sessionToken });
+    if (!sessionResult.valid) {
+        return { success: false, error: sessionResult.error || 'Unauthorized', unauthorized: true };
+    }
+
+    try {
+        const claims = await fetchClaimsForUser(
+            sessionResult.user.email,
+            sessionResult.user.role,
+            getNewAccessToken
+        );
+        return {
+            success: true,
+            claims,
+            user: sessionResult.user
+        };
+    } catch (err) {
+        console.error('[getMyClaims] Error:', err.message);
+        return { success: false, error: err.message };
+    }
+}
+
+module.exports = {
+    ALLOWED_ROLES,
+    handleCreateInvite,
+    handleCheckInvite,
+    handleRequestOtp,
+    handleVerifyOtp,
+    handleValidateSession,
+    handleLogout,
+    handleGetMyClaims
+};

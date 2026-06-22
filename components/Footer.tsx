@@ -177,7 +177,7 @@ export default function Footer() {
             <div className="min-w-0 lg:col-span-2">
               <HeaderWithDot title="Company" />
               <ul className="space-y-4 text-[13px] font-medium text-white/80">
-                {["Our Services", "Fortified", "Education", "Careers", "About Us", "Contact"].map((item) => (
+                {["Fortified", "Education", "Careers"].map((item) => (
                   <li key={item}>
                     <Link className={footerLinkClass} href={`/${item.toLowerCase().replace(/ /g, "-")}`}>
                       {item !== "Education" && (
@@ -211,12 +211,7 @@ export default function Footer() {
                   </div>
                   <a href="mailto:fortified@trinitypllc.com" className="min-w-0 break-all hover:text-blue-400 transition-colors sm:break-words">fortified@trinitypllc.com</a>
                 </li>
-                <li className="group flex min-w-0 items-start gap-3">
-                  <div className="shrink-0 rounded-sm bg-blue-500/10 p-2 transition-colors group-hover:bg-blue-500/20">
-                    <Clock size={14} className="text-blue-500" />
-                  </div>
-                  <span className="min-w-0 break-words text-white/80">24/7 Emergency Service</span>
-                </li>
+
               </ul>
             </div>
           </div>
@@ -225,8 +220,7 @@ export default function Footer() {
         <div className="pt-6 border-t border-white/5 flex flex-col md:flex-row items-center justify-between gap-6 text-center md:text-left text-[11px] font-bold text-white tracking-widest uppercase">
           <p className="max-w-full break-words">© Trinitypllc.com 2022 All rights Reserved.</p>
           <div className="flex flex-wrap justify-center gap-6 sm:gap-12">
-            <Link className="text-white hover:text-blue-400 transition-colors" href="/privacy">Privacy Policy</Link>
-            <Link className="text-white hover:text-blue-400 transition-colors" href="/terms">Terms of Service</Link>
+
           </div>
         </div>
       </div>

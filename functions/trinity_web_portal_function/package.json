@@ -4,6 +4,7 @@
 	"main": "index.js",
 	"author": "auto@trinitypllc.com",
 	"dependencies": {
+		"nodemailer": "^6.10.1",
 		"zcatalyst-sdk-node": "^2.1.0"
 	}
 }

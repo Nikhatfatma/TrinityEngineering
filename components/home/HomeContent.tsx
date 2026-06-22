@@ -20,6 +20,15 @@ export const HOME_IMAGE_BLEED_LEFT = [
   "lg:left-auto lg:translate-x-0 lg:ml-[calc((100%-100vw)/2)] lg:w-[calc(100%+(100vw-100%)/2)]",
 ].join(" ");
 
+/** Pull right column image to the viewport right edge (desktop); full bleed below lg */
+export const HOME_IMAGE_BLEED_RIGHT = [
+  HOME_IMAGE_BLEED_MOBILE,
+  "lg:right-auto lg:translate-x-0 lg:mr-[calc((100%-100vw)/2)] lg:w-[calc(100%+(100vw-100%)/2)]",
+].join(" ");
+
+/** Taller sticky image column — Insurance Inspections pattern, enlarged for IR sections */
+export const HOME_STICKY_IMAGE_SIZE_CLASS = "lg:min-h-[520px] xl:min-h-[640px]";
+
 /** Full-width image below lg — matches Weather section (mobile + tablet) */
 export const HOME_STACKED_IMAGE_CLASS =
   "block w-full h-auto max-lg:object-contain max-lg:object-center";
@@ -34,6 +43,25 @@ export const SITE_SECTION_HEADING_CLASS = `tracking-tight leading-[1.2] lg:font-
 
 /** SWI / Fortified / Claims / Careers — matched section vertical padding */
 export const SITE_TAB_SECTION_PY = "py-10 md:py-14 lg:py-16";
+
+/** Home page section vertical padding */
+export const HOME_SECTION_PY = "py-10 md:py-12";
+
+/** Home page card body — Leading The Industry cards */
+export const HOME_CARD_BODY_CLASS =
+  "text-[#333333] text-[13px] md:text-[14px] leading-relaxed font-normal";
+
+/** Home page point body — Insurance Inspections sections */
+export const HOME_POINT_BODY_CLASS =
+  "text-gray-600 text-[14px] md:text-[15px] leading-relaxed font-medium";
+
+/** Home page point / feature titles — Insurance Inspections */
+export const HOME_POINT_TITLE_CLASS =
+  "text-[#0047AB] font-black text-[13px] md:text-[14px] uppercase tracking-[0.2em] leading-tight";
+
+/** Home hero subtitle — matches components/Hero.tsx */
+export const HOME_HERO_SUBTITLE_CLASS =
+  "font-medium leading-relaxed text-[0.8125rem] sm:text-sm md:text-base lg:text-lg";
 
 /** SWI / Fortified bottom CTA — matched min-height and vertical padding */
 export const SITE_TAB_CTA_SECTION_CLASS =

@@ -29,7 +29,17 @@ const getDynamicEnv = (key: string) => {
 };
 
 export function middleware(req: NextRequest) {
-  // Check if the route is blocked by basic auth
+  const { pathname } = req.nextUrl;
+
+  if (pathname.startsWith('/portal')) {
+    const sessionCookie = req.cookies.get('trinity_portal_session');
+    if (!sessionCookie?.value) {
+      return NextResponse.redirect(new URL('/login', req.url));
+    }
+    return NextResponse.next();
+  }
+
+  // Admin routes: Basic Auth
   const authHeader = req.headers.get('authorization') || req.headers.get('x-forwarded-authorization');
 
   if (authHeader) {
@@ -83,5 +93,5 @@ export function middleware(req: NextRequest) {
 
 // Only apply this middleware to admin routes
 export const config = {
-  matcher: ['/admin/:path*'],
+  matcher: ['/admin/:path*', '/portal/:path*'],
 };
