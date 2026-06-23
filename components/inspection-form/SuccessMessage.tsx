@@ -27,7 +27,7 @@ function VerifiedBadgeIcon() {
 
 export default function SuccessMessage(_props: SuccessMessageProps) {
   return (
-    <div className="fixed inset-x-0 top-16 bottom-0 z-30 flex flex-col items-center justify-center bg-black px-6 text-center">
+    <div className="fixed inset-x-0 top-16 bottom-0 z-30 flex flex-col items-center justify-center bg-white px-6 text-center">
       <VerifiedBadgeIcon />
 
       <h2 className="mt-8 text-lg font-medium tracking-tight text-[#8B9CB3] sm:text-xl">

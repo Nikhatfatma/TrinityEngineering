@@ -39,7 +39,7 @@ export default function InfraredQualitySection() {
               <img
                 src={IR_QUALITY.trainingImageSrc}
                 alt={IR_QUALITY.trainingImageAlt}
-                className="block w-full max-h-[480px] lg:max-h-[540px] object-contain object-right"
+                className="block w-full h-auto aspect-[4/3] lg:aspect-[16/10] xl:aspect-[16/9] lg:object-cover lg:object-center shadow-sm"
               />
             </div>
           </div>

@@ -17,7 +17,7 @@ export default function Section3Desaturation() {
     "px-4 sm:px-6 md:px-8 lg:pr-[calc(2rem+max(0px,(min(100vw,1440px)-4rem-64rem)/2))]";
   const twoColTextLeft = `${textInsetRight} lg:pl-10 xl:pl-12`;
   const imageBleedClass =
-    "max-lg:left-1/2 max-lg:w-[100dvw] max-lg:max-w-none max-lg:-translate-x-1/2 lg:w-full";
+    "w-full max-lg:mb-10 lg:w-full";
 
   return (
     <section
@@ -43,7 +43,7 @@ export default function Section3Desaturation() {
             <img
               src={RT_SECTION_3.imageSrc}
               alt={RT_SECTION_3.imageAlt}
-              className="block w-full h-auto object-contain object-center shadow-sm"
+              className="block w-full h-auto max-h-[360px] object-cover sm:max-h-[480px] lg:max-h-none lg:object-contain object-center shadow-sm"
             />
           </div>
 

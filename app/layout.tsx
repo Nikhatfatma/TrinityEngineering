@@ -6,7 +6,7 @@ import { mulish } from "@/lib/fonts/mulish";
 
 export const metadata: Metadata = {
   title: "Trinity Engineering | Forensic Engineering Investigations & Expert Analysis",
-  description: "Engineering detectives using science to determine root causes of property damage. Licensed PE engineers providing forensic investigations for structural failures, storm damage, water loss, and more. Serving insurance carriers and legal professionals nationwide.",
+  description: "The most trusted and thorough professional forensic engineering inspections and structural design. The highest quality storm data research reports and industry training.",
 };
 
 export default function RootLayout({

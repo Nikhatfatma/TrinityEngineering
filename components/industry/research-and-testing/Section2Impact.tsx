@@ -19,7 +19,7 @@ export default function Section2Impact() {
     "px-4 sm:px-6 md:px-8 lg:pl-[calc(2rem+max(0px,(min(100vw,1440px)-4rem-64rem)/2))]";
   const twoColTextRight = `${textInsetLeft} lg:pr-10 xl:pr-12`;
   const imageBleedClass =
-    "max-lg:left-1/2 max-lg:w-[100dvw] max-lg:max-w-none max-lg:-translate-x-1/2 lg:w-full";
+    "w-full max-lg:mb-10 lg:w-full";
   const imageBlockClass = `relative min-h-[200px] w-full sm:min-h-[260px] lg:h-[340px] lg:min-h-[340px] xl:h-[380px] xl:min-h-[380px] ${imageBleedClass}`;
 
   return (
@@ -76,7 +76,7 @@ export default function Section2Impact() {
             <img
               src={RT_SECTION_2.imageSrc}
               alt={RT_SECTION_2.imageAlt}
-              className="block w-full h-auto object-contain object-center shadow-sm"
+              className="block w-full h-auto max-h-[360px] object-cover sm:max-h-[480px] lg:max-h-none lg:object-contain object-center shadow-sm"
             />
           </div>
         </div>

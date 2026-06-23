@@ -19,7 +19,7 @@ export default function InfraredConfirmationSection() {
   return (
     <section
       id={IR_CONFIRMATION.id}
-      className={`${HOME_SECTION_CLASS} bg-[#F4F5F5] py-[100px]`}
+      className={`${HOME_SECTION_CLASS} bg-[#F4F5F5] ${HOME_SECTION_PY}`}
     >
       <div className={`${IR_SECTION_SHELL} relative z-10 pt-2`}>
         <div className={IR_CONTENT_WIDTH}>

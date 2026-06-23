@@ -164,7 +164,7 @@ function mapFormDataToCreator(data) {
             },
             Date_of_Loss: data.dateOfLoss || "",
             Policy_Number: data.policyNumber || "",
-            Insurance_Document_URL: data.insuranceDocumentUrl || "",
+            ...(data.insuranceDocumentUrl ? { Insurance_Document_URL: data.insuranceDocumentUrl } : {}),
             Adjuster_Company: data.adjusterCompany || "",
             Primary_Client: data.primaryClientType || "",
             Primary_Client_Type_Selection: data.primaryClientType ? [data.primaryClientType] : [],

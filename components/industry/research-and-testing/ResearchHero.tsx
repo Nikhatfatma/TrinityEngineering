@@ -36,7 +36,7 @@ export default function ResearchHero() {
             {/* Text pulled up over the bottom half of the knot */}
             <div
               className="relative z-10 w-full text-center"
-              style={{ marginTop: "clamp(-100px, -14vw, -160px)" }}
+              style={{ marginTop: "clamp(-80px, -6vw, 0px)" }}
             >
               <h1
                 className="mx-auto w-full min-w-0 max-w-5xl break-words font-medium leading-[1.12] tracking-normal text-white lg:whitespace-nowrap"

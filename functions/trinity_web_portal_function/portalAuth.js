@@ -136,11 +136,32 @@ async function handleCreateInvite(catalystApp, { role, email, name, apiKey }) {
 
     const zcql = catalystApp.zcql();
     const existing = await findInvitation(zcql, normalizedEmail);
+    const table = catalystApp.datastore().table('Invitations');
+
     if (existing) {
-        return { success: false, error: 'already invited', message: 'This email has already been invited' };
+        if (existing.role === trimmedRole) {
+            return {
+                success: true,
+                message: 'This email has already been invited with this role',
+                email: normalizedEmail,
+                role: trimmedRole
+            };
+        } else {
+            await table.updateRow({
+                ROWID: existing.ROWID,
+                role: trimmedRole,
+                name: trimmedName,
+                status: INVITE_STATUS_ACTIVE
+            });
+            return {
+                success: true,
+                message: 'Invitation updated successfully',
+                email: normalizedEmail,
+                role: trimmedRole
+            };
+        }
     }
 
-    const table = catalystApp.datastore().table('Invitations');
     await table.insertRow({
         email: normalizedEmail,
         role: trimmedRole,
