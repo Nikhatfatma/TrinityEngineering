@@ -14,8 +14,7 @@ export default function ClaimsStatsSection() {
       <div className={CLAIMS_SECTION_SHELL}>
         <div className={`${CLAIMS_CONTENT_WIDTH} text-center`}>
           <h2 className={`break-words text-[#1A1A1A] ${SITE_SECTION_HEADING_CLASS}`}>
-            <span className="block">{CLAIMS_STATS.titleLine1}</span>
-            <span className="block">{CLAIMS_STATS.titleLine2}</span>
+            {CLAIMS_STATS.titleLine1} {CLAIMS_STATS.titleLine2}
           </h2>
           <p className={`mt-4 ${SITE_BODY_CLASS}`}>{CLAIMS_STATS.intro}</p>
 

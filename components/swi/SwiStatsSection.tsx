@@ -16,8 +16,7 @@ export default function SwiStatsSection() {
           <h2
             className={`break-words text-[#1A1A1A] ${SITE_SECTION_HEADING_CLASS}`}
           >
-            <span className="block">{SWI_STATS.titleLine1}</span>
-            <span className="block">{SWI_STATS.titleLine2}</span>
+            {SWI_STATS.titleLine1} {SWI_STATS.titleLine2}
           </h2>
           <p className={`mt-4 ${SITE_BODY_CLASS}`}>{SWI_STATS.intro}</p>
 

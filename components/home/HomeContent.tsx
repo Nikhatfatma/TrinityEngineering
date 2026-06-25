@@ -33,13 +33,13 @@ export const HOME_STICKY_IMAGE_SIZE_CLASS = "lg:min-h-[520px] xl:min-h-[640px]";
 export const HOME_STACKED_IMAGE_CLASS =
   "block w-full h-auto max-lg:object-contain max-lg:object-center";
 
-/** Section h2 — bold below lg; desktop weight unchanged per section */
-export const HOME_SECTION_HEADING = "max-lg:font-bold";
+/** Section h2 — bold on all viewports */
+export const HOME_SECTION_HEADING = "font-bold";
 
 /** Responsive section h2 font size — see globals.css .site-section-heading */
 export const SITE_SECTION_HEADING_SIZE_CLASS = "site-section-heading";
 
-export const SITE_SECTION_HEADING_CLASS = `tracking-tight leading-[1.2] lg:font-semibold ${HOME_SECTION_HEADING} ${SITE_SECTION_HEADING_SIZE_CLASS}`;
+export const SITE_SECTION_HEADING_CLASS = `tracking-tight leading-[1.2] font-bold ${SITE_SECTION_HEADING_SIZE_CLASS}`;
 
 /** SWI / Fortified / Claims / Careers — matched section vertical padding */
 export const SITE_TAB_SECTION_PY = "py-10 md:py-14 lg:py-16";
@@ -49,7 +49,7 @@ export const HOME_SECTION_PY = "py-10 md:py-12";
 
 /** Home page card body — Leading The Industry cards */
 export const HOME_CARD_BODY_CLASS =
-  "text-[#333333] text-[13px] md:text-[14px] leading-relaxed font-normal";
+  "text-[#333333] text-[15px] leading-relaxed font-normal";
 
 /** Home page point body — Insurance Inspections sections */
 export const HOME_POINT_BODY_CLASS =

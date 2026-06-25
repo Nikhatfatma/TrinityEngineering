@@ -188,11 +188,11 @@ body {
 
 /* Shared tab section headings — larger mobile; desktop uses site default clamp */
 .site-section-heading {
-  font-size: clamp(1.125rem, 3.8vw, 2.625rem);
+  font-size: clamp(1.5rem, 4.5vw, 3rem);
 }
 
 @media (min-width: 1024px) {
   .site-section-heading {
-    font-size: clamp(0.8125rem, 2.19vw, 2.625rem);
+    font-size: clamp(1.25rem, 2.5vw, 3rem);
   }
 }

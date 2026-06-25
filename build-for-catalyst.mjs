@@ -118,6 +118,19 @@ if (fs.existsSync(staticDir)) {
 }
 
 // 4. Create app-config.json for AppSail in the destination folder
+//    Read env_variables from the root app-config.json so we don't have to
+//    maintain two files — any secret added to the root config is picked up here.
+const rootConfigPath = path.join(process.cwd(), 'app-config.json');
+let rootEnvVars = {};
+if (fs.existsSync(rootConfigPath)) {
+  try {
+    const rootConfig = JSON.parse(fs.readFileSync(rootConfigPath, 'utf8'));
+    rootEnvVars = rootConfig.env_variables || {};
+  } catch (e) {
+    console.warn('⚠️ Could not parse root app-config.json; env_variables will be empty.', e.message);
+  }
+}
+
 const appConfig = {
   command: 'node server.js',
   build_path: '.',
@@ -125,6 +138,9 @@ const appConfig = {
   memory: 1024,
   env_variables: {
     PORT: '${X_ZOHO_CATALYST_LISTEN_PORT}',
+    HOSTNAME: '0.0.0.0',
+    ...rootEnvVars,            // merge everything from root app-config.json
+    PORT: '${X_ZOHO_CATALYST_LISTEN_PORT}', // ensure PORT is never overridden
     HOSTNAME: '0.0.0.0',
   },
 };

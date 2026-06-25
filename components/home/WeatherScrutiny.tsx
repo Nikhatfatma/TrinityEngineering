@@ -17,14 +17,13 @@ export default function WeatherScrutiny() {
             HISTORICAL WEATHER ANALYSIS
           </div>
           <h2
-            className={`text-center text-xl leading-[1.2] tracking-tight text-[#1A1A1A] sm:text-2xl md:text-3xl lg:font-semibold lg:text-4xl ${HOME_SECTION_HEADING}`}
-            style={{ fontSize: "clamp(1.5rem, 3vw, 3rem)" }}
+            className={`text-center text-xl leading-[1.2] tracking-tight text-[#1A1A1A] sm:text-2xl md:text-3xl lg:font-bold lg:text-5xl ${HOME_SECTION_HEADING}`}
+            style={{ fontSize: "clamp(1.8rem, 3.5vw, 3.5rem)" }}
           >
             Weather Reporting Built To <span className="lg:font-bold">Withstand Scrutiny.</span>
           </h2>
           <p
-            className="mx-auto mt-5 w-full text-gray-600 text-center tracking-normal font-medium leading-snug"
-            style={{ fontSize: "clamp(0.75rem, 1.05vw, 0.875rem)" }}
+            className="mx-auto mt-5 w-full text-gray-600 text-center tracking-normal font-medium leading-snug text-[15px]"
           >
             <span className="block">
               Forensic-grade hail and severe weather analysis for insurance claims backed by named, reproducible government datasets and
@@ -57,12 +56,12 @@ export default function WeatherScrutiny() {
           </div>
 
           {/* Middle: Content */}
-          <div className="flex h-full flex-col justify-center space-y-8 py-2 md:space-y-10 md:py-4 lg:col-span-1 lg:justify-start lg:space-y-10 lg:-mt-1 lg:pb-4 xl:mt-0 xl:space-y-12">
+          <div className="flex h-full flex-col justify-center space-y-8 py-2 md:space-y-10 md:py-4 lg:col-span-1 lg:justify-start lg:space-y-10 lg:pb-4 xl:space-y-12 -mt-2 sm:-mt-3 lg:-mt-4 xl:-mt-5">
             <div>
               <h3 className="text-[#0047AB] font-black text-[12px] mb-3 uppercase tracking-[0.2em] md:mb-4 md:text-[13px]">
                 BUILT FOR THE DEPOSITION ROOM
               </h3>
-              <p className="text-gray-600 text-[13px] font-medium leading-relaxed md:text-[14px]">
+              <p className="text-gray-600 text-[15px] font-medium leading-relaxed">
                 Every SWI report is built on named, publicly accessible government datasets with documented methodology. When opposing counsel asks how the number was derived, your expert has an answer.
               </p>
             </div>
@@ -70,7 +69,7 @@ export default function WeatherScrutiny() {
               <h3 className="text-[#0047AB] font-black text-[12px] mb-3 uppercase tracking-[0.2em] md:mb-4 md:text-[13px]">
                 5 INDEPENDENT DATA SOURCES
               </h3>
-              <p className="text-gray-600 text-[13px] font-medium leading-relaxed md:text-[14px]">
+              <p className="text-gray-600 text-[15px] font-medium leading-relaxed">
                 Storm Events, NEXRAD radar, ASOS stations, IEM reports, and SPC Discussions are cross-referenced with PE-verified empirical data — no single point of failure.
               </p>
             </div>
@@ -78,7 +77,7 @@ export default function WeatherScrutiny() {
               <h3 className="text-[#0047AB] font-black text-[12px] mb-3 uppercase tracking-[0.2em] md:mb-4 md:text-[13px]">
                 EMPIRICAL DATA INTEGRATION
               </h3>
-              <p className="text-gray-600 text-[13px] font-medium leading-relaxed md:text-[14px]">
+              <p className="text-gray-600 text-[15px] font-medium leading-relaxed">
                 SWI reports are produced by Trinity Engineering as part of the forensic process. The weather analysis and engineering findings arrive together from the same source.
               </p>
             </div>

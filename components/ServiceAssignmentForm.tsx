@@ -159,7 +159,7 @@ export default function ServiceAssignmentForm({ serviceType = "" }: ServiceAssig
               check_circle
             </span>
           </div>
-          <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-4">
+          <h2 className="text-4xl font-bold text-gray-900 dark:text-white mb-4">
             Assignment Submitted Successfully!
           </h2>
           <p className="text-lg text-gray-600 dark:text-gray-400 mb-8">

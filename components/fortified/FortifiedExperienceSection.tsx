@@ -20,8 +20,7 @@ export default function FortifiedExperienceSection() {
           <h2
             className={`break-words text-[#1A1A1A] ${SITE_SECTION_HEADING_CLASS}`}
           >
-            <span className="block">{FORTIFIED_EXPERIENCE.titleLine1}</span>
-            <span className="block">{FORTIFIED_EXPERIENCE.titleLine2}</span>
+            {FORTIFIED_EXPERIENCE.titleLine1} {FORTIFIED_EXPERIENCE.titleLine2}
           </h2>
 
           <div className={`mt-4 space-y-4 ${SITE_BODY_CLASS}`}>

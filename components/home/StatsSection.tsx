@@ -75,7 +75,7 @@ export default function StatsSection() {
 
   return (
     <section
-      className={`${HOME_SECTION_CLASS} min-h-[22rem] overflow-hidden bg-[#E8F1FC] py-12 sm:min-h-[24rem] sm:py-14 md:min-h-[26rem] md:py-16 lg:min-h-[28rem] lg:py-16`}
+      className={`${HOME_SECTION_CLASS} min-h-[16rem] overflow-hidden bg-[#E8F1FC] py-8 sm:min-h-[18rem] sm:py-10 md:min-h-[20rem] md:py-12 lg:min-h-[22rem] lg:py-12`}
     >
         {/* House watermark — bottom center, high visibility */}
         <img
@@ -95,7 +95,7 @@ export default function StatsSection() {
 
         <div className={`${HOME_CONTENT_CLASS} relative z-10 flex min-h-[inherit] flex-col justify-center py-2 text-center sm:py-4`}>
           <div className={HOME_TEXT_WIDTH}>
-          <h2 className={`mx-auto mb-7 w-full break-words text-center text-[#1A1A1A] sm:mb-8 md:mb-10 ${SITE_SECTION_HEADING_CLASS}`}>
+          <h2 className={`mx-auto mb-4 w-full break-words text-center text-[#1A1A1A] sm:mb-5 md:mb-6 ${SITE_SECTION_HEADING_CLASS}`}>
             Industry-Recognized Insurance Claims Expertise
           </h2>
 

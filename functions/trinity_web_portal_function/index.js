@@ -1821,6 +1821,85 @@ module.exports = async (context, basicIO) => {
                 context.close();
             }
 
+            // ================================================================
+            // ACTION: webhookDeleteCompany
+            // Real-time delete triggered by Zoho Creator On Delete Workflow
+            // Params: zoho_creator_id
+            // ================================================================
+        } else if (action === 'webhookDeleteCompany') {
+            try {
+                const creatorId = String(basicIO.getArgument('zoho_creator_id') || '').trim();
+
+                console.log('[webhookDeleteCompany] Incoming:', { creatorId });
+
+                if (!creatorId) {
+                    basicIO.write(JSON.stringify({ success: false, error: 'zoho_creator_id is required' }));
+                    context.close();
+                    return;
+                }
+
+                const zcql = catalystApp.zcql();
+                const table = catalystApp.datastore().table('InsuranceCompanies');
+
+                // Step 1: Find the company ROWID
+                const query = `SELECT ROWID FROM InsuranceCompanies WHERE zoho_creator_id = '${creatorId}'`;
+                const existing = await zcql.executeZCQLQuery(query);
+
+                if (!existing || existing.length === 0) {
+                    console.log('[webhookDeleteCompany] Company not found in local DB for ID:', creatorId);
+                    basicIO.write(JSON.stringify({ success: false, error: 'Company not found in local DB' }));
+                    context.close();
+                    return;
+                }
+
+                const companyRowId = existing[0].InsuranceCompanies.ROWID;
+
+                // Step 2: Delete all related aliases (cascade)
+                let aliasesDeleted = 0;
+                try {
+                    const aliasTable = catalystApp.datastore().table('InsuranceAliases');
+                    const aliasRows = await zcql.executeZCQLQuery(
+                        `SELECT ROWID FROM InsuranceAliases WHERE company_id = ${companyRowId}`
+                    );
+                    for (const aliasRow of (aliasRows || [])) {
+                        try {
+                            await aliasTable.deleteRow(aliasRow.InsuranceAliases.ROWID);
+                            aliasesDeleted++;
+                        } catch (aliasDelErr) {
+                            console.error('[webhookDeleteCompany] Failed to delete alias row:', aliasDelErr.message);
+                        }
+                    }
+                    console.log(`[webhookDeleteCompany] Deleted ${aliasesDeleted} alias(es) for company ${creatorId}`);
+                } catch (aliasErr) {
+                    // Aliases table may not exist yet — proceed with company deletion
+                    console.warn('[webhookDeleteCompany] Alias cleanup skipped (table may not exist):', aliasErr.message);
+                }
+
+                // Step 3: Delete the company row
+                await table.deleteRow(companyRowId);
+
+                console.log('[webhookDeleteCompany] DELETED company:', creatorId, '| Aliases removed:', aliasesDeleted);
+
+                basicIO.write(JSON.stringify({
+                    success: true,
+                    message: 'Company deleted successfully',
+                    aliasesDeleted
+                }));
+
+            } catch (err) {
+                console.error('webhookDeleteCompany Error:', err);
+                await notifyFailureOnCliq({
+                    rowId: '',
+                    payload: JSON.stringify({ zoho_creator_id: basicIO.getArgument('zoho_creator_id') }),
+                    claimNumber: 'N/A (Webhook)',
+                    adjusterEmail: 'N/A',
+                    errorDetails: `webhookDeleteCompany failed for ID ${basicIO.getArgument('zoho_creator_id') || 'unknown'}: ${err.message}`,
+                    createdTime: new Date().toISOString()
+                });
+                basicIO.write(JSON.stringify({ success: false, error: err.message }));
+            }
+            context.close();
+
         } else if (action === 'createInvite') {
             const result = await portalAuth.handleCreateInvite(catalystApp, {
                 role: getArg('role'),

@@ -12,10 +12,10 @@ import {
 } from "@/components/home/HomeContent";
 
 const STEP_EYEBROW_CLASS =
-  "text-[11px] font-medium normal-case tracking-normal text-[#2563EB] md:text-[12px]";
+  "text-[12px] font-medium normal-case tracking-normal text-[#2563EB]";
 
 const STEP_HEADING_CLASS =
-  "text-[15px] font-bold normal-case leading-snug text-[#1A1A1A] md:text-[16px]";
+  "text-[18px] font-bold normal-case leading-snug text-[#1A1A1A]";
 
 function StepTags({ tags }: { tags: readonly string[] }) {
   if (tags.length === 0) return null;

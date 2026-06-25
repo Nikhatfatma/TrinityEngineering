@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { HOME_CONTENT_CLASS, HOME_SECTION_CLASS, SITE_SECTION_HEADING_CLASS, HOME_TEXT_WIDTH } from "./HomeContent";
+import { HOME_CONTENT_CLASS, HOME_SECTION_CLASS, SITE_SECTION_HEADING_CLASS, HOME_TEXT_WIDTH, HOME_CARD_BODY_CLASS } from "./HomeContent";
 
 export default function LeadingIndustry() {
   const cards = [
@@ -51,7 +51,7 @@ export default function LeadingIndustry() {
                 <h3 className="mx-auto w-full max-w-full bg-[#E6F0FF] text-[#0056B3] text-center font-bold text-[13px] md:text-[15px] leading-snug py-2.5 md:py-3 px-3 md:px-4 rounded-none">
                   {card.title}
                 </h3>
-                <p className="mt-4 flex-1 text-[#333333] text-[13px] md:text-[14px] leading-relaxed font-normal text-left">
+                <p className={`mt-4 flex-1 text-left ${HOME_CARD_BODY_CLASS}`}>
                   {card.desc}
                 </p>
                 <div className="mt-5 flex justify-center">

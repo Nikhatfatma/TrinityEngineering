@@ -55,8 +55,8 @@ export default function InsuranceInspections() {
               INSURANCE CLAIM INSPECTIONS
             </div>
             <h2 className={`mx-auto w-full break-words text-center text-[#1A1A1A] ${SITE_SECTION_HEADING_CLASS}`}>
-              <span className="block">Get Clear, Definitive Answers On Damage And Repairability For You And</span>
-              <span className="block">Your Clients - Fast</span>
+              <span className="block">Get Clear, Definitive Answers On Damage And Repairability</span>
+              <span className="block">For You And Your Clients - Fast</span>
             </h2>
           </div>
 

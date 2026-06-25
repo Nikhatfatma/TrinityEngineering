@@ -21,15 +21,14 @@ export function PortalAuthShell({ children }: PortalAuthShellProps) {
 }
 
 interface LoginStepsProps {
-  current: 1 | 2 | 3;
+  current: 1 | 2;
   compact?: boolean;
 }
 
 export function LoginSteps({ current, compact = false }: LoginStepsProps) {
   const steps = [
-    { n: 1, label: "Role" },
-    { n: 2, label: "Email" },
-    { n: 3, label: "Code" },
+    { n: 1, label: "Email" },
+    { n: 2, label: "Code" },
   ] as const;
 
   return (
@@ -247,7 +246,7 @@ export function PortalAuthAlert({
   const styles =
     type === "error"
       ? "border-red-200 bg-red-50 text-red-700 dark:border-red-800 dark:bg-red-900/20 dark:text-red-300"
-      : "border-green-200 bg-green-50 text-green-700 dark:border-green-800 dark:bg-green-900/20 dark:text-green-300";
+      : "border-gray-300 bg-gray-100 text-gray-700 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300";
 
   return (
     <div

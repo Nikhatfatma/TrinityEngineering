@@ -75,7 +75,7 @@ export default function AdjusterTraining() {
                       <h3 className="text-[#0047AB] font-black text-[13px] md:text-[14px] mb-3 uppercase tracking-wider transition-colors">
                         {point.title}
                       </h3>
-                      <p className="text-gray-500 text-[13px] md:text-[14px] leading-relaxed">
+                      <p className="text-gray-500 text-[15px] leading-relaxed">
                         {point.desc}
                       </p>
                     </div>

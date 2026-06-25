@@ -185,7 +185,7 @@ async function handleCheckInvite(catalystApp, { email, role }) {
 
     const invite = await findInvitation(catalystApp.zcql(), normalizedEmail);
     if (!invite || !isInviteActive(invite.status)) {
-        return { success: true, invited: false, message: 'You are not invited to this portal.' };
+        return { success: true, invited: false, message: 'You have not yet been invited.' };
     }
 
     if (role) {
@@ -298,17 +298,22 @@ async function handleRequestOtp(catalystApp, { email, role }) {
 
     const invite = await findInvitation(catalystApp.zcql(), normalizedEmail);
     if (!invite || !isInviteActive(invite.status)) {
-        return { success: false, notInvited: true, error: 'You are not invited to this portal.' };
+        return { success: false, notInvited: true, error: 'You have not yet been invited.' };
     }
 
-    const roleCheck = validateSelectedRole(role, invite.role);
-    if (!roleCheck.ok) {
-        return {
-            success: false,
-            roleMismatch: true,
-            expectedRole: roleCheck.expectedRole,
-            error: roleCheck.error
-        };
+    // When role is not provided by the user, use the invite's role directly
+    const effectiveRole = role ? normalizePortalRole(role) : normalizePortalRole(invite.role);
+    if (role) {
+        // Only validate role mismatch when user explicitly provided one
+        const roleCheck = validateSelectedRole(effectiveRole, invite.role);
+        if (!roleCheck.ok) {
+            return {
+                success: false,
+                roleMismatch: true,
+                expectedRole: roleCheck.expectedRole,
+                error: roleCheck.error
+            };
+        }
     }
 
     const zcql = catalystApp.zcql();
@@ -406,17 +411,22 @@ async function handleVerifyOtp(catalystApp, { email, otp, role }) {
 
     const invite = await findInvitation(catalystApp.zcql(), normalizedEmail);
     if (!invite || !isInviteActive(invite.status)) {
-        return { success: false, notInvited: true, error: 'You are not invited to this portal.' };
+        return { success: false, notInvited: true, error: 'You have not yet been invited.' };
     }
 
-    const roleCheck = validateSelectedRole(role, invite.role);
-    if (!roleCheck.ok) {
-        return {
-            success: false,
-            roleMismatch: true,
-            expectedRole: roleCheck.expectedRole,
-            error: roleCheck.error
-        };
+    // When role is not provided by the user, use the invite's role directly
+    const effectiveRole = role ? normalizePortalRole(role) : normalizePortalRole(invite.role);
+    if (role) {
+        // Only validate role mismatch when user explicitly provided one
+        const roleCheck = validateSelectedRole(effectiveRole, invite.role);
+        if (!roleCheck.ok) {
+            return {
+                success: false,
+                roleMismatch: true,
+                expectedRole: roleCheck.expectedRole,
+                error: roleCheck.error
+            };
+        }
     }
 
     const zcql = catalystApp.zcql();

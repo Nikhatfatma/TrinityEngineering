@@ -9,7 +9,7 @@ const STEP_EYEBROW_CLASS =
   "text-[11px] font-medium normal-case tracking-normal text-[#2563EB] md:text-[12px]";
 
 const STEP_TITLE_CLASS =
-  "text-[15px] font-bold normal-case leading-snug text-[#1A1A1A] md:text-[16px]";
+  "text-[18px] font-bold normal-case leading-snug text-[#1A1A1A]";
 
 function MethodologyTags({ tags }: { tags: readonly string[] }) {
   return (

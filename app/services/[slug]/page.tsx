@@ -661,7 +661,7 @@ export default async function ServicePage({ params }: { params: Promise<{ slug: 
         <div className="max-w-7xl mx-auto px-6">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
             <div>
-              <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-6">
+              <h2 className="text-4xl font-bold text-gray-900 dark:text-white mb-6">
                 Overview
               </h2>
               <p className="text-base text-gray-600 dark:text-gray-400 leading-relaxed mb-6">
@@ -704,7 +704,7 @@ export default async function ServicePage({ params }: { params: Promise<{ slug: 
       <section className="py-20 bg-white dark:bg-section-dark">
         <div className="max-w-7xl mx-auto px-6">
           <div className="text-center mb-12">
-            <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-4">
+            <h2 className="text-4xl font-bold text-gray-900 dark:text-white mb-4">
               Services & Solutions
             </h2>
             <p className="text-base text-gray-600 dark:text-gray-400 max-w-2xl mx-auto">
@@ -738,7 +738,7 @@ export default async function ServicePage({ params }: { params: Promise<{ slug: 
       <section className="py-20 bg-gray-50 dark:bg-background-dark">
         <div className="max-w-7xl mx-auto px-6">
           <div className="text-center mb-12">
-            <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-4">
+            <h2 className="text-4xl font-bold text-gray-900 dark:text-white mb-4">
               Perils Assessed
             </h2>
             <p className="text-base text-gray-600 dark:text-gray-400 max-w-2xl mx-auto">
@@ -767,7 +767,7 @@ export default async function ServicePage({ params }: { params: Promise<{ slug: 
       <section className="py-20 bg-white dark:bg-section-dark">
         <div className="max-w-7xl mx-auto px-6">
           <div className="text-center mb-12">
-            <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-4">
+            <h2 className="text-4xl font-bold text-gray-900 dark:text-white mb-4">
               Our Investigation Process
             </h2>
             <p className="text-base text-gray-600 dark:text-gray-400 max-w-2xl mx-auto">

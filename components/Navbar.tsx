@@ -138,7 +138,7 @@ export default function Navbar() {
             href="/"
             className="flex items-center min-w-0 flex-1 lg:flex-none lg:w-[168px] xl:w-[250px] max-w-[42%] min-[400px]:max-w-[48%] sm:max-w-none shrink-0"
           >
-            <span className="relative block h-6 w-full max-w-full min-[400px]:h-7 sm:h-8 lg:h-[55px] xl:h-[60px]">
+            <span className={`relative block h-9 w-full max-w-full min-[400px]:h-10 sm:h-11 ${isSolidHeader ? "lg:h-[58px] xl:h-[66px]" : "lg:h-[65px] xl:h-[75px]"} transition-all duration-500`}>
               {hasMediaHero && (
                 <img
                   src="/logo-transparent.png"
@@ -209,51 +209,51 @@ export default function Navbar() {
               isSolidHeader ? "text-gray-900" : "text-white"
             }`}
           >
-            <a href="tel:8559295888" className="transition-colors hover:opacity-70 whitespace-nowrap">
+            <span className="transition-colors whitespace-nowrap">
               (855) 929-5888
-            </a>
+            </span>
             {showAuthNav && (
               <>
                 <span className="hidden opacity-40 xl:inline">|</span>
-                {portalUser ? (
-                <button
-                  type="button"
-                  onClick={handleLogout}
-                  className={authLinkClass}
-                >
-                  <span className="relative z-10 transition-transform duration-500 group-hover/login:-translate-x-1">
-                    LOGOUT
-                  </span>
-                  <span
-                    className={`absolute right-0 opacity-0 -translate-x-2 transition-all duration-500 group-hover/login:opacity-100 group-hover/login:translate-x-6 ${
-                      isSolidHeader ? "text-blue-500" : "text-white"
-                    }`}
+                {portalUser && pathname.startsWith("/portal") ? (
+                  <button
+                    type="button"
+                    onClick={handleLogout}
+                    className={authLinkClass}
                   >
-                    →
-                  </span>
-                </button>
-              ) : (
-                <Link href="/login" className={authLinkClass}>
-                  <span className="relative z-10 transition-transform duration-500 group-hover/login:-translate-x-1">
-                    LOGIN
-                  </span>
-                  <span
-                    className={`absolute right-0 opacity-0 -translate-x-2 transition-all duration-500 group-hover/login:opacity-100 group-hover/login:translate-x-6 ${
-                      isSolidHeader ? "text-blue-500" : "text-white"
-                    }`}
-                  >
-                    →
-                  </span>
-                </Link>
-              )}
+                    <span className="relative z-10 transition-transform duration-500 group-hover/login:-translate-x-1">
+                      LOGOUT
+                    </span>
+                    <span
+                      className={`absolute right-0 opacity-0 -translate-x-2 transition-all duration-500 group-hover/login:opacity-100 group-hover/login:translate-x-6 ${
+                        isSolidHeader ? "text-blue-500" : "text-white"
+                      }`}
+                    >
+                      →
+                    </span>
+                  </button>
+                ) : (
+                  <Link href="/login" className={authLinkClass}>
+                    <span className="relative z-10 transition-transform duration-500 group-hover/login:-translate-x-1">
+                      LOGIN
+                    </span>
+                    <span
+                      className={`absolute right-0 opacity-0 -translate-x-2 transition-all duration-500 group-hover/login:opacity-100 group-hover/login:translate-x-6 ${
+                        isSolidHeader ? "text-blue-500" : "text-white"
+                      }`}
+                    >
+                      →
+                    </span>
+                  </Link>
+                )}
               </>
             )}
           </div>
 
           <div className="lg:hidden flex items-center gap-1 sm:gap-1.5 shrink-0">
-            <a href="tel:8559295888" className={mobilePhoneClass}>
+            <span className={mobilePhoneClass}>
               (855) 929-5888
-            </a>
+            </span>
             <button
               type="button"
               aria-label={mobileMenuOpen ? "Close menu" : "Open menu"}
@@ -344,7 +344,7 @@ export default function Navbar() {
 
               {showAuthNav && (
                 <div className="mt-3 border-t border-gray-100 pt-3 space-y-2">
-                  {portalUser ? (
+                  {portalUser && pathname.startsWith("/portal") ? (
                     <button
                       type="button"
                       onClick={handleLogout}

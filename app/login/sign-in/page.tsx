@@ -70,7 +70,7 @@ function SignInContent() {
       const otpData = await otpRes.json();
       if (!otpData.success) {
         if (otpData.roleMismatch) setError(otpData.error || "Selected role does not match your invitation.");
-        else if (otpData.notInvited) setError("You are not invited to this portal.");
+        else if (otpData.notInvited) setError("You have not yet been invited.");
         else setError(otpData.error || "Could not send verification code.");
         if (otpData.cooldownSeconds) setResendCooldown(otpData.cooldownSeconds);
         return;
@@ -156,7 +156,7 @@ function SignInContent() {
     <PortalAuthShell>
       <div className="mx-auto w-full max-w-lg">
         <PortalAuthCard compact>
-          <LoginSteps current={isOtpStep ? 3 : 2} compact />
+          <LoginSteps current={isOtpStep ? 2 : 1} compact />
           <PortalAuthHeader
             compact
             title={isOtpStep ? "Enter Code" : "Sign In"}
