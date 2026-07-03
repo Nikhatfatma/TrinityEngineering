@@ -20,7 +20,7 @@ export default function Hero() {
           </p>
 
           <h1
-            className="text-left font-black mt-2 sm:mt-3 lg:mt-4 tracking-tight leading-[0.92] uppercase text-white drop-shadow-sm break-words text-[1.75rem] sm:text-[2.5rem] md:text-[3.125rem] lg:text-[4rem] xl:text-[5.25rem]"
+            className="text-left font-black mt-3 sm:mt-4 lg:mt-5 tracking-tight leading-[0.92] uppercase text-white drop-shadow-sm break-words text-[1.75rem] sm:text-[2.5rem] md:text-[3.125rem] lg:text-[4rem] xl:text-[5.25rem]"
           >
             TRINITY ENGINEERING
           </h1>

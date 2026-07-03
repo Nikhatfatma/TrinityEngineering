@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Menu, X, ArrowRight } from "lucide-react";
+import { Menu, X, ArrowRight, User, LogOut } from "lucide-react";
 
 interface PortalUser {
   email: string;
@@ -13,13 +13,17 @@ interface PortalUser {
 export default function Navbar() {
   const [scrolled, setScrolled] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
   const [portalUser, setPortalUser] = useState<PortalUser | null>(null);
+  const [authLoading, setAuthLoading] = useState(true);
+  const [hasLocalSession, setHasLocalSession] = useState(false);
   const pathname = usePathname();
   const hasMediaHero =
     pathname === "/" ||
     pathname === "/claims" ||
     pathname === "/swi" ||
     pathname === "/fortified" ||
+    pathname === "/education" ||
     pathname.startsWith("/industry/");
   // pathname === "/careers"; // In-app careers tab — restore when re-enabled
   const isSolidHeader = scrolled || !hasMediaHero;
@@ -45,6 +49,12 @@ export default function Navbar() {
   }, [pathname]);
 
   useEffect(() => {
+    if (typeof window !== "undefined") {
+      setHasLocalSession(localStorage.getItem("portal_logged_in") === "true");
+    }
+  }, [pathname]);
+
+  useEffect(() => {
     let cancelled = false;
     fetch("/api/portal/session")
       .then((res) => res.json())
@@ -52,12 +62,23 @@ export default function Navbar() {
         if (cancelled) return;
         if (data.valid && data.user) {
           setPortalUser(data.user);
+          localStorage.setItem("portal_logged_in", "true");
+          setHasLocalSession(true);
         } else {
           setPortalUser(null);
+          localStorage.removeItem("portal_logged_in");
+          setHasLocalSession(false);
         }
       })
       .catch(() => {
-        if (!cancelled) setPortalUser(null);
+        if (!cancelled) {
+          setPortalUser(null);
+          localStorage.removeItem("portal_logged_in");
+          setHasLocalSession(false);
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setAuthLoading(false);
       });
     return () => {
       cancelled = true;
@@ -69,6 +90,8 @@ export default function Navbar() {
       await fetch("/api/portal/logout", { method: "POST" });
     } finally {
       setPortalUser(null);
+      localStorage.removeItem("portal_logged_in");
+      setHasLocalSession(false);
       setMobileMenuOpen(false);
       window.location.href = "/login";
     }
@@ -99,7 +122,7 @@ export default function Navbar() {
     };
   }, [mobileMenuOpen]);
 
-  const navItems = ["HOME", "CLAIMS", "SWI", "FORTIFIED", "CAREERS"];
+  const navItems = ["HOME", "CLAIMS", "SWI", "FORTIFIED", "CAREERS", "EDUCATION"];
 
   /** External careers portal — replace internal `/careers` route for now */
   const CAREERS_EXTERNAL_URL = "https://careers.trinitypllc.com/jobs/Careers";
@@ -159,11 +182,11 @@ export default function Navbar() {
             </span>
           </Link>
 
-          <div className="hidden lg:flex flex-1 min-w-0 items-center justify-center gap-0 xl:gap-1 px-1 xl:px-4">
+          <div className="hidden lg:flex flex-1 min-w-0 items-center justify-start xl:justify-center gap-0 lg:pl-6 xl:pl-0 xl:gap-0.5 px-1 xl:px-4">
             {navItems.map((item) => {
               const href = getNavHref(item);
               const isActive = isNavActive(item);
-              const linkClass = `relative shrink-0 px-2.5 py-2 text-[10px] tracking-[0.14em] transition-colors duration-300 group xl:px-6 xl:text-[12px] xl:tracking-[0.2em] ${
+              const linkClass = `relative shrink-0 px-1.5 lg:px-2.5 py-2 text-[10px] tracking-[0.14em] transition-colors duration-300 group xl:px-5 xl:text-[12px] xl:tracking-[0.2em] ${
                     isActive
                       ? isSolidHeader
                         ? "font-bold text-[#0047AB]"
@@ -205,7 +228,7 @@ export default function Navbar() {
           </div>
 
           <div
-            className={`hidden lg:flex items-center gap-3 text-[10px] font-bold tracking-[0.08em] shrink-0 xl:gap-8 xl:text-[12px] xl:tracking-[0.1em] ${
+            className={`hidden lg:flex items-center gap-2 text-[10px] font-bold tracking-[0.08em] shrink-0 xl:gap-4 xl:text-[12px] xl:tracking-[0.1em] ${
               isSolidHeader ? "text-gray-900" : "text-white"
             }`}
           >
@@ -215,23 +238,88 @@ export default function Navbar() {
             {showAuthNav && (
               <>
                 <span className="hidden opacity-40 xl:inline">|</span>
-                {portalUser && pathname.startsWith("/portal") ? (
-                  <button
-                    type="button"
-                    onClick={handleLogout}
-                    className={authLinkClass}
-                  >
-                    <span className="relative z-10 transition-transform duration-500 group-hover/login:-translate-x-1">
-                      LOGOUT
-                    </span>
-                    <span
-                      className={`absolute right-0 opacity-0 -translate-x-2 transition-all duration-500 group-hover/login:opacity-100 group-hover/login:translate-x-6 ${
-                        isSolidHeader ? "text-blue-500" : "text-white"
+                {authLoading ? (
+                  hasLocalSession ? (
+                    <div className="w-[80px] h-[24px] opacity-0"></div>
+                  ) : (
+                    <Link href="/login" className={authLinkClass}>
+                      <span className="relative z-10 transition-transform duration-500 group-hover/login:-translate-x-1">
+                        LOGIN
+                      </span>
+                      <span
+                        className={`absolute right-0 opacity-0 -translate-x-2 transition-all duration-500 group-hover/login:opacity-100 group-hover/login:translate-x-6 ${
+                          isSolidHeader ? "text-blue-500" : "text-white"
+                        }`}
+                      >
+                        →
+                      </span>
+                    </Link>
+                  )
+                ) : portalUser && pathname.startsWith("/portal") ? (
+                  <div className="relative">
+                    <button
+                      type="button"
+                      onClick={() => setProfileDropdownOpen(!profileDropdownOpen)}
+                      className={`flex items-center gap-2 px-1.5 py-1.5 rounded-full border transition-all duration-300 ${
+                        isSolidHeader
+                          ? "border-gray-200 hover:border-blue-500 hover:shadow-md bg-white/50"
+                          : "border-white/20 hover:border-white/60 bg-white/10 hover:bg-white/20"
                       }`}
                     >
-                      →
+                      <div className={`w-7 h-7 rounded-full flex items-center justify-center shrink-0 ${
+                        isSolidHeader ? "bg-[#0047AB] text-white" : "bg-white/20 text-white"
+                      }`}>
+                        <User size={14} strokeWidth={2.5} />
+                      </div>
+                      <span className={`text-[11px] font-bold tracking-wider pr-2 truncate max-w-[100px] ${
+                        isSolidHeader ? "text-gray-900" : "text-white"
+                      }`}>
+                        {portalUser.name?.split(' ')[0] || "PROFILE"}
+                      </span>
+                    </button>
+                    {profileDropdownOpen && (
+                      <>
+                        <div className="fixed inset-0 z-40" onClick={() => setProfileDropdownOpen(false)} />
+                        <div className="absolute right-0 mt-3 w-64 rounded-2xl bg-white/80 backdrop-blur-xl shadow-[0_8px_30px_rgb(0,0,0,0.12)] border border-white z-50 overflow-hidden transform opacity-100 scale-100 transition-all duration-200 origin-top-right">
+                          <div className="px-5 py-4 bg-gradient-to-br from-white/90 to-blue-50/80 border-b border-gray-100/50">
+                            <p className="text-sm font-extrabold text-gray-900 truncate tracking-tight">{portalUser.name}</p>
+                            <p className="text-xs font-medium text-gray-500 truncate mt-0.5">{portalUser.email}</p>
+                          </div>
+                          <div className="p-2">
+                            <button
+                              onClick={handleLogout}
+                              className="group flex items-center gap-3 w-full text-left px-3 py-2.5 text-[11px] font-black tracking-widest text-gray-500 rounded-xl hover:bg-gray-100 hover:text-gray-900 transition-all duration-300 uppercase"
+                            >
+                              <div className="w-7 h-7 rounded-full bg-gray-50 flex items-center justify-center group-hover:bg-gray-200 transition-colors text-gray-400 group-hover:text-gray-700">
+                                <LogOut size={13} strokeWidth={2.5} />
+                              </div>
+                              LOGOUT
+                            </button>
+                          </div>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                ) : portalUser ? (
+                  <Link
+                    href="/portal/claims"
+                    className={`flex items-center gap-2 px-1.5 py-1.5 rounded-full border transition-all duration-300 group/profile ${
+                      isSolidHeader
+                        ? "border-gray-200 hover:border-blue-500 hover:shadow-md bg-white/50"
+                        : "border-white/20 hover:border-white/60 bg-white/10 hover:bg-white/20"
+                    }`}
+                  >
+                    <div className={`w-7 h-7 rounded-full flex items-center justify-center shrink-0 transition-transform duration-300 group-hover/profile:scale-110 ${
+                      isSolidHeader ? "bg-gradient-to-br from-[#0047AB] to-[#001D3D] text-white shadow-sm" : "bg-white text-[#0047AB]"
+                    }`}>
+                      <User size={14} strokeWidth={2.5} />
+                    </div>
+                    <span className={`text-[11px] font-bold tracking-wider pr-2 truncate max-w-[100px] ${
+                      isSolidHeader ? "text-gray-900" : "text-white"
+                    }`}>
+                      {portalUser.name?.split(' ')[0] || "PROFILE"}
                     </span>
-                  </button>
+                  </Link>
                 ) : (
                   <Link href="/login" className={authLinkClass}>
                     <span className="relative z-10 transition-transform duration-500 group-hover/login:-translate-x-1">
@@ -345,14 +433,43 @@ export default function Navbar() {
               {showAuthNav && (
                 <div className="mt-3 border-t border-gray-100 pt-3 space-y-2">
                   {portalUser && pathname.startsWith("/portal") ? (
-                    <button
-                      type="button"
-                      onClick={handleLogout}
-                      className="flex w-full items-center justify-center gap-1.5 rounded-md bg-[#001D3D] px-3 py-2.5 text-[10px] font-black tracking-[0.18em] text-white shadow-md transition-colors hover:bg-[#0047AB]"
+                    <div className="bg-gradient-to-b from-white to-gray-50/50 rounded-2xl p-4 border border-gray-100/80 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.05)] mt-4">
+                      <div className="flex items-center gap-3.5 mb-4 pb-4 border-b border-gray-100">
+                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#0047AB] to-[#001D3D] text-white flex items-center justify-center shrink-0 shadow-sm">
+                          <User size={18} strokeWidth={2.5} />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-[14px] font-extrabold text-gray-900 truncate tracking-tight">{portalUser.name}</p>
+                          <p className="text-[11px] font-medium text-gray-500 truncate mt-0.5">{portalUser.email}</p>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={handleLogout}
+                        className="flex w-full items-center justify-center gap-2 rounded-xl bg-gray-50 text-gray-700 border border-gray-100 px-4 py-3 text-[11px] font-black tracking-[0.18em] transition-all duration-300 hover:bg-gray-100 hover:text-gray-900 uppercase shadow-sm"
+                      >
+                        <LogOut size={14} strokeWidth={2.5} className="text-gray-500" />
+                        LOGOUT
+                      </button>
+                    </div>
+                  ) : portalUser ? (
+                    <Link
+                      href="/portal/claims"
+                      onClick={() => setMobileMenuOpen(false)}
+                      className="flex items-center justify-between w-full p-2 pl-2 pr-4 rounded-xl bg-gradient-to-r from-gray-50 to-white border border-gray-100 shadow-[0_2px_10px_-2px_rgba(0,0,0,0.05)] transition-all active:scale-[0.98] mt-2 group/mlink"
                     >
-                      LOGOUT
-                      <ArrowRight size={12} strokeWidth={2.5} className="shrink-0" />
-                    </button>
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#0047AB] to-[#001D3D] text-white flex items-center justify-center shrink-0 shadow-sm transition-transform duration-300 group-hover/mlink:scale-105">
+                          <User size={18} strokeWidth={2.5} />
+                        </div>
+                        <span className="text-[13px] font-extrabold text-gray-900 tracking-tight truncate max-w-[160px]">
+                          {portalUser.name || "PROFILE"}
+                        </span>
+                      </div>
+                      <div className="w-7 h-7 rounded-full bg-[#E6F0FF] flex items-center justify-center">
+                        <ArrowRight size={14} strokeWidth={2.5} className="text-[#0056B3]" />
+                      </div>
+                    </Link>
                   ) : (
                     <Link
                       href="/login"

@@ -32,6 +32,7 @@ import {
   Send,
   X,
   Plus,
+  Trash2,
   Gavel,
   Settings, // fallback for component failure
   FileText,
@@ -41,7 +42,8 @@ import {
   AlertTriangle,
   Calendar,
   UserCheck,
-  Upload
+  Upload,
+  Bookmark
 } from "lucide-react";
 import { isValidEmail, isValidPhoneNumber, isValidZipCode, validateIaRecipients, type IaRecipient, validateAdjusterEmails, type AdjusterEmail, isValidMMDDYYYY, type ContactEmail, validateContactEmails } from "@/lib/utils/validation";
 import { DatePicker } from "@/components/inspection-form/DatePicker";
@@ -92,7 +94,7 @@ function getAvailableBuildingTypes(inspectionType: string) {
   return BUILDING_TYPES;
 }
 
-/* Insurance companies are now fetched from the database via API — no hardcoded list */
+/* Insurance companies are now fetched from the database via API â€” no hardcoded list */
 
 const MAX_IA_EMAILS = 3;
 const MAX_ADJ_EMAILS = 3;
@@ -231,6 +233,183 @@ export default function SubmitInspectionPage() {
   const [currentStep, setCurrentStep] = useState(0);
   const [maxCompletedStep, setMaxCompletedStep] = useState(0);
   const [formData, setFormData] = useState<FormData>(INITIAL_FORM_DATA);
+  const [portalUser, setPortalUser] = useState<{ email: string; name: string; role: string } | null>(null);
+
+  // Load session and Carrier preferences on mount
+  useEffect(() => {
+    fetch("/api/portal/session")
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.valid && data.user) {
+          const user = data.user;
+          setPortalUser(user);
+
+          // Follow role-based defaults immediately
+          if (user.role === "IA") {
+            setFormData((prev): FormData => {
+              const hasIa = prev.contactEmails.some(c => c.contactType === "IA");
+              const baseContactEmails: ContactEmail[] = hasIa 
+                ? prev.contactEmails 
+                : [...prev.contactEmails, { email: "", contactType: "IA", sendCopy: ["all", "report", "invoice", "notifications"] }];
+              return {
+                ...prev,
+                isIAClaim: true,
+                primaryClientType: "Independent Adjuster",
+                contactEmails: baseContactEmails,
+              };
+            });
+          } else if (user.role === "Adjuster") {
+            setFormData((prev): FormData => {
+              const updatedEmails = [...prev.contactEmails];
+              const primaryIdx = updatedEmails.findIndex(c => c.contactType === "Adjuster (Carrier)");
+              if (primaryIdx !== -1) {
+                if (!updatedEmails[primaryIdx].email) {
+                  updatedEmails[primaryIdx] = {
+                    ...updatedEmails[primaryIdx],
+                    email: user.email,
+                  };
+                }
+              } else {
+                updatedEmails.unshift({
+                  email: user.email,
+                  contactType: "Adjuster (Carrier)",
+                  sendCopy: ["all", "report", "invoice", "notifications"],
+                });
+              }
+
+              return {
+                ...prev,
+                isIAClaim: false,
+                primaryClientType: "Adjuster (Carrier)",
+                contactEmails: updatedEmails as ContactEmail[],
+              };
+            });
+          }
+        }
+      })
+      .catch((err) => console.error("Failed to check portal session:", err));
+  }, []);
+
+  // Load Carrier Adjuster preferences scoped by User + selected Insurance Company
+  useEffect(() => {
+    if (!portalUser || portalUser.role !== "Adjuster") return;
+
+    const company = formData.insuranceCompany ? formData.insuranceCompany.trim() : "";
+    if (!company) {
+      setLoadedPreferences(null);
+      return;
+    }
+
+    fetch(`/api/portal/preferences?insuranceCompany=${encodeURIComponent(company)}`)
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.success && data.preferences) {
+          const prefs = data.preferences;
+          setLoadedPreferences(prefs);
+          setFormData((prev): FormData => {
+            const cleanPrefsContactEmails: ContactEmail[] = (prefs.contactEmails || []).filter((c: any) => c.contactType === "Adjuster (Carrier)").map((c: any) => ({
+              ...c,
+              sendCopy: c.sendCopy && c.sendCopy.includes("all") ? ["all", "report", "invoice", "notifications"] : c.sendCopy
+            }));
+            const iaEmails = prev.contactEmails.filter(c => c.contactType !== "Adjuster (Carrier)");
+            const mergedEmails: ContactEmail[] = cleanPrefsContactEmails.length > 0
+              ? [...cleanPrefsContactEmails, ...iaEmails]
+              : prev.contactEmails;
+
+            return {
+              ...prev,
+              adjusterFirstName: prefs.adjusterFirstName || prev.adjusterFirstName,
+              adjusterLastName: prefs.adjusterLastName || prev.adjusterLastName,
+              adjusterPhone: prefs.adjusterPhone || prev.adjusterPhone,
+              adjusterPhoneExt: prefs.adjusterPhoneExt || prev.adjusterPhoneExt,
+              adjusterCompany: prefs.adjusterCompany || prev.adjusterCompany,
+              contactEmails: mergedEmails,
+            };
+          });
+        } else {
+          setLoadedPreferences(null);
+          setFormData((prev): FormData => {
+            const iaEmails = prev.contactEmails.filter(c => c.contactType !== "Adjuster (Carrier)");
+            const defaultAdjusterEmail: ContactEmail[] = [
+              {
+                email: portalUser.email || "",
+                contactType: "Adjuster (Carrier)",
+                sendCopy: ["all", "report", "invoice", "notifications"]
+              }
+            ];
+            return {
+              ...prev,
+              adjusterFirstName: "",
+              adjusterLastName: "",
+              adjusterPhone: "",
+              adjusterPhoneExt: "",
+              adjusterCompany: "",
+              contactEmails: [...defaultAdjusterEmail, ...iaEmails]
+            };
+          });
+        }
+      })
+      .catch((err) => console.error("Failed to load Adjuster preferences:", err));
+  }, [portalUser, formData.insuranceCompany]);
+
+  // Load IA preferences scoped by User + IA Company
+  useEffect(() => {
+    if (!portalUser || portalUser.role !== "IA") return;
+
+    const company = formData.iaCompany ? formData.iaCompany.trim() : "";
+    if (!company) {
+      setLoadedPreferences(null);
+      return;
+    }
+
+    fetch(`/api/portal/preferences?iaCompany=${encodeURIComponent(company)}`)
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.success && data.preferences) {
+          const prefs = data.preferences;
+          setLoadedPreferences(prefs);
+          setFormData((prev): FormData => {
+            const cleanPrefsContactEmails: ContactEmail[] = (prefs.contactEmails || []).filter((c: any) => c.contactType === "IA").map((c: any) => ({
+              ...c,
+              sendCopy: c.sendCopy && c.sendCopy.includes("all") ? ["all", "report", "invoice", "notifications"] : c.sendCopy
+            }));
+            const carrierEmails = prev.contactEmails.filter(c => c.contactType !== "IA");
+            const mergedEmails: ContactEmail[] = cleanPrefsContactEmails.length > 0
+              ? [...carrierEmails, ...cleanPrefsContactEmails]
+              : prev.contactEmails;
+
+            return {
+              ...prev,
+              iaFirstName: prefs.iaFirstName || prev.iaFirstName,
+              iaLastName: prefs.iaLastName || prev.iaLastName,
+              iaPhone: prefs.iaPhone || prev.iaPhone,
+              contactEmails: mergedEmails,
+            };
+          });
+        } else {
+          setLoadedPreferences(null);
+          setFormData((prev): FormData => {
+            const carrierEmails = prev.contactEmails.filter(c => c.contactType !== "IA");
+            const defaultIaEmail: ContactEmail[] = [
+              {
+                email: "",
+                contactType: "IA",
+                sendCopy: ["all", "report", "invoice", "notifications"]
+              }
+            ];
+            return {
+              ...prev,
+              iaFirstName: "",
+              iaLastName: "",
+              iaPhone: "",
+              contactEmails: [...carrierEmails, ...defaultIaEmail]
+            };
+          });
+        }
+      })
+      .catch((err) => console.error("Failed to load IA preferences:", err));
+  }, [portalUser, formData.iaCompany]);
+
   const [showErrors, setShowErrors] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [iaEmailErrors, setIaEmailErrors] = useState<string[]>([]);
@@ -243,13 +422,14 @@ export default function SubmitInspectionPage() {
   const [iaCompanyQuery, setIaCompanyQuery] = useState("");
   const [iaCompanyOpen, setIaCompanyOpen] = useState(false);
   const [isAddCompanyModalOpen, setIsAddCompanyModalOpen] = useState(false);
+  const [addCompanyType, setAddCompanyType] = useState<string>('Insurance Company');
   const [newCompanyData, setNewCompanyData] = useState({ name: "", ccInvoicesTo: "", splitInvoice: false, invoiceEmail: "", priceList: "2025 Prices" });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState("");
   const [isCreatingCompany, setIsCreatingCompany] = useState(false);
   const [hasSentCompany, setHasSentCompany] = useState(false);
   const [createCompanyMessage, setCreateCompanyMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
-  // DISABLED: Secondary primary phone feature — uncomment to restore
+  // DISABLED: Secondary primary phone feature â€” uncomment to restore
   // const [showPrimaryPhone2, setShowPrimaryPhone2] = useState(false);
 
   const [skipRooferValidation, setSkipRooferValidation] = useState(false);
@@ -257,7 +437,85 @@ export default function SubmitInspectionPage() {
   const [lastButtonState, setLastButtonState] = useState("Next");
   const [isValidationModalOpen, setIsValidationModalOpen] = useState(false);
   const [validationQueue, setValidationQueue] = useState<('roofer' | 'adjuster')[]>([]);
-  const [insuranceDocument, setInsuranceDocument] = useState<File | null>(null);
+  interface SelectedDocument {
+    id: string;
+    file: File | null;
+    categories: string[];
+    customCategory: string;
+  }
+  const [insuranceDocuments, setInsuranceDocuments] = useState<SelectedDocument[]>([
+    {
+      id: "initial-row",
+      file: null,
+      categories: [],
+      customCategory: ""
+    }
+  ]);
+  const [isDragging, setIsDragging] = useState(false);
+  const [showPreferencesModal, setShowPreferencesModal] = useState(false);
+  const [hasChosenPreferences, setHasChosenPreferences] = useState(false);
+  const [loadedPreferences, setLoadedPreferences] = useState<any>(null);
+  const [shouldSavePreferences, setShouldSavePreferences] = useState(false);
+
+  const hasPreferencesChanged = (current: FormData, saved: any, role: string) => {
+    if (!saved) return true; // If no saved preferences, they are considered changed/new
+
+    if (role === "IA") {
+      const currentEmails = current.contactEmails.filter(c => c.contactType === "IA");
+      const savedEmails = saved.contactEmails || [];
+
+      if ((current.iaFirstName || "") !== (saved.iaFirstName || "")) return true;
+      if ((current.iaLastName || "") !== (saved.iaLastName || "")) return true;
+      if ((current.iaPhone || "") !== (saved.iaPhone || "")) return true;
+
+      if (currentEmails.length !== savedEmails.length) return true;
+      for (let i = 0; i < currentEmails.length; i++) {
+        const c = currentEmails[i];
+        const s = savedEmails[i];
+        if (!s) return true;
+        if ((c.email || "") !== (s.email || "")) return true;
+        const cCopy = [...(c.sendCopy || [])].sort();
+        const sRaw = s.sendCopy || [];
+        const sNormalized = sRaw.includes("all") ? ["all", "report", "invoice", "notifications"] : sRaw;
+        const sCopy = [...sNormalized].sort();
+        if (cCopy.join(",") !== sCopy.join(",")) return true;
+      }
+      return false;
+    } else if (role === "Adjuster") {
+      const currentEmails = current.contactEmails.filter(c => c.contactType === "Adjuster (Carrier)");
+      const savedEmails = saved.contactEmails || [];
+
+      if ((current.adjusterFirstName || "") !== (saved.adjusterFirstName || "")) return true;
+      if ((current.adjusterLastName || "") !== (saved.adjusterLastName || "")) return true;
+      if ((current.adjusterPhone || "") !== (saved.adjusterPhone || "")) return true;
+      if ((current.adjusterPhoneExt || "") !== (saved.adjusterPhoneExt || "")) return true;
+      if ((current.adjusterCompany || "") !== (saved.adjusterCompany || "")) return true;
+
+      if (currentEmails.length !== savedEmails.length) return true;
+      for (let i = 0; i < currentEmails.length; i++) {
+        const c = currentEmails[i];
+        const s = savedEmails[i];
+        if (!s) return true;
+        if ((c.email || "") !== (s.email || "")) return true;
+        const cCopy = [...(c.sendCopy || [])].sort();
+        const sRaw = s.sendCopy || [];
+        const sNormalized = sRaw.includes("all") ? ["all", "report", "invoice", "notifications"] : sRaw;
+        const sCopy = [...sNormalized].sort();
+        if (cCopy.join(",") !== sCopy.join(",")) return true;
+      }
+      return false;
+    }
+    return false;
+  };
+
+  const handleSavePreferencesIntentAndContinue = (shouldSave: boolean) => {
+    setShouldSavePreferences(shouldSave);
+    setHasChosenPreferences(true);
+    setShowPreferencesModal(false);
+    setCurrentStep(2);
+    setMaxCompletedStep((prev) => Math.max(prev, 2));
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
 
   const MAX_INSURANCE_DOCUMENT_SIZE = 10 * 1024 * 1024;
 
@@ -283,7 +541,7 @@ export default function SubmitInspectionPage() {
 
   const validationModalConfig = getStep3ValidationConfig(validationQueue[0] || null);
 
-  /* ── Insurance Company API Search State ── */
+  /* â”€â”€ Insurance Company API Search State â”€â”€ */
   const [insuranceSearchResults, setInsuranceSearchResults] = useState<{ id: string; name: string; zoho_creator_id: string }[]>([]);
   const [insuranceSearchLoading, setInsuranceSearchLoading] = useState(false);
   const [aliasMatch, setAliasMatch] = useState<{ matchedBy: string; results: { id: string; name: string; zoho_creator_id: string }[] } | null>(null);
@@ -292,11 +550,74 @@ export default function SubmitInspectionPage() {
   const [masterInsuranceList, setMasterInsuranceList] = useState<{ id: string; name: string; zoho_creator_id: string }[]>([]);
   const insuranceCacheRef = useRef<Record<string, { results: any[], matchedBy?: string }>>({});
 
-  /* ── IA Company (Zoho IA_Company_Name lookup) API Search State ── */
+  /* â”€â”€ IA Company (Zoho IA_Company_Name lookup) API Search State â”€â”€ */
   const [iaCompanySearchResults, setIaCompanySearchResults] = useState<{ id: string; name: string; zoho_creator_id: string }[]>([]);
   const [iaCompanySearchLoading, setIaCompanySearchLoading] = useState(false);
   const iaSearchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [masterIaCompanyList, setMasterIaCompanyList] = useState<{ id: string; name: string; zoho_creator_id: string }[]>([]);
+  const [companyTypes, setCompanyTypes] = useState<string[]>(['Insurance Company', 'IA Company', 'Vendor', 'Contractor', 'Attorney', 'Engineering Firm']);
+
+  /* â”€â”€ Layer 2: IA Carrier Contacts (autofill suggestions) â”€â”€ */
+  interface CarrierContact {
+    adjusterEmail: string;
+    adjusterFirstName?: string;
+    adjusterLastName?: string;
+    adjusterPhone?: string;
+    adjusterPhoneExt?: string;
+    contactEmails?: { email: string; contactType: string; sendCopy: string[] }[];
+  }
+  const [carrierContacts, setCarrierContacts] = useState<CarrierContact[]>([]);
+  const [adjusterSuggestions, setAdjusterSuggestions] = useState<CarrierContact[]>([]);
+  const [adjusterSuggestField, setAdjusterSuggestField] = useState<"firstName" | "lastName" | "email" | null>(null);
+
+  /* â”€â”€ Onboarding Tutorial State â”€â”€ */
+  const [showOnboardingTutorial, setShowOnboardingTutorial] = useState(false);
+
+  // Fetch carrier contacts when IA or Adjuster logs in (for autofill suggestions)
+  useEffect(() => {
+    if (!portalUser || (portalUser.role !== "IA" && portalUser.role !== "Adjuster")) return;
+    fetch("/api/portal/contacts")
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.success && data.contacts) {
+          const normalizedContacts = data.contacts.map((contact: CarrierContact) => ({
+            ...contact,
+            contactEmails: contact.contactEmails?.map(c => ({
+              ...c,
+              sendCopy: c.sendCopy && c.sendCopy.includes("all") ? ["all", "report", "invoice", "notifications"] : c.sendCopy
+            }))
+          }));
+          setCarrierContacts(normalizedContacts);
+        }
+      })
+      .catch((err) => console.error("Failed to load carrier contacts:", err));
+  }, [portalUser]);
+
+  // Show onboarding tutorial for users who haven't seen it yet
+  useEffect(() => {
+    if (!portalUser || (portalUser.role !== "IA" && portalUser.role !== "Adjuster")) return;
+    const tutorialKey = `trinity_portal_tutorial_seen_${portalUser.email}`;
+    const seen = typeof window !== "undefined" ? localStorage.getItem(tutorialKey) : null;
+    if (!seen) {
+      setShowOnboardingTutorial(true);
+    }
+  }, [portalUser]);
+
+  useEffect(() => {
+    fetch('/api/insurance-companies', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'getCompanyTypes' }),
+    })
+      .then(res => res.json())
+      .then(data => {
+        if (data.success && data.results && data.results.length > 0) {
+          setCompanyTypes(data.results);
+        }
+      })
+      .catch(err => console.error('Failed to fetch company types:', err));
+  }, []);
+
 
   useEffect(() => {
     fetch('/api/insurance-companies', {
@@ -446,7 +767,7 @@ export default function SubmitInspectionPage() {
     }, 300);
   }, [masterInsuranceList]);
 
-  /* ── Step 3 Helper Logic ── */
+  /* â”€â”€ Step 3 Helper Logic â”€â”€ */
   const isStep3FieldsEmpty = useCallback(() => {
     try {
       const {
@@ -496,16 +817,21 @@ export default function SubmitInspectionPage() {
       const res = await fetch('/api/insurance-companies', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'createCompany', data: newCompanyData }),
+        body: JSON.stringify({ action: 'createCompany', data: { ...newCompanyData, companyType: addCompanyType } }),
       });
       const data = await res.json();
 
       if (data.success) {
-        setCreateCompanyMessage({ type: 'success', text: "Company submitted for approval. You will be able to select it once it becomes active." });
+        setCreateCompanyMessage({ type: 'success', text: `${addCompanyType === 'IA Company' ? 'IA Company' : 'Company'} submitted for approval. You will be able to select it once it becomes active.` });
 
         const dynamicValue = newCompanyData.name;
-        setFormData(prev => ({ ...prev, insuranceCompany: dynamicValue }));
-        setInsuranceCompanyQuery(dynamicValue);
+        if (addCompanyType === 'IA Company') {
+          setFormData(prev => ({ ...prev, iaCompany: dynamicValue }));
+          setIaCompanyQuery(dynamicValue);
+        } else {
+          setFormData(prev => ({ ...prev, insuranceCompany: dynamicValue }));
+          setInsuranceCompanyQuery(dynamicValue);
+        }
 
         // Reset form after a delay then close
         setTimeout(() => {
@@ -515,10 +841,12 @@ export default function SubmitInspectionPage() {
         }, 3000);
       } else {
         setCreateCompanyMessage({ type: 'error', text: data.error || "Failed to create company." });
+        setHasSentCompany(false);
       }
     } catch (err) {
       console.error('Failed to create company:', err);
       setCreateCompanyMessage({ type: 'error', text: "An error occurred. Please try again." });
+      setHasSentCompany(false);
     } finally {
       setIsCreatingCompany(false);
     }
@@ -558,64 +886,269 @@ export default function SubmitInspectionPage() {
 
   const renderInsuranceDocumentUpload = (extraClass = "") => (
     <div
-      className={`mt-3 rounded-lg border border-primary/25 dark:border-accent/25 bg-primary/[0.04] dark:bg-accent/[0.07] p-2.5 ${extraClass}`}
+      className={`mt-3 rounded-lg border p-3.5 transition-all ${
+        isDragging
+          ? "border-primary bg-primary/[0.08] dark:border-accent dark:bg-accent/[0.12] scale-[1.01]"
+          : "border-primary/25 dark:border-accent/25 bg-primary/[0.04] dark:bg-accent/[0.07]"
+      } ${extraClass}`}
       data-field-name="insuranceDocument"
+      onDragOver={(e) => {
+        e.preventDefault();
+        setIsDragging(true);
+      }}
+      onDragEnter={(e) => {
+        e.preventDefault();
+        setIsDragging(true);
+      }}
+      onDragLeave={(e) => {
+        e.preventDefault();
+        setIsDragging(false);
+      }}
+      onDrop={(e) => {
+        e.preventDefault();
+        setIsDragging(false);
+        const files = Array.from(e.dataTransfer.files || []);
+        if (files.length === 0) return;
+
+        const oversized = files.find(f => f.size > MAX_INSURANCE_DOCUMENT_SIZE);
+        if (oversized) {
+          setFieldErrors((prev) => ({ ...prev, insuranceDocument: `File "${oversized.name}" must be 10MB or smaller.` }));
+          return;
+        }
+
+        const newRows = files.map(file => ({
+          id: Math.random().toString(36).substring(2, 9),
+          file,
+          categories: [],
+          customCategory: ""
+        }));
+
+        setInsuranceDocuments(prev => {
+          if (prev.length === 1 && prev[0].file === null && prev[0].categories.length === 0) {
+            return newRows;
+          }
+          return [...prev, ...newRows];
+        });
+      }}
     >
-      <label htmlFor="insurance-document-upload" className="text-[11px] font-semibold text-primary/90 dark:text-accent flex items-center gap-1 mb-1.5">
-        <Upload className="w-3.5 h-3.5" />
-        Upload Document
-      </label>
-      <div className="border border-dashed border-primary/35 dark:border-accent/35 rounded-lg p-3 text-center bg-white/70 dark:bg-background-dark/70 hover:border-primary/55 dark:hover:border-accent/55 transition-colors">
-        <input
-          type="file"
-          id="insurance-document-upload"
-          accept="image/*,.pdf,.doc,.docx,.heic,.heif"
-          onChange={(e) => {
-            const file = e.target.files?.[0];
-            if (!file) return;
-            if (file.size > MAX_INSURANCE_DOCUMENT_SIZE) {
-              setFieldErrors((prev) => ({ ...prev, insuranceDocument: "File must be 10MB or smaller." }));
-              e.target.value = "";
-              return;
-            }
-            setFieldErrors((prev) => {
-              const next = { ...prev };
-              delete next.insuranceDocument;
-              return next;
-            });
-            setInsuranceDocument(file);
-          }}
-          className="hidden"
-        />
-        <label htmlFor="insurance-document-upload" className="cursor-pointer block">
-          <Upload className="w-5 h-5 mx-auto mb-1 text-primary/70 dark:text-accent/80" />
-          <p className="text-[11px] font-semibold text-gray-700 dark:text-gray-200">Click to upload</p>
-          <p className="text-[9px] text-gray-500 dark:text-gray-400 mt-0.5">PDF, images, DOC (max 10MB)</p>
-        </label>
+      <div className="mb-2">
+        <SectionHeader title="Insurance Documents" small />
       </div>
+
       {fieldErrors.insuranceDocument && (
-        <p className="text-[10px] text-gray-900 font-black mt-1">{fieldErrors.insuranceDocument}</p>
+        <p className="text-[9px] text-gray-900 font-black mb-2">{fieldErrors.insuranceDocument}</p>
       )}
-      {insuranceDocument && (
-        <div className="mt-2 flex items-center justify-between p-2 bg-white dark:bg-background-dark rounded-lg border border-primary/20 dark:border-accent/20">
-          <div className="flex items-center gap-2 min-w-0">
-            <FileText className="w-3.5 h-3.5 text-primary/70 dark:text-accent/80 shrink-0" />
-            <span className="text-[11px] font-medium text-gray-800 dark:text-gray-200 truncate">{insuranceDocument.name}</span>
-          </div>
+
+      <div className="space-y-3">
+          {insuranceDocuments.map((doc, idx) => (
+            <div key={doc.id} className="p-2.5 bg-white dark:bg-background-dark rounded-lg border border-primary/15 dark:border-accent/15 shadow-sm space-y-2.5 relative">
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex-1 min-w-0">
+                  <span className="text-[9px] font-black text-gray-500 uppercase tracking-wider block mb-1">
+                    Document File {doc.file && <span className="text-gray-400 shrink-0">({(doc.file.size / 1024 / 1024).toFixed(2)} MB)</span>}
+                  </span>
+                  {doc.file ? (
+                    <div
+                      onClick={() => document.getElementById(`file-input-${doc.id}`)?.click()}
+                      className="flex items-center justify-between bg-gray-50 dark:bg-gray-800/40 hover:bg-gray-100/70 dark:hover:bg-gray-800/60 rounded-lg p-2.5 border border-dashed border-primary/10 dark:border-accent/10 min-w-0 cursor-pointer select-none transition-colors"
+                    >
+                      <div className="flex items-center gap-2 min-w-0">
+                        <FileText className="w-4 h-4 text-primary/70 dark:text-accent/80 shrink-0" />
+                        <span className="text-[11px] font-semibold text-gray-800 dark:text-gray-200 truncate" title={doc.file.name}>
+                          {doc.file.name}
+                        </span>
+                      </div>
+                      {idx === 0 && (
+                        <div className="shrink-0 ml-3">
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setInsuranceDocuments(prev => prev.map(item => {
+                                if (item.id === doc.id) {
+                                  return {
+                                    ...item,
+                                    file: null,
+                                    categories: [],
+                                    customCategory: ""
+                                  };
+                                }
+                                return item;
+                              }));
+                            }}
+                            className="text-[10px] font-black text-red-500 hover:text-red-600 bg-white dark:bg-background-dark border border-gray-200 dark:border-gray-700 px-2.5 py-0.5 rounded shadow-sm transition-all"
+                          >
+                            Remove
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div
+                      onClick={() => document.getElementById(`file-input-${doc.id}`)?.click()}
+                      className="flex flex-col items-center justify-center border border-dashed border-gray-200 dark:border-gray-700 rounded-lg p-2.5 bg-gray-50/50 dark:bg-background-dark/30 hover:bg-gray-50 dark:hover:bg-background-dark/50 transition-colors cursor-pointer select-none"
+                    >
+                      <Upload className="w-4 h-4 text-gray-400 dark:text-gray-500 mb-1" />
+                      <span className="bg-white dark:bg-background-dark text-[9px] font-black text-primary dark:text-accent border border-primary/20 dark:border-accent/20 px-2.5 py-1 rounded-md shadow-sm flex items-center gap-1.5 mb-1">
+                        Choose File
+                      </span>
+                      <p className="text-[8.5px] text-gray-400 dark:text-gray-500 text-center font-semibold">
+                        Drag &amp; drop files here, or browse.
+                      </p>
+                      <p className="text-[7.5px] text-gray-400/80 dark:text-gray-500/80 text-center mt-0.5">
+                        PDF, DOC, DOCX, PNG, JPG, JPEG up to 10MB
+                      </p>
+                    </div>
+                  )}
+                  <input
+                    type="file"
+                    id={`file-input-${doc.id}`}
+                    accept="image/*,application/pdf,.doc,.docx"
+                    multiple
+                    className="hidden"
+                    onChange={(e) => {
+                      const files = Array.from(e.target.files || []);
+                      if (files.length === 0) return;
+
+                      const oversized = files.find(f => f.size > MAX_INSURANCE_DOCUMENT_SIZE);
+                      if (oversized) {
+                        setFieldErrors((prev) => ({ ...prev, insuranceDocument: `File "${oversized.name}" must be 10MB or smaller.` }));
+                        e.target.value = "";
+                        return;
+                      }
+
+                      setInsuranceDocuments(prev => {
+                        const updated = prev.map(item => {
+                          if (item.id === doc.id) {
+                            return {
+                              ...item,
+                              file: files[0]
+                            };
+                          }
+                          return item;
+                        });
+
+                        if (files.length > 1) {
+                          const newRows = files.slice(1).map(f => ({
+                            id: Math.random().toString(36).substring(2, 9),
+                            file: f,
+                            categories: [],
+                            customCategory: ""
+                          }));
+                          return [...updated, ...newRows];
+                        }
+
+                        return updated;
+                      });
+
+                      e.target.value = "";
+                    }}
+                  />
+                </div>
+
+
+
+                {idx > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setInsuranceDocuments(prev => {
+                        const next = prev.filter(item => item.id !== doc.id);
+                        if (next.length === 0) {
+                          return [
+                            {
+                              id: Math.random().toString(36).substring(2, 9),
+                              file: null,
+                              categories: [],
+                              customCategory: ""
+                            }
+                          ];
+                        }
+                        return next;
+                      });
+                    }}
+                    className="text-gray-400 hover:text-red-500 transition-colors p-1 self-start mt-4 shrink-0"
+                    aria-label="Remove document row"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                )}
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[9px] font-black text-gray-500 uppercase tracking-wider">
+                  Document Types / Categories {doc.file && <span className="text-red-500">*</span>}
+                </label>
+                <div className="flex flex-wrap gap-2">
+                  {["FNOL", "Storm Report", "Roofer Report", "PA Report", "Other"].map((cat) => {
+                    const isChecked = doc.categories.includes(cat);
+                    return (
+                      <button
+                        type="button"
+                        key={cat}
+                        onClick={() => {
+                          setInsuranceDocuments(prev => prev.map(item => {
+                            if (item.id === doc.id) {
+                              const newCategories = item.categories.includes(cat)
+                                ? item.categories.filter(c => c !== cat)
+                                : [...item.categories, cat];
+                              return { ...item, categories: newCategories };
+                            }
+                            return item;
+                          }));
+                        }}
+                        className={`text-[9px] px-2 py-1 rounded-md border font-bold transition-all ${
+                          isChecked
+                            ? "bg-primary border-primary text-white dark:bg-accent dark:border-accent"
+                            : "bg-gray-50 dark:bg-background-dark/30 border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800"
+                        }`}
+                      >
+                        {cat}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {doc.categories.includes("Other") && (
+                <div className="flex flex-col gap-1 animate-fadeIn">
+                  <label className="text-[9px] font-black text-gray-500 uppercase tracking-wider">Please specify custom type <span className="text-red-500">*</span></label>
+                  <input
+                    type="text"
+                    value={doc.customCategory}
+                    placeholder="e.g. Drone Photos, Roof Estimate"
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setInsuranceDocuments(prev => prev.map(item => item.id === doc.id ? { ...item, customCategory: val } : item));
+                    }}
+                    className="w-full text-[11px] px-2 py-1.5 border border-gray-200 dark:border-gray-700 bg-white dark:bg-background-dark rounded-md focus:border-blue-500 outline-none"
+                  />
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+
+        <div className="flex justify-end mt-4">
           <button
             type="button"
             onClick={() => {
-              setInsuranceDocument(null);
-              const input = document.getElementById("insurance-document-upload") as HTMLInputElement | null;
-              if (input) input.value = "";
+              setInsuranceDocuments(prev => [
+                ...prev,
+                {
+                  id: Math.random().toString(36).substring(2, 9),
+                  file: null,
+                  categories: [],
+                  customCategory: ""
+                }
+              ]);
             }}
-            className="text-gray-400 hover:text-red-500 transition-colors shrink-0"
-            aria-label="Remove file"
+            className="bg-primary hover:bg-primary-dark dark:bg-accent dark:hover:bg-accent-light text-[10px] font-bold text-white px-3 py-1.5 rounded-md transition-all flex items-center gap-1.5 shadow-sm"
           >
-            <X className="w-3.5 h-3.5" />
+            <Plus className="w-3.5 h-3.5" />
+            Add Document Row
           </button>
         </div>
-      )}
     </div>
   );
 
@@ -771,6 +1304,32 @@ export default function SubmitInspectionPage() {
       const insuranceErrors = validateInsuranceStep(formData);
       const adjusterErrors = validateAdjusterStep(formData);
       const errors = { ...insuranceErrors, ...adjusterErrors };
+
+      let hasDocErrors = false;
+      let docErrorMsg = "";
+      const validDocs = insuranceDocuments.filter(d => d.file !== null);
+      if (insuranceDocuments.length > 1 && insuranceDocuments.some(d => !d.file)) {
+        hasDocErrors = true;
+        docErrorMsg = "Please upload a file for all rows, or remove empty rows.";
+      } else {
+        for (const doc of validDocs) {
+          if (doc.categories.length === 0) {
+            hasDocErrors = true;
+            docErrorMsg = `Please select at least one category for the file: "${doc.file!.name}"`;
+            break;
+          }
+          if (doc.categories.includes("Other") && !doc.customCategory.trim()) {
+            hasDocErrors = true;
+            docErrorMsg = `Please specify custom category for the file: "${doc.file!.name}"`;
+            break;
+          }
+        }
+      }
+
+      if (hasDocErrors) {
+        (errors as any).insuranceDocument = docErrorMsg;
+      }
+
       setFieldErrors(errors);
       setShowErrors(Object.keys(errors).length > 0);
 
@@ -828,6 +1387,16 @@ export default function SubmitInspectionPage() {
         return;
       }
       setFieldErrors({});
+      if (portalUser && !hasChosenPreferences) {
+        const hasChanged = hasPreferencesChanged(formData, loadedPreferences, portalUser.role);
+        if (hasChanged) {
+          setShowPreferencesModal(true);
+          return;
+        } else {
+          setShouldSavePreferences(false);
+          setHasChosenPreferences(true);
+        }
+      }
     }
 
     // Step 2: Policy & Address (merged validation)
@@ -1001,6 +1570,33 @@ export default function SubmitInspectionPage() {
         return;
       }
 
+      let hasDocErrors = false;
+      let docErrorMsg = "";
+      const validDocsSubmit = insuranceDocuments.filter(d => d.file !== null);
+      if (insuranceDocuments.length > 1 && insuranceDocuments.some(d => !d.file)) {
+        hasDocErrors = true;
+        docErrorMsg = "Please upload a file for all rows, or remove empty rows.";
+      } else {
+        for (const doc of validDocsSubmit) {
+          if (doc.categories.length === 0) {
+            hasDocErrors = true;
+            docErrorMsg = `Please select at least one category for the file: "${doc.file!.name}"`;
+            break;
+          }
+          if (doc.categories.includes("Other") && !doc.customCategory.trim()) {
+            hasDocErrors = true;
+            docErrorMsg = `Please specify custom category for the file: "${doc.file!.name}"`;
+            break;
+          }
+        }
+      }
+
+      if (hasDocErrors) {
+        setShowErrors(true);
+        setSubmitError(docErrorMsg);
+        return;
+      }
+
       const functionUrl = '/api/submit-inspection';
       let submissionData = {
         ...formData,
@@ -1025,12 +1621,31 @@ export default function SubmitInspectionPage() {
       }
 
       let insuranceDocumentPayload: { fileName: string; mimeType: string; base64: string } | undefined;
-      if (insuranceDocument) {
-        insuranceDocumentPayload = await readInsuranceDocumentAsBase64(insuranceDocument);
+      let insuranceDocumentsPayload: Array<{ fileName: string; mimeType: string; base64: string; categories: string[]; customCategory?: string }> = [];
+
+      if (insuranceDocuments.length > 0) {
+        insuranceDocumentsPayload = await Promise.all(
+          insuranceDocuments.map(async (doc) => {
+            const file = doc.file!;
+            const b64Data = (await readInsuranceDocumentAsBase64(file)) as { base64: string };
+            return {
+              fileName: file.name,
+              mimeType: file.type || "application/octet-stream",
+              base64: b64Data.base64,
+              categories: doc.categories,
+              customCategory: doc.categories.includes("Other") ? doc.customCategory : undefined
+            };
+          })
+        );
+        insuranceDocumentPayload = {
+          fileName: insuranceDocumentsPayload[0].fileName,
+          mimeType: insuranceDocuments[0].file!.type || "application/octet-stream",
+          base64: insuranceDocumentsPayload[0].base64
+        };
       }
 
-      const payloadWithDocument = insuranceDocumentPayload
-        ? { ...submissionData, insuranceDocument: insuranceDocumentPayload }
+      const payloadWithDocument = insuranceDocumentsPayload.length > 0
+        ? { ...submissionData, insuranceDocuments: insuranceDocumentsPayload, insuranceDocument: insuranceDocumentPayload }
         : submissionData;
 
       // Date of Loss is already in MM/DD/YYYY format as requested
@@ -1054,6 +1669,96 @@ export default function SubmitInspectionPage() {
       }
 
       console.info("Form submitted successfully");
+
+      // Persist preferences if portal user is logged in and chose to save/overwrite
+      if (portalUser && shouldSavePreferences) {
+        let preferencesToSave: any = {};
+        const insuranceCompanyToSave = formData.insuranceCompany ? formData.insuranceCompany.trim() : undefined;
+        const iaCompanyToSave = formData.iaCompany ? formData.iaCompany.trim() : undefined;
+
+        if (portalUser.role === "IA") {
+          preferencesToSave = {
+            iaFirstName: formData.iaFirstName,
+            iaLastName: formData.iaLastName,
+            iaPhone: formData.iaPhone,
+            contactEmails: formData.contactEmails.filter(c => c.contactType === "IA"),
+          };
+        } else if (portalUser.role === "Adjuster") {
+          preferencesToSave = {
+            adjusterFirstName: formData.adjusterFirstName,
+            adjusterLastName: formData.adjusterLastName,
+            adjusterPhone: formData.adjusterPhone,
+            adjusterPhoneExt: formData.adjusterPhoneExt,
+            adjusterCompany: formData.adjusterCompany,
+            contactEmails: formData.contactEmails.filter(c => c.contactType === "Adjuster (Carrier)"),
+          };
+        }
+
+        const fetchBody: any = { preferences: preferencesToSave };
+        if (portalUser.role === "IA" && iaCompanyToSave) {
+          fetchBody.iaCompany = iaCompanyToSave;
+        } else if (portalUser.role === "Adjuster" && insuranceCompanyToSave) {
+          fetchBody.insuranceCompany = insuranceCompanyToSave;
+        }
+
+        if (fetchBody.iaCompany || fetchBody.insuranceCompany) {
+          fetch("/api/portal/preferences", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(fetchBody),
+          })
+            .then(res => res.json())
+            .then((saveResult) => {
+              if (saveResult.success) {
+                console.info("User preferences saved successfully after submission");
+                setLoadedPreferences(preferencesToSave);
+              } else {
+                console.warn("Failed to save user preferences:", saveResult.error);
+              }
+            })
+            .catch(err => console.error("Error saving user preferences:", err));
+        }
+
+        // Layer 2: IA ya Adjuster ke liye â€” carrier adjuster contact save karo
+        if ((portalUser.role === "IA" || portalUser.role === "Adjuster") && formData.contactEmails) {
+          const carrierEmailEntry = formData.contactEmails.find(c => c.contactType === "Adjuster (Carrier)");
+          const adjEmail = carrierEmailEntry?.email?.trim();
+          if (adjEmail && formData.adjusterFirstName) {
+            const contactToSave = {
+              adjusterFirstName: formData.adjusterFirstName,
+              adjusterLastName: formData.adjusterLastName,
+              adjusterPhone: formData.adjusterPhone,
+              adjusterPhoneExt: formData.adjusterPhoneExt,
+              contactEmails: formData.contactEmails.filter(c => c.contactType === "Adjuster (Carrier)"),
+            };
+            fetch("/api/portal/contacts", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ adjusterEmail: adjEmail, contact: contactToSave }),
+            })
+              .then(res => res.json())
+              .then((contactResult) => {
+                if (contactResult.success) {
+                  console.info("Carrier contact saved for future autofill");
+                  // Update local carrierContacts list so autofill works immediately
+                  setCarrierContacts(prev => {
+                    const existing = prev.findIndex(c => c.adjusterEmail.toLowerCase() === adjEmail.toLowerCase());
+                    const updated = { adjusterEmail: adjEmail, ...contactToSave };
+                    if (existing > -1) {
+                      const next = [...prev];
+                      next[existing] = updated;
+                      return next;
+                    }
+                    return [...prev, updated];
+                  });
+                }
+              })
+              .catch(err => console.error("Error saving carrier contact:", err));
+          }
+        }
+      }
+
+
       setIsSubmitted(true);
       window.scrollTo({ top: 0, behavior: "smooth" });
 
@@ -1067,7 +1772,14 @@ export default function SubmitInspectionPage() {
 
   const handleReset = () => {
     setFormData(INITIAL_FORM_DATA);
-    setInsuranceDocument(null);
+    setInsuranceDocuments([
+      {
+        id: "initial-row",
+        file: null,
+        categories: [],
+        customCategory: ""
+      }
+    ]);
     setCurrentStep(0);
     setMaxCompletedStep(0);
     setIsSubmitted(false);
@@ -1076,6 +1788,10 @@ export default function SubmitInspectionPage() {
     setIaEmailErrors([]);
     setIaSectionError("");
     setFieldErrors({});
+    setHasChosenPreferences(false);
+    setShowPreferencesModal(false);
+    setShouldSavePreferences(false);
+    setLoadedPreferences(null);
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
@@ -1095,12 +1811,12 @@ export default function SubmitInspectionPage() {
   };
 
   const labelFor = (id: string, list: { id: string; title: string }[]) =>
-    list.find((i) => i.id === id)?.title ?? "—";
+    list.find((i) => i.id === id)?.title ?? "â€”";
 
   /* Insurance search results come from API, not from a hardcoded list */
-  const filteredInsuranceCompanies = insuranceSearchResults;
+  const filteredInsuranceCompanies = [...insuranceSearchResults].sort((a, b) => a.name.localeCompare(b.name));
 
-  const filteredIaCompanies = iaCompanySearchResults;
+  const filteredIaCompanies = [...iaCompanySearchResults].sort((a, b) => a.name.localeCompare(b.name));
 
   /* Show "Add New Company" option when query doesn't exactly match an existing result */
   const canCreateInsuranceCompany = useMemo(() => {
@@ -1162,7 +1878,7 @@ export default function SubmitInspectionPage() {
       case "primaryClientType":
         return ""; // Optional field
       case "insuranceCompany":
-        return ""; // Optional field — no validation needed
+        return ""; // Optional field â€” no validation needed
       case "adjusterEmail": {
         const email = data.contactEmails.find(c => c.contactType === "Adjuster (Carrier)")?.email || "";
         if (!email.trim()) return "Adjuster Email is required.";
@@ -1265,7 +1981,7 @@ export default function SubmitInspectionPage() {
         if (!v) return "";
         return isValidEmail(v) ? "" : "Enter a valid email address.";
       case "dateOfLoss":
-        if (!v) return "";
+        if (!v) return "Date of Loss is required.";
         return isValidMMDDYYYY(v) ? "" : "Enter a valid date (MM/DD/YYYY).";
       default:
         return "";
@@ -1282,7 +1998,7 @@ export default function SubmitInspectionPage() {
   };
 
   const validateInsuranceStep = (data: FormData) => {
-    const fields: (keyof FormData)[] = ["claimNumber"];
+    const fields: (keyof FormData)[] = ["claimNumber", "dateOfLoss"];
     if (data.isIAClaim) {
       fields.push("iaFirstName", "iaLastName", "iaPhone");
     }
@@ -1303,7 +2019,7 @@ export default function SubmitInspectionPage() {
   const validatePolicyholderStep = (data: FormData) => {
     // Only validate backend-required fields: firstName + lastName.
     // Phone fields are optional (format-checked only when filled) and
-    // are NOT in the backend required list — they must NOT block navigation.
+    // are NOT in the backend required list â€” they must NOT block navigation.
     return validateFields(data, [
       "policyholderFirstName",
       "policyholderLastName",
@@ -1318,7 +2034,7 @@ export default function SubmitInspectionPage() {
     const errors: Record<string, string> = {};
     if (skipRooferValidation) return errors;
 
-    // Validate Roofer Phone — only if name is entered OR if number is entered
+    // Validate Roofer Phone â€” only if name is entered OR if number is entered
     const isNameEntered = !!data.rooferName.trim();
     const isPhoneEntered = !isPhoneEmpty(data.rooferPhone);
 
@@ -1366,21 +2082,112 @@ export default function SubmitInspectionPage() {
     return errors;
   };
 
+  /* â”€â”€ Autofill helpers for carrier adjuster suggestions â”€â”€ */
+  const applyCarrierContactSuggestion = (contact: CarrierContact) => {
+    // Fill adjuster fields from saved contact
+    const carrierEmails = contact.contactEmails || [];
+    setFormData((prev) => {
+      const nonCarrierEmails = prev.contactEmails.filter(c => c.contactType !== "Adjuster (Carrier)");
+      const mergedCarrierEmails: ContactEmail[] = carrierEmails.length > 0
+        ? carrierEmails.map(e => ({ ...e, contactType: e.contactType as ContactEmail["contactType"] }))
+        : [{ email: contact.adjusterEmail, contactType: "Adjuster (Carrier)" as ContactEmail["contactType"], sendCopy: ["all", "report", "invoice", "notifications"] }];
+      return {
+        ...prev,
+        adjusterFirstName: contact.adjusterFirstName || prev.adjusterFirstName,
+        adjusterLastName: contact.adjusterLastName || prev.adjusterLastName,
+        adjusterPhone: contact.adjusterPhone || prev.adjusterPhone,
+        adjusterPhoneExt: contact.adjusterPhoneExt || prev.adjusterPhoneExt,
+        contactEmails: [...mergedCarrierEmails, ...nonCarrierEmails],
+      };
+    });
+    setAdjusterSuggestions([]);
+    setAdjusterSuggestField(null);
+  };
+
+  const filterAdjusterSuggestions = (field: "firstName" | "lastName" | "email", value: string) => {
+    if (!value.trim() || carrierContacts.length === 0) {
+      setAdjusterSuggestions([]);
+      setAdjusterSuggestField(null);
+      return;
+    }
+    const q = value.trim().toLowerCase();
+    const matches = carrierContacts.filter((c) => {
+      if (field === "firstName") return (c.adjusterFirstName || "").toLowerCase().startsWith(q);
+      if (field === "lastName") return (c.adjusterLastName || "").toLowerCase().startsWith(q);
+      if (field === "email") return (c.adjusterEmail || "").toLowerCase().startsWith(q);
+      return false;
+    });
+    setAdjusterSuggestions(matches.slice(0, 5));
+    setAdjusterSuggestField(matches.length > 0 ? field : null);
+  };
+
   /* ================================================================ */
   /*  RENDER                                                           */
   /* ================================================================ */
 
   return (
     <div className={`bg-gray-50 dark:bg-background-dark ${isSubmitted ? "h-screen overflow-hidden" : "min-h-screen"}`}>
-      {/* ── Navbar ── */}
+      {/* â”€â”€ Navbar â”€â”€ */}
       <div className="z-50">
         <Navbar />
       </div>
 
+      {/* â”€â”€ Onboarding Tutorial Modal (IA first login) â”€â”€ */}
+      {showOnboardingTutorial && portalUser && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm px-4">
+          <div className="bg-white dark:bg-section-dark rounded-2xl shadow-2xl max-w-md w-full p-6 border border-primary/20 animate-fadeIn">
+            <div className="flex items-start gap-3 mb-4">
+              <div className="p-2 bg-primary/10 rounded-xl shrink-0">
+                <Bookmark className="w-5 h-5 text-primary dark:text-accent" />
+              </div>
+              <div>
+                <h2 className="text-base font-black text-gray-900 dark:text-white leading-tight">Welcome to the Trinity Portal!</h2>
+                <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5">Here&apos;s how your preferences work</p>
+              </div>
+            </div>
+            <div className="space-y-3 mb-5">
+              <div className="flex gap-2.5">
+                <div className="w-5 h-5 rounded-full bg-primary text-white flex items-center justify-center text-[9px] font-black shrink-0 mt-0.5">1</div>
+                <div>
+                  <p className="text-[11px] font-bold text-gray-900 dark:text-white">Your details pre-fill automatically</p>
+                  <p className="text-[10px] text-gray-500 dark:text-gray-400">Your name, phone, company, and notification routing will appear automatically on every submission.</p>
+                </div>
+              </div>
+              <div className="flex gap-2.5">
+                <div className="w-5 h-5 rounded-full bg-primary text-white flex items-center justify-center text-[9px] font-black shrink-0 mt-0.5">2</div>
+                <div>
+                  <p className="text-[11px] font-bold text-gray-900 dark:text-white">Carrier adjusters are remembered</p>
+                  <p className="text-[10px] text-gray-500 dark:text-gray-400">The first time you add a carrier adjuster (e.g., Susan at Lititz), their details are saved. Next time, just start typing their name and they&apos;ll appear as a suggestion.</p>
+                </div>
+              </div>
+              <div className="flex gap-2.5">
+                <div className="w-5 h-5 rounded-full bg-primary text-white flex items-center justify-center text-[9px] font-black shrink-0 mt-0.5">3</div>
+                <div>
+                  <p className="text-[11px] font-bold text-gray-900 dark:text-white">Claim data is always fresh</p>
+                  <p className="text-[10px] text-gray-500 dark:text-gray-400">Claim number, date of loss, and policy number are never saved — you&apos;ll always enter these fresh for each submission.</p>
+                </div>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                setShowOnboardingTutorial(false);
+                if (typeof window !== "undefined") {
+                  localStorage.setItem(`trinity_portal_tutorial_seen_${portalUser.email}`, "1");
+                }
+              }}
+              className="w-full py-2.5 bg-primary text-white rounded-xl text-[12px] font-black hover:bg-primary-dark transition-colors shadow-md hover:shadow-lg active:scale-95"
+            >
+              Got it, let&apos;s go!
+            </button>
+          </div>
+        </div>
+      )}
+
       <main className={`${isSubmitted ? "h-[calc(100vh-64px)] flex items-start justify-center pt-24" : "pt-20 pb-8"}`}>
         <div className={`${isSubmitted ? "max-w-xl" : "max-w-5xl"} mx-auto ${currentStep === 4 ? "px-12" : "px-6"}`}>
 
-          {/* ── Sticky Wrapper – Only visible for Wizard Steps ── */}
+          {/* â”€â”€ Sticky Wrapper â€“ Only visible for Wizard Steps â”€â”€ */}
           {!isSubmitted && (
             <div className="sticky top-14 z-40 -mx-6 bg-gray-50 px-6 pb-3 pt-[0.625rem] mb-2 transition-all duration-500 dark:bg-background-dark lg:top-[75px]">
               <div className="relative z-10 mx-auto flex w-full max-w-5xl flex-col justify-center rounded-full border border-gray-200 bg-white px-1 py-0 shadow-md dark:border-gray-800 dark:bg-section-dark">
@@ -1394,7 +2201,7 @@ export default function SubmitInspectionPage() {
                   </h1>
                 </div>
 
-                {/* ── Progress Bar ── */}
+                {/* â”€â”€ Progress Bar â”€â”€ */}
                 <StepProgressBar
                   steps={WIZARD_STEPS}
                   currentStep={currentStep}
@@ -1406,14 +2213,14 @@ export default function SubmitInspectionPage() {
             </div>
           )}
 
-          {/* ── Form Card ── */}
+          {/* â”€â”€ Form Card â”€â”€ */}
           <div className={`${isSubmitted ? "bg-transparent border-none shadow-none overflow-visible" : "bg-white dark:bg-section-dark rounded-xl border border-gray-200 dark:border-gray-800 p-3 shadow-md overflow-hidden"}`}>
             {isSubmitted ? (
               <SuccessMessage onReset={handleReset} />
             ) : (
               <>
                 {/* =========================================== */}
-                {/*  STEP 0 – Inspection & Property (merged)   */}
+                {/*  STEP 0 â€“ Inspection & Property (merged)   */}
                 {/* =========================================== */}
                 {currentStep === 0 && (
                   <FormSection>
@@ -1464,7 +2271,7 @@ export default function SubmitInspectionPage() {
                             )}
                           </div>
 
-                          {/* Right: Building Type — only shown if required */}
+                          {/* Right: Building Type â€” only shown if required */}
                           {showBuildingType && (
                             <div className="space-y-2.5 md:col-span-1 animate-fadeIn">
                               <SectionHeader title="Building Type" icon={Building2} />
@@ -1499,12 +2306,12 @@ export default function SubmitInspectionPage() {
                 )}
 
                 {/* ================================================ */}
-                {/*  STEP 1 – Insurance & Adjuster (merged)        */}
+                {/*  STEP 1 â€“ Insurance & Adjuster (merged)        */}
                 {/* ================================================ */}
                 {currentStep === 1 && (
                   <FormSection>
                     <div className="space-y-3 animate-fadeIn">
-                      {/* IA Toggle — at the top */}
+                      {/* IA Toggle â€” at the top */}
                       <div className="bg-gray-50 dark:bg-background-dark rounded-lg p-3 border border-gray-200 dark:border-gray-700">
                         <CheckboxToggle
                           label="There is an IA for this project"
@@ -1530,11 +2337,11 @@ export default function SubmitInspectionPage() {
                         <div className="space-y-3">
                           {/* ROW 1: IA Information (Left) | Adjuster Details (Right) */}
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                            {/* LEFT COLUMN — IA Information */}
+                            {/* LEFT COLUMN â€” IA Information */}
                             <div className="bg-primary/5 dark:bg-accent/5 rounded-lg p-2 border border-primary/20 dark:border-accent/20 space-y-3">
                               <SectionHeader title="IA Information" />
 
-                              {/* Who is the primary client — INSIDE IA INFO */}
+                              {/* Who is the primary client â€” INSIDE IA INFO */}
                               <div className="bg-white/50 dark:bg-background-dark/50 rounded-lg p-1.5 border border-primary/10 dark:border-accent/10 space-y-1.5">
                                 <SectionHeader title="Who is the primary client for this project?" icon={UserCheck} small />
                                 <div className={`grid grid-cols-1 sm:grid-cols-2 gap-1.5 transition-all`}>
@@ -1573,7 +2380,7 @@ export default function SubmitInspectionPage() {
                                 </div>
                               </div>
 
-                              {/* Row 1: IA Company Name (full width) — lookup list, same as live schedule portal */}
+                              {/* Row 1: IA Company Name (full width) â€” lookup list, same as live schedule portal */}
                               <div className="grid grid-cols-1">
                                 <div className="space-y-0.5 relative">
                                   <label htmlFor="iaCompany" className="text-[11px] font-semibold text-gray-700 dark:text-gray-300 flex items-center gap-1">
@@ -1625,6 +2432,19 @@ export default function SubmitInspectionPage() {
                                   )}
                                   {iaCompanyOpen && (
                                     <div className="absolute z-20 mt-1 w-full max-h-64 overflow-auto rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-section-dark shadow-lg">
+                                      <button
+                                        type="button"
+                                        onMouseDown={(e) => e.preventDefault()}
+                                        onClick={() => {
+                                          setIaCompanyOpen(false);
+                                          setAddCompanyType('IA Company');
+                                          setIsAddCompanyModalOpen(true);
+                                        }}
+                                        className="w-full text-left px-3 py-2 text-[11px] font-bold text-white bg-primary hover:bg-primary-dark transition-colors border-b border-gray-100 dark:border-gray-800 flex items-center justify-between"
+                                      >
+                                        Add New Company
+                                        <Building2 className="w-3.5 h-3.5" />
+                                      </button>
                                       {iaCompanySearchLoading && filteredIaCompanies.length === 0 ? (
                                         <div className="p-4 flex flex-col items-center justify-center gap-2 text-gray-400">
                                           <Loader2 className="w-5 h-5 animate-spin" />
@@ -1715,7 +2535,7 @@ export default function SubmitInspectionPage() {
                                             setIaSectionError("");
                                           }} type="email" placeholder="ia@company.com" icon={Mail} />
 
-                                          {/* Send copy of — multi-select checkboxes */}
+                                          {/* Send copy of â€” multi-select checkboxes */}
                                           <div>
                                             <p className="text-[10px] font-semibold text-gray-600 dark:text-gray-300 mb-1">Send copy of</p>
                                             <div className="flex flex-wrap gap-2">
@@ -1791,7 +2611,7 @@ export default function SubmitInspectionPage() {
                               {renderInsuranceDocumentUpload()}
                             </div>
 
-                            {/* RIGHT COLUMN — Insurance & Adjuster */}
+                            {/* RIGHT COLUMN â€” Insurance & Adjuster */}
                             <div className="space-y-3">
                               {/* Insurance Carrier */}
                               <div className="bg-gray-50 dark:bg-background-dark rounded-lg p-2 border border-gray-200 dark:border-gray-700 space-y-2">
@@ -1801,7 +2621,7 @@ export default function SubmitInspectionPage() {
                                   <div className="space-y-0.5 relative">
                                     <label htmlFor="insuranceCompany" className="text-[11px] font-semibold text-gray-700 dark:text-gray-300 flex items-center gap-1">
                                       <Building2 className="text-primary dark:text-accent w-3 h-3" />
-                                      Insurance Company <span className="text-gray-400 font-normal"></span>
+                                      Company Name <span className="text-gray-400 font-normal"></span>
                                     </label>
                                     <div className="relative">
                                       <input
@@ -1926,43 +2746,111 @@ export default function SubmitInspectionPage() {
                               {/* Adjuster Details */}
                               <div className="bg-gray-50 dark:bg-background-dark rounded-lg p-2 border border-gray-200 dark:border-gray-700 space-y-2">
                                 <SectionHeader title={formData.isIAClaim ? "Carrier Adjuster Details" : "Adjuster Details"} />
-                                {/* Adjuster Company Name — hidden for now, restore when needed
+                                {/* Adjuster Company Name â€” hidden for now, restore when needed
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                                   <InputField label="Adjuster Company Name" name="adjusterCompany" value={formData.adjusterCompany} onChange={handleChange} placeholder="Company Name" icon={Building2} />
                                 </div>
                                 */}
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                                  <InputField label="First Name" name="adjusterFirstName" value={formData.adjusterFirstName} onChange={handleChange} onBlur={handleBlur} placeholder="First Name" required icon={UserRound} invalid={!!fieldErrors.adjusterFirstName} error={fieldErrors.adjusterFirstName} />
-                                  <InputField label="Last Name" name="adjusterLastName" value={formData.adjusterLastName} onChange={handleChange} onBlur={handleBlur} placeholder="Last Name" required icon={UserRound} invalid={!!fieldErrors.adjusterLastName} error={fieldErrors.adjusterLastName} />
-                                </div>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                                  <PhoneInputField label="Adjuster Phone" name="adjusterPhone" value={formData.adjusterPhone} onChange={handleChange} onBlur={handleBlur} required invalid={!!fieldErrors.adjusterPhone} error={fieldErrors.adjusterPhone} />
-                                  <InputField label="Phone Extension" name="adjusterPhoneExt" value={formData.adjusterPhoneExt} onChange={handleChange} placeholder="Ext. 123" icon={Hash} invalid={!!fieldErrors.adjusterPhoneExt} error={fieldErrors.adjusterPhoneExt} />
-                                </div>
-                                <div className="grid grid-cols-1">
-                                  <InputField
-                                    label={`Adjuster Email ${formData.contactEmails.filter(c => c.contactType === "Adjuster (Carrier)").length > 1 ? "#1" : ""}`}
-                                    name="adjusterEmail"
-                                    value={formData.contactEmails.find(c => c.contactType === "Adjuster (Carrier)")?.email || ""}
-                                    onChange={(e) => {
-                                      const index = formData.contactEmails.findIndex(c => c.contactType === "Adjuster (Carrier)");
-                                      const nextEmails = [...formData.contactEmails];
-                                      if (index > -1) {
-                                        nextEmails[index] = { ...nextEmails[index], email: e.target.value };
-                                      } else {
-                                        nextEmails.unshift({ email: e.target.value, contactType: "Adjuster (Carrier)", sendCopy: ["all", "report", "invoice", "notifications"] });
-                                      }
-                                      setFormData({ ...formData, contactEmails: nextEmails });
-                                    }}
-                                    onBlur={handleBlur}
-                                    type="email"
-                                    placeholder="adjuster@insurance.com"
-                                    required
-                                    icon={Mail}
-                                    invalid={!!fieldErrors.adjusterEmail}
-                                    error={fieldErrors.adjusterEmail}
-                                  />
-                                </div>
+                                 {/* First Name + Last Name with autofill suggestions (IA and Adjuster users) */}
+                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                   <div className="relative">
+                                     <InputField
+                                       label="First Name"
+                                       name="adjusterFirstName"
+                                       value={formData.adjusterFirstName}
+                                       onChange={(e) => {
+                                         setFormData({ ...formData, adjusterFirstName: e.target.value });
+                                         if (portalUser?.role === "IA" || portalUser?.role === "Adjuster") filterAdjusterSuggestions("firstName", e.target.value);
+                                       }}
+                                       placeholder="First Name"
+                                       required
+                                       icon={UserRound}
+                                       invalid={!!fieldErrors.adjusterFirstName}
+                                       error={fieldErrors.adjusterFirstName}
+                                     />
+                                     {adjusterSuggestField === "firstName" && adjusterSuggestions.length > 0 && (
+                                       <div className="absolute left-0 top-full mt-1 z-50 w-full bg-white dark:bg-section-dark border border-primary/20 rounded-lg shadow-lg overflow-hidden">
+                                         {adjusterSuggestions.map((contact) => (
+                                           <button key={contact.adjusterEmail} type="button"
+                                             className="w-full text-left px-3 py-2 hover:bg-primary/5 dark:hover:bg-accent/5 border-b border-gray-100 dark:border-gray-800 last:border-none"
+                                             onClick={() => applyCarrierContactSuggestion(contact)}>
+                                             <p className="text-[11px] font-semibold text-gray-900 dark:text-white">{contact.adjusterFirstName} {contact.adjusterLastName}</p>
+                                             <p className="text-[10px] text-gray-500 dark:text-gray-400">{contact.adjusterEmail}</p>
+                                           </button>
+                                         ))}
+                                       </div>
+                                     )}
+                                   </div>
+                                   <div className="relative">
+                                     <InputField
+                                       label="Last Name"
+                                       name="adjusterLastName"
+                                       value={formData.adjusterLastName}
+                                       onChange={(e) => {
+                                         setFormData({ ...formData, adjusterLastName: e.target.value });
+                                         if (portalUser?.role === "IA" || portalUser?.role === "Adjuster") filterAdjusterSuggestions("lastName", e.target.value);
+                                       }}
+                                       placeholder="Last Name"
+                                       required
+                                       icon={UserRound}
+                                       invalid={!!fieldErrors.adjusterLastName}
+                                       error={fieldErrors.adjusterLastName}
+                                     />
+                                     {adjusterSuggestField === "lastName" && adjusterSuggestions.length > 0 && (
+                                       <div className="absolute left-0 top-full mt-1 z-50 w-full bg-white dark:bg-section-dark border border-primary/20 rounded-lg shadow-lg overflow-hidden">
+                                         {adjusterSuggestions.map((contact) => (
+                                           <button key={contact.adjusterEmail} type="button"
+                                             className="w-full text-left px-3 py-2 hover:bg-primary/5 dark:hover:bg-accent/5 border-b border-gray-100 dark:border-gray-800 last:border-none"
+                                             onClick={() => applyCarrierContactSuggestion(contact)}>
+                                             <p className="text-[11px] font-semibold text-gray-900 dark:text-white">{contact.adjusterFirstName} {contact.adjusterLastName}</p>
+                                             <p className="text-[10px] text-gray-500 dark:text-gray-400">{contact.adjusterEmail}</p>
+                                           </button>
+                                         ))}
+                                       </div>
+                                     )}
+                                   </div>
+                                 </div>
+                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                   <PhoneInputField label="Adjuster Phone" name="adjusterPhone" value={formData.adjusterPhone} onChange={(e) => setFormData({ ...formData, adjusterPhone: e.target.value })} required invalid={!!fieldErrors.adjusterPhone} error={fieldErrors.adjusterPhone} />
+                                   <InputField label="Phone Extension" name="adjusterPhoneExt" value={formData.adjusterPhoneExt} onChange={(e) => setFormData({ ...formData, adjusterPhoneExt: e.target.value })} placeholder="Ext. 123" icon={Hash} invalid={!!fieldErrors.adjusterPhoneExt} error={fieldErrors.adjusterPhoneExt} />
+                                 </div>
+
+                                 <div className="relative mt-3">
+                                   <InputField
+                                     label={`Adjuster Email ${formData.contactEmails.filter(c => c.contactType === "Adjuster (Carrier)").length > 1 ? "#1" : ""}`}
+                                     name="adjusterEmail"
+                                     value={formData.contactEmails.find(c => c.contactType === "Adjuster (Carrier)")?.email || ""}
+                                     onChange={(e) => {
+                                       const index = formData.contactEmails.findIndex(c => c.contactType === "Adjuster (Carrier)");
+                                       const nextEmails = [...formData.contactEmails];
+                                       if (index > -1) {
+                                         nextEmails[index] = { ...nextEmails[index], email: e.target.value };
+                                       } else {
+                                         nextEmails.unshift({ email: e.target.value, contactType: "Adjuster (Carrier)", sendCopy: ["all", "report", "invoice", "notifications"] });
+                                       }
+                                       setFormData({ ...formData, contactEmails: nextEmails });
+                                       if (portalUser?.role === "IA" || portalUser?.role === "Adjuster") filterAdjusterSuggestions("email", e.target.value);
+                                     }}
+                                     type="email"
+                                     placeholder="adjuster@carrier.com"
+                                     required
+                                     icon={Mail}
+                                     invalid={!!fieldErrors.adjusterEmail}
+                                     error={fieldErrors.adjusterEmail}
+                                   />
+                                   {adjusterSuggestField === "email" && adjusterSuggestions.length > 0 && (
+                                     <div className="absolute left-0 top-full mt-1 z-50 w-full bg-white dark:bg-section-dark border border-primary/20 rounded-lg shadow-lg overflow-hidden">
+                                       {adjusterSuggestions.map((contact) => (
+                                         <button key={contact.adjusterEmail} type="button"
+                                           className="w-full text-left px-3 py-2 hover:bg-primary/5 dark:hover:bg-accent/5 border-b border-gray-100 dark:border-gray-800 last:border-none"
+                                           onClick={() => applyCarrierContactSuggestion(contact)}>
+                                           <p className="text-[11px] font-semibold text-gray-900 dark:text-white">{contact.adjusterFirstName} {contact.adjusterLastName}</p>
+                                           <p className="text-[10px] text-gray-500 dark:text-gray-400">{contact.adjusterEmail}</p>
+                                         </button>
+                                       ))}
+                                     </div>
+                                   )}
+                                 </div>
 
                                 {/* Send copy of for primary Adjuster */}
                                 <div className="mt-1 ml-1">
@@ -2024,7 +2912,7 @@ export default function SubmitInspectionPage() {
                                                 setAdjusterSectionError("");
                                               }} type="email" placeholder="additional@company.com" icon={Mail} />
 
-                                              {/* Send copy of — multi-select checkboxes */}
+                                              {/* Send copy of â€” multi-select checkboxes */}
                                               <div>
                                                 <p className="text-[10px] font-semibold text-gray-600 dark:text-gray-300 mb-1">Send copy of</p>
                                                 <div className="flex flex-wrap gap-2">
@@ -2118,14 +3006,14 @@ export default function SubmitInspectionPage() {
                       ) : (
                         /* IA UNCHECKED: ROW 1: [Insurance Carrier (Left) | Adjuster (Right)] */
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                          {/* LEFT COLUMN — Insurance */}
+                          {/* LEFT COLUMN â€” Insurance */}
                           <div className="bg-gray-50 dark:bg-background-dark rounded-lg p-2 border border-gray-200 dark:border-gray-700 space-y-2">
                             <SectionHeader title="Insurance Carrier" />
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                               <div className="space-y-0.5 relative">
                                 <label htmlFor="insuranceCompany" className="text-[11px] font-semibold text-gray-700 dark:text-gray-300 flex items-center gap-1">
                                   <Building2 className="text-primary dark:text-accent w-3 h-3" />
-                                  Insurance Company <span className="text-gray-400 font-normal"></span>
+                                  Company Name <span className="text-gray-400 font-normal"></span>
                                 </label>
                                 <div className="relative">
                                   <input
@@ -2207,7 +3095,7 @@ export default function SubmitInspectionPage() {
                                       </div>
                                     )}
 
-                                    <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => { setInsuranceCompanyOpen(false); setIsAddCompanyModalOpen(true); }} className="w-full text-left px-3 py-2 text-[11px] font-bold text-white bg-primary hover:bg-primary-dark transition-colors border-b border-gray-100 dark:border-gray-800 flex items-center justify-between">
+                                    <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => { setInsuranceCompanyOpen(false); setAddCompanyType('Insurance Company'); setIsAddCompanyModalOpen(true); }} className="w-full text-left px-3 py-2 text-[11px] font-bold text-white bg-primary hover:bg-primary-dark transition-colors border-b border-gray-100 dark:border-gray-800 flex items-center justify-between">
                                       Add New Company
                                       <Building2 className="w-3.5 h-3.5" />
                                     </button>
@@ -2250,17 +3138,73 @@ export default function SubmitInspectionPage() {
                             {renderInsuranceDocumentUpload("!mt-6 pt-2")}
                           </div>
 
-                          {/* RIGHT COLUMN — Adjuster */}
+                          {/* RIGHT COLUMN â€” Adjuster */}
                           <div className="bg-gray-50 dark:bg-background-dark rounded-lg p-2 border border-gray-200 dark:border-gray-700 space-y-2">
                             <SectionHeader title={formData.isIAClaim ? "Carrier Adjuster Details" : "Adjuster Details"} />
-                            {/* Adjuster Company Name — hidden for now, restore when needed
+                            {/* Adjuster Company Name â€” hidden for now, restore when needed
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                               <InputField label="Adjuster Company Name" name="adjusterCompany" value={formData.adjusterCompany} onChange={handleChange} placeholder="Company Name" icon={Building2} />
                             </div>
                             */}
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                              <InputField label="First Name" name="adjusterFirstName" value={formData.adjusterFirstName} onChange={handleChange} onBlur={handleBlur} placeholder="First Name" required icon={UserRound} invalid={!!fieldErrors.adjusterFirstName} error={fieldErrors.adjusterFirstName} />
-                              <InputField label="Last Name" name="adjusterLastName" value={formData.adjusterLastName} onChange={handleChange} onBlur={handleBlur} placeholder="Last Name" required icon={UserRound} invalid={!!fieldErrors.adjusterLastName} error={fieldErrors.adjusterLastName} />
+                              <div className="relative">
+                                <InputField
+                                  label="First Name"
+                                  name="adjusterFirstName"
+                                  value={formData.adjusterFirstName}
+                                  onChange={(e) => {
+                                    setFormData({ ...formData, adjusterFirstName: e.target.value });
+                                    if (portalUser?.role === "IA" || portalUser?.role === "Adjuster") filterAdjusterSuggestions("firstName", e.target.value);
+                                  }}
+                                  onBlur={handleBlur}
+                                  placeholder="First Name"
+                                  required
+                                  icon={UserRound}
+                                  invalid={!!fieldErrors.adjusterFirstName}
+                                  error={fieldErrors.adjusterFirstName}
+                                />
+                                {adjusterSuggestField === "firstName" && adjusterSuggestions.length > 0 && (
+                                  <div className="absolute left-0 top-full mt-1 z-50 w-full bg-white dark:bg-section-dark border border-primary/20 rounded-lg shadow-lg overflow-hidden">
+                                    {adjusterSuggestions.map((contact) => (
+                                      <button key={contact.adjusterEmail} type="button"
+                                        className="w-full text-left px-3 py-2 hover:bg-primary/5 dark:hover:bg-accent/5 border-b border-gray-100 dark:border-gray-800 last:border-none"
+                                        onClick={() => applyCarrierContactSuggestion(contact)}>
+                                        <p className="text-[11px] font-semibold text-gray-900 dark:text-white">{contact.adjusterFirstName} {contact.adjusterLastName}</p>
+                                        <p className="text-[10px] text-gray-500 dark:text-gray-400">{contact.adjusterEmail}</p>
+                                      </button>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                              <div className="relative">
+                                <InputField
+                                  label="Last Name"
+                                  name="adjusterLastName"
+                                  value={formData.adjusterLastName}
+                                  onChange={(e) => {
+                                    setFormData({ ...formData, adjusterLastName: e.target.value });
+                                    if (portalUser?.role === "IA" || portalUser?.role === "Adjuster") filterAdjusterSuggestions("lastName", e.target.value);
+                                  }}
+                                  onBlur={handleBlur}
+                                  placeholder="Last Name"
+                                  required
+                                  icon={UserRound}
+                                  invalid={!!fieldErrors.adjusterLastName}
+                                  error={fieldErrors.adjusterLastName}
+                                />
+                                {adjusterSuggestField === "lastName" && adjusterSuggestions.length > 0 && (
+                                  <div className="absolute left-0 top-full mt-1 z-50 w-full bg-white dark:bg-section-dark border border-primary/20 rounded-lg shadow-lg overflow-hidden">
+                                    {adjusterSuggestions.map((contact) => (
+                                      <button key={contact.adjusterEmail} type="button"
+                                        className="w-full text-left px-3 py-2 hover:bg-primary/5 dark:hover:bg-accent/5 border-b border-gray-100 dark:border-gray-800 last:border-none"
+                                        onClick={() => applyCarrierContactSuggestion(contact)}>
+                                        <p className="text-[11px] font-semibold text-gray-900 dark:text-white">{contact.adjusterFirstName} {contact.adjusterLastName}</p>
+                                        <p className="text-[10px] text-gray-500 dark:text-gray-400">{contact.adjusterEmail}</p>
+                                      </button>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
                             </div>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                               <PhoneInputField label="Adjuster Phone" name="adjusterPhone" value={formData.adjusterPhone} onChange={handleChange} onBlur={handleBlur} required invalid={!!fieldErrors.adjusterPhone} error={fieldErrors.adjusterPhone} />
@@ -2280,8 +3224,8 @@ export default function SubmitInspectionPage() {
                                     nextEmails.unshift({ email: e.target.value, contactType: "Adjuster (Carrier)", sendCopy: ["all", "report", "invoice", "notifications"] });
                                   }
                                   setFormData({ ...formData, contactEmails: nextEmails });
+                                  if (portalUser?.role === "IA" || portalUser?.role === "Adjuster") filterAdjusterSuggestions("email", e.target.value);
                                 }}
-                                onBlur={handleBlur}
                                 type="email"
                                 placeholder="adjuster@insurance.com"
                                 required
@@ -2289,6 +3233,18 @@ export default function SubmitInspectionPage() {
                                 invalid={!!fieldErrors.adjusterEmail}
                                 error={fieldErrors.adjusterEmail}
                               />
+                              {adjusterSuggestField === "email" && adjusterSuggestions.length > 0 && (
+                                <div className="absolute left-0 top-full mt-1 z-50 w-full bg-white dark:bg-section-dark border border-primary/20 rounded-lg shadow-lg overflow-hidden">
+                                  {adjusterSuggestions.map((contact) => (
+                                    <button key={contact.adjusterEmail} type="button"
+                                      className="w-full text-left px-3 py-2 hover:bg-primary/5 dark:hover:bg-accent/5 border-b border-gray-100 dark:border-gray-800 last:border-none"
+                                      onClick={() => applyCarrierContactSuggestion(contact)}>
+                                      <p className="text-[11px] font-semibold text-gray-900 dark:text-white">{contact.adjusterFirstName} {contact.adjusterLastName}</p>
+                                      <p className="text-[10px] text-gray-500 dark:text-gray-400">{contact.adjusterEmail}</p>
+                                    </button>
+                                  ))}
+                                </div>
+                              )}
                             </div>
 
                             {/* Send copy of for primary Adjuster */}
@@ -2351,7 +3307,7 @@ export default function SubmitInspectionPage() {
                                             setAdjusterSectionError("");
                                           }} type="email" placeholder="additional@company.com" icon={Mail} />
 
-                                          {/* Send copy of — multi-select checkboxes */}
+                                          {/* Send copy of â€” multi-select checkboxes */}
                                           <div>
                                             <p className="text-[10px] font-semibold text-gray-600 dark:text-gray-300 mb-1">Send copy of</p>
                                             <div className="flex flex-wrap gap-2">
@@ -2445,12 +3401,12 @@ export default function SubmitInspectionPage() {
                 )}
 
                 {/* ================================================ */}
-                {/*  STEP 2 – Policy & Address (merged)              */}
+                {/*  STEP 2 â€“ Policy & Address (merged)              */}
                 {/* ================================================ */}
                 {currentStep === 2 && (
                   <FormSection>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3 animate-fadeIn">
-                      {/* LEFT — Property Contact (Policyholder) */}
+                      {/* LEFT â€” Property Contact (Policyholder) */}
                       <div className="bg-gray-50 dark:bg-background-dark rounded-lg p-2 border border-gray-200 dark:border-gray-700 space-y-2">
                         <SectionHeader title="Property Contact (Policyholder)" />
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -2466,7 +3422,7 @@ export default function SubmitInspectionPage() {
                             </div>
                           </div>
 
-                          {/* DISABLED: Add Another Phone + secondary phone input — uncomment to restore
+                          {/* DISABLED: Add Another Phone + secondary phone input â€” uncomment to restore
                           {(showPrimaryPhone2 || formData.policyholderPhone1Extra) && (
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-3 animate-in slide-in-from-top-1 duration-200">
                               <div className="space-y-1 relative group">
@@ -2508,7 +3464,7 @@ export default function SubmitInspectionPage() {
                         </div>
                       </div>
 
-                      {/* RIGHT — Property Address */}
+                      {/* RIGHT â€” Property Address */}
                       <div className="bg-gray-50 dark:bg-background-dark rounded-lg p-2 border border-gray-200 dark:border-gray-700">
                         <AddressGroup
                           streetAddress={formData.streetAddress}
@@ -2526,12 +3482,12 @@ export default function SubmitInspectionPage() {
                 )}
 
                 {/* ================================================ */}
-                {/*  STEP 3 – Roofer & Public Adjuster               */}
+                {/*  STEP 3 â€“ Roofer & Public Adjuster               */}
                 {/* ================================================ */}
                 {currentStep === 3 && (
                   <FormSection>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3 animate-fadeIn">
-                      {/* LEFT — Roofer */}
+                      {/* LEFT â€” Roofer */}
                       <div className="bg-gray-50 dark:bg-background-dark rounded-lg p-2 border border-gray-200 dark:border-gray-700 space-y-2">
                         <SectionHeader title="Roofer Information" icon={Home} optional />
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -2544,7 +3500,7 @@ export default function SubmitInspectionPage() {
                         </div>
                       </div>
 
-                      {/* RIGHT — Public Adjuster */}
+                      {/* RIGHT â€” Public Adjuster */}
                       <div className="bg-gray-50 dark:bg-background-dark rounded-lg p-2 border border-gray-200 dark:border-gray-700 space-y-2">
                         <SectionHeader title="Public Adjuster Details" icon={Hand} optional />
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -2561,7 +3517,7 @@ export default function SubmitInspectionPage() {
                 )}
 
                 {/* ================================================ */}
-                {/*  STEP 4 – Review & Submit                        */}
+                {/*  STEP 4 â€“ Review & Submit                        */}
                 {/* ================================================ */}
                 {currentStep === 4 && (
                   <div className="animate-fadeIn space-y-6">
@@ -2669,7 +3625,7 @@ export default function SubmitInspectionPage() {
                   </div>
                 )}
 
-                {/* ── Navigation Buttons ── */}
+                {/* â”€â”€ Navigation Buttons â”€â”€ */}
                 <div className="flex items-center justify-between pt-1.5 mt-2 border-t border-gray-200 dark:border-gray-800">
                   {currentStep > 0 ? (
                     <button
@@ -2722,7 +3678,47 @@ export default function SubmitInspectionPage() {
         </div>
       </main>
 
-      {/* ── Custom Validation Modal for Step 3 ── */}
+      {/* â”€â”€ Save Preferences Confirmation Modal â”€â”€ */}
+      {showPreferencesModal && (() => {
+        const hasExistingSavedPreferences = loadedPreferences !== null && Object.keys(loadedPreferences).length > 0;
+        return (
+          <div className="fixed inset-0 z-[60] flex items-center justify-center bg-navy/40 backdrop-blur-md px-4 p-6 animate-fadeIn">
+            <div className="bg-white dark:bg-section-dark w-full max-w-sm rounded-2xl shadow-xl border border-gray-100 dark:border-gray-800 transition-all scale-100">
+              <div className="p-8 pb-6 flex flex-col items-center text-center">
+                <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-900/10 rounded-xl">
+                  <Bookmark className="w-6 h-6 text-blue-500 dark:text-blue-400" />
+                </div>
+                <h3 className="text-xl font-bold text-gray-900 dark:text-white tracking-tight">Save Preferences?</h3>
+                <p className="mt-2 text-sm leading-relaxed text-gray-500 dark:text-gray-400">
+                  {hasExistingSavedPreferences
+                    ? "Your saved preferences have changed. Would you like to overwrite your existing preferences?"
+                    : "Would you like to save these preferences for future use?"}
+                </p>
+              </div>
+
+              <div className="px-8 pb-8 flex flex-col gap-2">
+                <button
+                  type="button"
+                  onClick={() => handleSavePreferencesIntentAndContinue(true)}
+                  className="w-full bg-primary hover:bg-primary-dark dark:bg-accent dark:hover:bg-accent-light text-white py-2.5 px-6 rounded-xl font-bold text-xs transition-all shadow-md active:scale-[0.98]"
+                >
+                  Yes
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleSavePreferencesIntentAndContinue(false)}
+                  className="w-full bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 py-2.5 px-6 rounded-xl font-bold text-xs transition-all active:scale-[0.98]"
+                >
+                  {hasExistingSavedPreferences ? "No" : "Skip"}
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* â”€â”€ Custom Validation Modal for Step 3 â”€â”€ */}
       {isValidationModalOpen && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-navy/40 backdrop-blur-md px-4 p-6 animate-fadeIn">
           <div className="bg-white dark:bg-section-dark w-full max-w-sm rounded-2xl shadow-xl border border-gray-100 dark:border-gray-800 transition-all scale-100">
@@ -2798,7 +3794,7 @@ export default function SubmitInspectionPage() {
       )}
 
       {isAddCompanyModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm px-4">
+         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm px-4">
           <div className="bg-white dark:bg-section-dark w-full max-w-[420px] rounded-xl shadow-2xl overflow-hidden border border-gray-200 dark:border-gray-800 animate-fadeIn">
             <div className="flex items-center justify-between px-4 py-2.5 border-b border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-background-dark/50">
               <h3 className="font-bold text-sm text-gray-900 dark:text-white flex items-center gap-1.5">
@@ -2812,7 +3808,16 @@ export default function SubmitInspectionPage() {
             <form onSubmit={handleAddNewCompanySubmit} className="px-3.5 py-2.5 space-y-2">
               <div className="space-y-0.5">
                 <label className="text-[11px] font-bold text-gray-700 dark:text-gray-300">Company Name <span className="text-red-500">*</span></label>
-                <input required type="text" placeholder="Insurance Co. Name" value={newCompanyData.name} onChange={(e) => setNewCompanyData({ ...newCompanyData, name: e.target.value })} className="w-full bg-gray-50 dark:bg-background-dark border border-gray-200 dark:border-gray-700 rounded-lg px-2.5 py-1 text-[13px] text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary dark:focus:ring-accent" />
+                <input required type="text" placeholder="Company Name" value={newCompanyData.name} onChange={(e) => setNewCompanyData({ ...newCompanyData, name: e.target.value })} className="w-full bg-gray-50 dark:bg-background-dark border border-gray-200 dark:border-gray-700 rounded-lg px-2.5 py-1 text-[13px] text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary dark:focus:ring-accent" />
+              </div>
+              <div className="space-y-0.5">
+                <label className="text-[11px] font-bold text-gray-700 dark:text-gray-300">Company Type (Optional)</label>
+                <select value={addCompanyType} onChange={(e) => setAddCompanyType(e.target.value)} className="w-full bg-gray-50 dark:bg-background-dark border border-gray-200 dark:border-gray-700 rounded-lg px-2.5 py-1 text-[13px] text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary dark:focus:ring-accent cursor-pointer">
+                  <option value="">Select Type</option>
+                  {companyTypes.map(type => (
+                    <option key={type} value={type}>{type}</option>
+                  ))}
+                </select>
               </div>
               <div className="space-y-0.5">
                 <label className="text-[11px] font-bold text-gray-700 dark:text-gray-300">CC Invoices To</label>

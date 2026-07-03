@@ -26,6 +26,7 @@ export default function LoginPage() {
   const [info, setInfo] = useState("");
   const [resendCooldown, setResendCooldown] = useState(0);
   const [redirecting, setRedirecting] = useState(false);
+  const [isCheckingSession, setIsCheckingSession] = useState(true);
 
   // Request-access form state
   const [reqName, setReqName] = useState("");
@@ -38,11 +39,17 @@ export default function LoginPage() {
       .then((r) => r.json())
       .then((data) => {
         if (data?.valid) {
+          localStorage.setItem("portal_logged_in", "true");
           setRedirecting(true);
           router.replace("/portal/claims");
+        } else {
+          localStorage.removeItem("portal_logged_in");
+          setIsCheckingSession(false);
         }
       })
-      .catch(() => {});
+      .catch(() => {
+        setIsCheckingSession(false);
+      });
   }, [router]);
 
   useEffect(() => {
@@ -146,6 +153,7 @@ export default function LoginPage() {
         else setError(data.error || "Invalid verification code.");
         return;
       }
+      localStorage.setItem("portal_logged_in", "true");
       router.push("/portal/claims");
     } catch {
       setError("Something went wrong. Please try again.");
@@ -193,7 +201,7 @@ export default function LoginPage() {
   const isOtpStep = step === "otp";
 
   // If we're redirecting an already-authenticated user, show a subtle overlay
-  if (redirecting) {
+  if (redirecting || isCheckingSession) {
     return (
       <div className="flex h-[100dvh] items-center justify-center bg-gradient-to-br from-gray-50 via-white to-gray-100">
         <span className="material-symbols-outlined animate-spin text-3xl text-gray-400">progress_activity</span>

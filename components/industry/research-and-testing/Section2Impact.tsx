@@ -48,18 +48,18 @@ export default function Section2Impact() {
                   className="group w-full rounded-xl border border-gray-100 bg-[#F8FAFC] p-6 shadow-sm transition-all duration-500 hover:border-blue-100 hover:shadow-xl max-lg:rounded-2xl max-lg:p-5 md:p-8"
                 >
                   {"eyebrow" in block && block.eyebrow && (
-                    <span className={`${HOME_POINT_TITLE_CLASS} block mb-1 text-[11px] font-bold text-[#2563EB]`}>
+                    <span className={`${HOME_POINT_TITLE_CLASS} block mb-1 text-[11px] font-extrabold text-[#2563EB] tracking-[0.15em]`}>
                       {block.eyebrow}
                     </span>
                   )}
                   
                   {"title" in block && block.title && (
-                    <h3 className={`${HOME_POINT_TITLE_CLASS} block text-[11px] font-bold text-[#2563EB] mt-1 mb-4 uppercase`}>
+                    <h3 className={`${HOME_POINT_TITLE_CLASS} block text-[11px] font-extrabold text-[#2563EB] mt-1 mb-6 uppercase tracking-[0.15em]`}>
                       {block.title}
                     </h3>
                   )}
 
-                  <div className={`space-y-4 ${HOME_POINT_BODY_CLASS} mt-3`}>
+                  <div className={`space-y-4 ${HOME_POINT_BODY_CLASS} mt-6`}>
                     {block.paragraphs.map((para, pIdx) => (
                       <p key={pIdx} className="opacity-85 group-hover:opacity-100 transition-opacity duration-350">
                         {para}

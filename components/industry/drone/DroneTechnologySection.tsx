@@ -23,7 +23,7 @@ function TextBlock({
 }) {
   return (
     <div className="group w-full rounded-xl border border-gray-100 bg-white p-6 shadow-sm transition-all duration-500 hover:border-blue-100 hover:shadow-xl max-lg:rounded-2xl max-lg:p-5 md:p-8">
-      <h3 className={`mb-3 ${HOME_POINT_TITLE_CLASS}`}>{eyebrow}</h3>
+      <h3 className={`mb-6 ${HOME_POINT_TITLE_CLASS}`}>{eyebrow}</h3>
       <div className={`space-y-4 ${HOME_POINT_BODY_CLASS}`}>
         {paragraphs.map((paragraph, index) => {
           const isBullet = paragraph.startsWith("• ");

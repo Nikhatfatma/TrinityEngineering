@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Send } from "lucide-react";
 import { CLAIMS_CONTENT_WIDTH, CLAIMS_CTA, CLAIMS_SECTION_SHELL } from "./claimsContent";
 import {
   SITE_BODY_CLASS,
@@ -7,26 +8,22 @@ import {
 } from "@/components/home/HomeContent";
 
 const CTA_EYEBROW_CLASS =
-  "text-[11px] font-medium normal-case tracking-normal text-[#60A5FA] md:text-[12px]";
+  "text-[14px] font-bold normal-case tracking-normal text-white md:text-[15px]";
 
 export default function ClaimsCtaSection() {
   return (
-    <section className={`${SITE_TAB_CTA_SECTION_CLASS} overflow-hidden bg-[#000B29]`}>
-      <div
-        className="pointer-events-none absolute inset-0 opacity-30"
-        style={{
-          backgroundImage:
-            "radial-gradient(circle at 20% 30%, rgba(59,130,246,0.35) 0%, transparent 45%), radial-gradient(circle at 80% 70%, rgba(37,99,235,0.25) 0%, transparent 40%)",
-        }}
-      />
-      <div
-        className="pointer-events-none absolute inset-0 opacity-[0.08]"
-        style={{
-          backgroundImage:
-            "linear-gradient(rgba(255,255,255,0.5) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.5) 1px, transparent 1px)",
-          backgroundSize: "48px 48px",
-        }}
-      />
+    <section className={`${SITE_TAB_CTA_SECTION_CLASS} overflow-hidden`}>
+      <div className="hero-media-grid [&::after]:hidden">
+        <img
+          src="/claims-cta-background.png"
+          alt="Forensic Engineering Inspection"
+          className="block h-full w-full min-h-full min-w-full object-cover object-[center_30%]"
+        />
+        <div
+          className="z-[1] bg-[rgba(14,24,47,0.7)] backdrop-blur-[5px] pointer-events-none"
+          aria-hidden
+        />
+      </div>
 
       <div className={`relative z-10 text-center ${CLAIMS_SECTION_SHELL}`}>
         <div className={CLAIMS_CONTENT_WIDTH}>
@@ -38,8 +35,9 @@ export default function ClaimsCtaSection() {
           <p className={`mt-4 text-white/80 ${SITE_BODY_CLASS}`}>{CLAIMS_CTA.subtitle}</p>
           <Link
             href={CLAIMS_CTA.cta.href}
-            className="mt-8 inline-flex min-w-[12rem] items-center justify-center bg-[#00A859] px-8 py-3 text-[11px] font-bold normal-case tracking-normal text-white transition-colors hover:bg-[#008f4c] sm:mt-10 sm:min-w-[14rem] sm:text-sm md:text-base"
+            className="group mt-8 inline-flex min-w-[12rem] items-center justify-center gap-2 rounded-md border border-white bg-transparent px-8 py-3 text-[11px] font-bold normal-case tracking-normal text-white transition-all duration-300 hover:bg-[#0047AB] hover:border-[#0047AB] sm:mt-10 sm:min-w-[14rem] sm:text-sm md:text-base"
           >
+            <Send className="h-4 w-4 shrink-0 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
             {CLAIMS_CTA.cta.label}
           </Link>
         </div>
@@ -47,3 +45,4 @@ export default function ClaimsCtaSection() {
     </section>
   );
 }
+

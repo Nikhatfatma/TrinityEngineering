@@ -7,7 +7,7 @@ import {
 } from "@/components/home/HomeContent";
 
 const CTA_EYEBROW_CLASS =
-  "text-[11px] font-medium normal-case tracking-normal text-white md:text-[12px]";
+  "text-[14px] font-bold normal-case tracking-normal text-white md:text-[15px]";
 
 export default function SwiCtaSection() {
   return (

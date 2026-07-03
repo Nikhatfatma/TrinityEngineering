@@ -55,7 +55,7 @@ export default function FortifiedSection() {
       <section className={`${HOME_SECTION_CLASS} bg-white`}>
         <div className="w-full bg-[#001D3D] pb-[6.5rem] pt-8 text-white max-lg:text-left lg:text-center sm:pb-[8rem] sm:pt-10 md:pb-[11.5rem] md:pt-12 lg:pb-[15rem] lg:pt-14">
           <div className={`${HOME_CONTENT_CLASS} relative z-10`}>
-            <div className={HOME_TEXT_WIDTH}>
+            <div className="mx-auto w-full max-w-6xl min-w-0 px-4">
               <div className="w-full min-w-0 lg:hidden md:w-[68%] md:max-w-[36rem]">
                 <p className="text-left text-sm font-bold leading-snug md:text-lg">Whether You Have:</p>
                 <ul className="mt-4 space-y-2.5 md:mt-5 md:grid md:grid-cols-2 md:gap-x-8 md:gap-y-3 md:space-y-0">
@@ -85,8 +85,10 @@ export default function FortifiedSection() {
                   Whether you have a rooftop deck, knee-wall, or equipment such as solar electric or hot water panels,
                 </span>
                 <span className="block">
-                  or a walkable flat roof, timber rafters, or round roof, we are{" "}
-                  <span className="font-bold text-blue-400">The only engineering firm</span>
+                  or a walkable flat roof, timber rafters, or round roof,
+                </span>
+                <span className="block">
+                  we are <span className="font-bold text-blue-400">The only engineering firm</span>
                 </span>
                 <span className="block">
                   providing eligibility solutions for the <span className="font-bold">FORTIFIED ROOF™ Program</span>

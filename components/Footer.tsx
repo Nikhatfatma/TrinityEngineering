@@ -27,8 +27,7 @@ const SERVICES_COL_RIGHT = [
 export default function Footer() {
   const footerLinkClass = "relative group flex items-center gap-0 hover:gap-2 transition-all duration-300 hover:text-blue-400 py-1";
 
-  const serviceHref = (item: string) =>
-    `/services/${item.toLowerCase().replace(/ /g, "-")}`;
+  const serviceHref = (item: string) => "/submit-inspection";
 
   const ServiceLink = ({ item }: { item: string }) => (
     <Link className={footerLinkClass} href={serviceHref(item)}>
@@ -93,9 +92,7 @@ export default function Footer() {
                 {["Our Services", "Fortified", "Education", "Careers", "About Us", "Contact"].map((item) => (
                   <li key={item}>
                     <Link className={footerLinkClass} href={`/${item.toLowerCase().replace(/ /g, "-")}`}>
-                      {item !== "Education" && (
-                        <ChevronRight size={12} className="w-0 opacity-0 group-hover:w-3 group-hover:opacity-100 transition-all duration-300 text-blue-500" />
-                      )}
+                      <ChevronRight size={12} className="w-0 opacity-0 group-hover:w-3 group-hover:opacity-100 transition-all duration-300 text-blue-500" />
                       <span>{item}</span>
                     </Link>
                   </li>
@@ -109,7 +106,7 @@ export default function Footer() {
                   <div className="shrink-0 rounded-sm bg-blue-500/10 p-2 transition-colors group-hover:bg-blue-500/20">
                     <Phone size={14} className="text-blue-500" />
                   </div>
-                  <a href="tel:+18559295888" className="min-w-0 break-words hover:text-blue-400 transition-colors">(855) 929-5888</a>
+                  <span className="min-w-0 break-words hover:text-blue-400 transition-colors">(855) 929-5888</span>
                 </li>
                 <li className="group flex min-w-0 cursor-pointer items-start gap-3">
                   <div className="shrink-0 rounded-sm bg-blue-500/10 p-2 transition-colors group-hover:bg-blue-500/20">
@@ -180,9 +177,7 @@ export default function Footer() {
                 {["Fortified", "Education", "Careers"].map((item) => (
                   <li key={item}>
                     <Link className={footerLinkClass} href={`/${item.toLowerCase().replace(/ /g, "-")}`}>
-                      {item !== "Education" && (
-                        <ChevronRight size={12} className="w-0 opacity-0 group-hover:w-3 group-hover:opacity-100 transition-all duration-300 text-blue-500" />
-                      )}
+                      <ChevronRight size={12} className="w-0 opacity-0 group-hover:w-3 group-hover:opacity-100 transition-all duration-300 text-blue-500" />
                       <span>{item}</span>
                     </Link>
                   </li>
@@ -197,7 +192,7 @@ export default function Footer() {
                   <div className="shrink-0 rounded-sm bg-blue-500/10 p-2 transition-colors group-hover:bg-blue-500/20">
                     <Phone size={14} className="text-blue-500" />
                   </div>
-                  <a href="tel:+18559295888" className="min-w-0 break-words hover:text-blue-400 transition-colors">(855) 929-5888</a>
+                  <span className="min-w-0 break-words hover:text-blue-400 transition-colors">(855) 929-5888</span>
                 </li>
                 <li className="group flex min-w-0 cursor-pointer items-start gap-3">
                   <div className="shrink-0 rounded-sm bg-blue-500/10 p-2 transition-colors group-hover:bg-blue-500/20">
@@ -217,11 +212,8 @@ export default function Footer() {
           </div>
         </div>
 
-        <div className="pt-6 border-t border-white/5 flex flex-col md:flex-row items-center justify-between gap-6 text-center md:text-left text-[11px] font-bold text-white tracking-widest uppercase">
+        <div className="pt-6 border-t border-white/5 flex flex-col items-center justify-center text-center text-[11px] font-bold text-white tracking-widest uppercase">
           <p className="max-w-full break-words">© Trinitypllc.com 2022 All rights Reserved.</p>
-          <div className="flex flex-wrap justify-center gap-6 sm:gap-12">
-
-          </div>
         </div>
       </div>
     </footer>

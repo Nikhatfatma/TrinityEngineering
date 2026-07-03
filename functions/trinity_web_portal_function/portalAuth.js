@@ -567,9 +567,9 @@ async function fetchClaimsForUser(email, role, getNewAccessToken) {
 
     let criteria;
     if (role === 'IA') {
-        criteria = `(IA_Email=="${safeEmail}")`;
+        criteria = `(Independent_Adjuster_Email=="${safeEmail}")`;
     } else {
-        criteria = `(Client_Email=="${safeEmail}")`;
+        criteria = `(Adjuster_Email=="${safeEmail}")`;
     }
 
     let token = await getNewAccessToken();
@@ -608,16 +608,19 @@ async function fetchClaimsForUser(email, role, getNewAccessToken) {
         }
     }
 
-    return allClaims.map((row) => ({
+    return allClaims.map((row) => {
+        console.log("RAW CLAIM ROW:", JSON.stringify(row, null, 2));
+        return {
         id: row.ID || row.id || '',
         claimNumber: row.Claim_Number || row.claim_number || '',
-        inspectionType: row.Inspection_Type || row.inspection_type || '',
-        status: row.Status || row.status || row.Inspection_Status || '',
+        inspectionType: row.Service_Requested || row.Inspection_Type || row.inspection_type || '',
+        status: row.Inspection_Status || row.inspection_status || row.Status || row.status || '',
         dateOfLoss: row.Date_of_Loss || row.date_of_loss || '',
         policyholderName: formatPolicyholderName(row),
         submittedAt: row.Added_Time || row.added_time || row.Created_Time || '',
-        insuranceCompany: row.Insurance_Company || row.insurance_company || ''
-    }));
+        insuranceCompany: (row.Insurance_Company_List && row.Insurance_Company_List.display_value) || row.Insurance_Company || row.insurance_company || ''
+    };
+    });
 }
 
 function formatPolicyholderName(row) {
@@ -626,7 +629,7 @@ function formatPolicyholderName(row) {
         return [phName.first_name, phName.last_name].filter(Boolean).join(' ').trim();
     }
     if (typeof phName === 'string') return phName;
-    return row.Policyholder_Name || '';
+    return row.Policyholder_Name || row.Inspection_Name || '';
 }
 
 async function handleGetMyClaims(catalystApp, { sessionToken }, getNewAccessToken) {
@@ -652,6 +655,213 @@ async function handleGetMyClaims(catalystApp, { sessionToken }, getNewAccessToke
     }
 }
 
+async function handleGetUserPreferences(catalystApp, { sessionToken, insuranceCompany, iaCompany }) {
+    const sessionResult = await handleValidateSession(catalystApp, { sessionToken });
+    if (!sessionResult.valid) {
+        return { success: false, error: sessionResult.error || 'Unauthorized', unauthorized: true };
+    }
+
+    const { email, role } = sessionResult.user;
+    const zcql = catalystApp.zcql();
+
+    let company;
+    if (role === 'IA') {
+        company = iaCompany;
+    } else if (role === 'Adjuster') {
+        company = insuranceCompany;
+    }
+
+    if (!company || !String(company).trim()) {
+        return { success: true, preferences: null };
+    }
+
+    const safeCompany = escapeZcql(String(company).trim());
+    const safeEmail = escapeZcql(email);
+
+    const query = `SELECT ROWID, user_email, scoping_company, preferences_json FROM UserPreferences WHERE user_email = '${safeEmail}' AND scoping_company = '${safeCompany}' LIMIT 1`;
+
+    try {
+        const rows = await zcql.executeZCQLQuery(query);
+        if (!rows || rows.length === 0) {
+            return { success: true, preferences: null };
+        }
+        const row = rows[0].UserPreferences;
+        let preferences = {};
+        if (row.preferences_json) {
+            try {
+                preferences = JSON.parse(row.preferences_json);
+            } catch (err) {
+                console.error('[getUserPreferences] Failed to parse preferences JSON:', err);
+            }
+        }
+        return { success: true, preferences };
+    } catch (err) {
+        console.error('[getUserPreferences] Error fetching preferences:', err.message);
+        if (err.message && (err.message.includes('not exist') || err.message.includes('not found') || err.message.includes('Table'))) {
+            return { success: true, preferences: null };
+        }
+        return { success: false, error: err.message };
+    }
+}
+
+async function handleSaveUserPreferences(catalystApp, { sessionToken, insuranceCompany, iaCompany, preferences }) {
+    const sessionResult = await handleValidateSession(catalystApp, { sessionToken });
+    if (!sessionResult.valid) {
+        return { success: false, error: sessionResult.error || 'Unauthorized', unauthorized: true };
+    }
+
+    const { email, role } = sessionResult.user;
+    const zcql = catalystApp.zcql();
+    const table = catalystApp.datastore().table('UserPreferences');
+
+    if (!preferences || typeof preferences !== 'object') {
+        return { success: false, error: 'Invalid preferences payload' };
+    }
+
+    let company;
+    if (role === 'IA') {
+        company = iaCompany;
+    } else if (role === 'Adjuster') {
+        company = insuranceCompany;
+    }
+
+    if (!company || !String(company).trim()) {
+        return { success: false, error: 'Scoping company is required to save preferences' };
+    }
+
+    const cleanCompany = String(company).trim();
+    const safeCompany = escapeZcql(cleanCompany);
+    const safeEmail = escapeZcql(email);
+
+    const query = `SELECT ROWID FROM UserPreferences WHERE user_email = '${safeEmail}' AND scoping_company = '${safeCompany}' LIMIT 1`;
+    const identifier = { user_email: email, scoping_company: cleanCompany };
+
+    const preferencesJson = JSON.stringify(preferences);
+
+    try {
+        const rows = await zcql.executeZCQLQuery(query);
+        if (rows && rows.length > 0) {
+            const rowId = rows[0].UserPreferences.ROWID;
+            await table.updateRow({
+                ROWID: rowId,
+                ...identifier,
+                preferences_json: preferencesJson
+            });
+            return { success: true, message: 'Preferences updated successfully' };
+        } else {
+            await table.insertRow({
+                ...identifier,
+                preferences_json: preferencesJson
+            });
+            return { success: true, message: 'Preferences created successfully' };
+        }
+    } catch (err) {
+        console.error('[saveUserPreferences] Error saving preferences:', err.message);
+        return { success: false, error: err.message };
+    }
+}
+
+// ---------------------------------------------------------------
+// Layer 2: IA-added Carrier Adjuster Contacts
+// Table: IACarrierContacts
+//   Columns: user_email, adjuster_email, contact_json
+// ---------------------------------------------------------------
+
+async function handleGetCarrierContacts(catalystApp, { sessionToken }) {
+    const sessionResult = await handleValidateSession(catalystApp, { sessionToken });
+    if (!sessionResult.valid) {
+        return { success: false, error: sessionResult.error || 'Unauthorized', unauthorized: true };
+    }
+
+    const { email, role } = sessionResult.user;
+    if (role !== 'IA' && role !== 'Adjuster') {
+        // Only IA and Adjuster users maintain a carrier contacts list
+        return { success: true, contacts: [] };
+    }
+
+    const zcql = catalystApp.zcql();
+    const safeEmail = escapeZcql(email);
+
+    try {
+        const query = `SELECT ROWID, user_email, adjuster_email, contact_json FROM IACarrierContacts WHERE user_email = '${safeEmail}' LIMIT 100`;
+        const rows = await zcql.executeZCQLQuery(query);
+        if (!rows || rows.length === 0) {
+            return { success: true, contacts: [] };
+        }
+
+        const contacts = rows.map(r => {
+            const row = r.IACarrierContacts;
+            let contact = {};
+            try {
+                contact = JSON.parse(row.contact_json || '{}');
+            } catch (e) {
+                console.error('[getCarrierContacts] Failed to parse contact_json for', row.adjuster_email);
+            }
+            return { adjusterEmail: row.adjuster_email, ...contact };
+        });
+
+        return { success: true, contacts };
+    } catch (err) {
+        console.error('[getCarrierContacts] Error:', err.message);
+        if (err.message && (err.message.includes('not exist') || err.message.includes('not found') || err.message.includes('Table'))) {
+            return { success: true, contacts: [] };
+        }
+        return { success: false, error: err.message };
+    }
+}
+
+async function handleSaveCarrierContact(catalystApp, { sessionToken, adjusterEmail, contact }) {
+    const sessionResult = await handleValidateSession(catalystApp, { sessionToken });
+    if (!sessionResult.valid) {
+        return { success: false, error: sessionResult.error || 'Unauthorized', unauthorized: true };
+    }
+
+    const { email, role } = sessionResult.user;
+    if (role !== 'IA' && role !== 'Adjuster') {
+        return { success: false, error: 'Only IA and Adjuster users can save carrier contacts' };
+    }
+
+    const normalizedAdjEmail = normalizeEmail(adjusterEmail);
+    if (!normalizedAdjEmail || !isValidEmailFormat(normalizedAdjEmail)) {
+        return { success: false, error: 'Valid adjuster email is required' };
+    }
+    if (!contact || typeof contact !== 'object') {
+        return { success: false, error: 'Invalid contact payload' };
+    }
+
+    const zcql = catalystApp.zcql();
+    const table = catalystApp.datastore().table('IACarrierContacts');
+    const safeIaEmail = escapeZcql(email);
+    const safeAdjEmail = escapeZcql(normalizedAdjEmail);
+    const contactJson = JSON.stringify(contact);
+
+    try {
+        const query = `SELECT ROWID FROM IACarrierContacts WHERE user_email = '${safeIaEmail}' AND adjuster_email = '${safeAdjEmail}' LIMIT 1`;
+        const rows = await zcql.executeZCQLQuery(query);
+
+        if (rows && rows.length > 0) {
+            const rowId = rows[0].IACarrierContacts.ROWID;
+            await table.updateRow({
+                ROWID: rowId,
+                user_email: email,
+                adjuster_email: normalizedAdjEmail,
+                contact_json: contactJson
+            });
+            return { success: true, message: 'Carrier contact updated successfully' };
+        } else {
+            await table.insertRow({
+                user_email: email,
+                adjuster_email: normalizedAdjEmail,
+                contact_json: contactJson
+            });
+            return { success: true, message: 'Carrier contact created successfully' };
+        }
+    } catch (err) {
+        console.error('[saveCarrierContact] Error:', err.message);
+        return { success: false, error: err.message };
+    }
+}
+
 module.exports = {
     ALLOWED_ROLES,
     handleCreateInvite,
@@ -660,5 +870,9 @@ module.exports = {
     handleVerifyOtp,
     handleValidateSession,
     handleLogout,
-    handleGetMyClaims
+    handleGetMyClaims,
+    handleGetUserPreferences,
+    handleSaveUserPreferences,
+    handleGetCarrierContacts,
+    handleSaveCarrierContact
 };

@@ -1,6 +1,7 @@
 "use client";
 
 import { Check } from "lucide-react";
+import Image from "next/image";
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 
 interface SelectCardProps {
@@ -113,13 +114,15 @@ export default function SelectCard({
                 : "h-20 w-full overflow-hidden md:h-24"
           }`}
         >
-          <img
+          <Image
             src={image}
             alt={label}
+            fill
+            sizes="(max-width: 768px) 100vw, 33vw"
             className={`transition-transform duration-500 ${containImage ? "" : "group-hover/card:scale-105"} ${
               containImage
-                ? `h-full w-full origin-center object-contain object-center ${compactImage ? "scale-[0.66]" : "scale-[1.24]"}`
-                : "h-full w-full object-cover"
+                ? `origin-center object-contain object-center ${compactImage ? "scale-[0.66]" : "scale-[1.24]"}`
+                : "object-cover"
             } ${dimmed && !selected && !containImage ? "opacity-50" : "opacity-100"} ${dimmed && !selected && containImage ? "opacity-40" : ""}`}
           />
 

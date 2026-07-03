@@ -72,7 +72,7 @@ export default function AdjusterTraining() {
                 >
                   <div className="flex items-start gap-5 w-full">
                     <div className="w-full min-w-0">
-                      <h3 className="text-[#0047AB] font-black text-[13px] md:text-[14px] mb-3 uppercase tracking-wider transition-colors">
+                      <h3 className="text-[#0047AB] font-black text-[13px] md:text-[14px] mb-6 uppercase tracking-wider transition-colors">
                         {point.title}
                       </h3>
                       <p className="text-gray-500 text-[15px] leading-relaxed">

@@ -160,7 +160,7 @@ export const DatePicker: React.FC<DatePickerProps> = ({
           placeholder={placeholder}
           className={`w-full bg-gray-50 dark:bg-background-dark border rounded-lg px-2.5 py-1.5 text-xs text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:border-transparent transition-all pr-8 ${
             invalid
-              ? "border-red-500 focus:ring-red-500/20"
+              ? "border-gray-400 focus:ring-gray-300 dark:border-gray-600 dark:focus:ring-gray-600"
               : "border-gray-200 focus:ring-primary dark:border-gray-700 dark:focus:ring-accent"
           }`}
         />

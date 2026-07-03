@@ -58,7 +58,7 @@ export default function WeatherScrutiny() {
           {/* Middle: Content */}
           <div className="flex h-full flex-col justify-center space-y-8 py-2 md:space-y-10 md:py-4 lg:col-span-1 lg:justify-start lg:space-y-10 lg:pb-4 xl:space-y-12 -mt-2 sm:-mt-3 lg:-mt-4 xl:-mt-5">
             <div>
-              <h3 className="text-[#0047AB] font-black text-[12px] mb-3 uppercase tracking-[0.2em] md:mb-4 md:text-[13px]">
+              <h3 className="text-[#0047AB] font-black text-[12px] mb-6 uppercase tracking-[0.2em] md:text-[13px]">
                 BUILT FOR THE DEPOSITION ROOM
               </h3>
               <p className="text-gray-600 text-[15px] font-medium leading-relaxed">
@@ -66,7 +66,7 @@ export default function WeatherScrutiny() {
               </p>
             </div>
             <div>
-              <h3 className="text-[#0047AB] font-black text-[12px] mb-3 uppercase tracking-[0.2em] md:mb-4 md:text-[13px]">
+              <h3 className="text-[#0047AB] font-black text-[12px] mb-6 uppercase tracking-[0.2em] md:text-[13px]">
                 5 INDEPENDENT DATA SOURCES
               </h3>
               <p className="text-gray-600 text-[15px] font-medium leading-relaxed">
@@ -74,7 +74,7 @@ export default function WeatherScrutiny() {
               </p>
             </div>
             <div>
-              <h3 className="text-[#0047AB] font-black text-[12px] mb-3 uppercase tracking-[0.2em] md:mb-4 md:text-[13px]">
+              <h3 className="text-[#0047AB] font-black text-[12px] mb-6 uppercase tracking-[0.2em] md:text-[13px]">
                 EMPIRICAL DATA INTEGRATION
               </h3>
               <p className="text-gray-600 text-[15px] font-medium leading-relaxed">

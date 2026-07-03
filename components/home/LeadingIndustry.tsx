@@ -37,34 +37,36 @@ export default function LeadingIndustry() {
 
         <div className="w-full min-w-0 grid grid-cols-1 gap-6 sm:gap-8 lg:grid-cols-3 lg:gap-10">
           {cards.map((card, index) => (
-            <article
+            <Link
+              href={card.href}
               key={index}
-              className="flex flex-col bg-white overflow-hidden border border-gray-200/80"
+              className="group/card flex flex-col bg-white overflow-hidden border border-gray-200/80 hover:shadow-lg transition-shadow duration-300"
             >
-              <img
-                src={card.image}
-                alt={card.title}
-                className="w-full h-auto block object-cover"
-              />
+              <div className="overflow-hidden">
+                <img
+                  src={card.image}
+                  alt={card.title}
+                  className="w-full h-auto block object-cover transition-transform duration-500 hover:scale-105"
+                />
+              </div>
 
-              <div className="flex flex-1 flex-col bg-white px-4 sm:px-5 md:px-6 pt-4 pb-5 md:pt-5 md:pb-6">
-                <h3 className="mx-auto w-full max-w-full bg-[#E6F0FF] text-[#0056B3] text-center font-bold text-[13px] md:text-[15px] leading-snug py-2.5 md:py-3 px-3 md:px-4 rounded-none">
+              <div className="flex flex-1 flex-col bg-white px-4 sm:px-5 md:px-6 pt-4 pb-5 md:pt-5 md:pb-6 relative z-10">
+                <h3 className="mx-auto w-full max-w-full bg-[#E6F0FF] text-[#0056B3] text-center font-bold text-[13px] md:text-[15px] leading-snug py-2.5 md:py-3 px-3 md:px-4 rounded-none transition-colors duration-300 hover:bg-[#0056B3] hover:text-white">
                   {card.title}
                 </h3>
                 <p className={`mt-4 flex-1 text-left ${HOME_CARD_BODY_CLASS}`}>
                   {card.desc}
                 </p>
                 <div className="mt-5 flex justify-center">
-                  <Link
-                    href={card.href}
-                    className="group inline-flex items-center gap-1.5 rounded border border-[#0047AB] bg-white px-5 py-2 text-[12px] font-semibold text-[#0047AB] transition-colors duration-200 hover:bg-[#0047AB] hover:text-white active:bg-[#003580] active:border-[#003580]"
+                  <span
+                    className="group/btn inline-flex items-center gap-1.5 rounded border border-[#0047AB] bg-white px-5 py-2 text-[12px] font-semibold text-[#0047AB] transition-colors duration-300 hover:bg-[#0047AB] hover:text-white"
                   >
                     Learn More
-                    <span className="transition-transform duration-200 group-hover:translate-x-0.5">→</span>
-                  </Link>
+                    <span className="transition-transform duration-300 group-hover/btn:translate-x-0.5">→</span>
+                  </span>
                 </div>
               </div>
-            </article>
+            </Link>
           ))}
         </div>
         </div>

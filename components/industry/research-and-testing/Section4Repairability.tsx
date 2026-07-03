@@ -26,29 +26,7 @@ const REPAIRABILITY_IMAGES = [
 ];
 
 export default function Section4Repairability() {
-  const [showPopup, setShowPopup] = useState(false);
   const [hoveredImage, setHoveredImage] = useState<string | null>(null);
-  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  const handleMouseEnter = (imgSrc: string) => {
-    if (timeoutRef.current) {
-      clearTimeout(timeoutRef.current);
-      timeoutRef.current = null;
-    }
-    setHoveredImage(imgSrc);
-  };
-
-  const handleThumbnailMouseLeave = () => {
-    timeoutRef.current = setTimeout(() => {
-      setHoveredImage(null);
-    }, 600); // Gives user enough time to move mouse to the center popup
-  };
-
-  const handlePopupImageMouseLeave = () => {
-    timeoutRef.current = setTimeout(() => {
-      setHoveredImage(null);
-    }, 0); // Closes instantly when leaving the enlarged image
-  };
 
   return (
     <>
@@ -65,64 +43,13 @@ export default function Section4Repairability() {
               >
                 Repairability Evaluation and Repair Research: The{" "}
 
-                {/* TRI Logo with Figma-style hover popup */}
-                <span
-                  className="relative inline-block align-middle mx-1.5 -translate-y-[2px]"
-                  onMouseEnter={() => setShowPopup(true)}
-                  onMouseLeave={() => setShowPopup(false)}
-                >
+                {/* TRI Logo – static, no popup */}
+                <span className="inline-block align-middle mx-0.5 -translate-y-[2px]">
                   <img
                     src="/industry/tri-logo.png"
                     alt="TRI"
-                    className="h-[1em] md:h-[1.1em] w-auto object-contain inline-block cursor-pointer"
+                    className="h-[1em] md:h-[1.1em] w-auto object-contain inline-block"
                   />
-
-                  {/* Popup Wrapper with padding bridge */}
-                  <span
-                    className={`
-                      absolute left-1/2 top-full pt-[12px] z-50
-                      w-[380px] max-w-[90vw] -translate-x-1/2
-                      transition-all duration-200 ease-out
-                      ${showPopup ? "opacity-100 translate-y-0 scale-100 pointer-events-auto" : "opacity-0 translate-y-2 scale-95 pointer-events-none"}
-                    `}
-                    style={{ transformOrigin: "top center" }}
-                  >
-                    <span className="block w-full rounded-2xl border border-gray-200 bg-white shadow-2xl relative">
-                      {/* Popup arrow */}
-                      <span className="absolute -top-[7px] left-1/2 -translate-x-1/2 w-3.5 h-3.5 rotate-45 rounded-sm border-l border-t border-gray-200 bg-white" />
-
-                      {/* Popup header */}
-                      <span className="flex items-center gap-3 border-b border-gray-100 px-4 py-3">
-                        <img
-                          src="/industry/tri-logo.png"
-                          alt="TRI"
-                          className="h-8 w-auto object-contain flex-shrink-0"
-                        />
-                        <span className="flex flex-col leading-tight">
-                          <span className="text-[13px] font-semibold text-[#1A1A1A]">
-                            Trinity Repairability Index
-                          </span>
-                          <span className="text-[11px] text-gray-400 font-normal">
-                            Roof Condition Assessment Report
-                          </span>
-                        </span>
-                      </span>
-
-                      {/* Popup image previews */}
-                      <span className="flex flex-col gap-0 overflow-hidden rounded-b-2xl max-h-[420px] overflow-y-auto">
-                        <img
-                          src="/industry/repairability-calculator-page1.png"
-                          alt="Trinity Repairability Calculator - Page 1"
-                          className="w-full h-auto object-contain"
-                        />
-                        <img
-                          src="/industry/repairability-calculator-page2.png"
-                          alt="Trinity Repairability Calculator - Page 2"
-                          className="w-full h-auto object-contain border-t border-gray-100"
-                        />
-                      </span>
-                    </span>
-                  </span>
                 </span>
 
                 <span>Method</span>
@@ -140,12 +67,12 @@ export default function Section4Repairability() {
                     className="group w-full rounded-xl border border-gray-100 bg-white p-6 shadow-sm transition-all duration-500 hover:border-blue-100 hover:shadow-xl max-lg:rounded-2xl max-lg:p-5 md:p-8"
                   >
                     {"eyebrow" in block && block.eyebrow && (
-                      <span className={`${HOME_POINT_TITLE_CLASS} block mb-1 text-[11px] font-bold text-[#2563EB]`}>
+                      <span className={`${HOME_POINT_TITLE_CLASS} block mb-1 text-[11px] font-extrabold text-[#2563EB] tracking-[0.15em]`}>
                         {block.eyebrow}
                       </span>
                     )}
 
-                    <div className={`space-y-4 ${HOME_POINT_BODY_CLASS} mt-3`}>
+                    <div className={`space-y-4 ${HOME_POINT_BODY_CLASS} mt-6`}>
                       {block.paragraphs.map((para, pIdx) => (
                         <p key={pIdx} className="opacity-85 group-hover:opacity-100 transition-opacity duration-350">
                           {para}
@@ -161,8 +88,7 @@ export default function Section4Repairability() {
                 {REPAIRABILITY_IMAGES.map((img, idx) => (
                   <div
                     key={idx}
-                    onMouseEnter={() => handleMouseEnter(img.src)}
-                    onMouseLeave={handleThumbnailMouseLeave}
+                    onClick={() => setHoveredImage(img.src)}
                     className="group/img relative block w-full cursor-zoom-in"
                   >
                     <img
@@ -197,7 +123,10 @@ export default function Section4Repairability() {
       {hoveredImage && (
         <div className="fixed inset-0 z-[9999] flex items-center justify-center pointer-events-none">
           {/* Backdrop */}
-          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm animate-[lbFadeIn_150ms_ease-out]" />
+          <div 
+            className="absolute inset-0 bg-black/60 backdrop-blur-sm animate-[lbFadeIn_150ms_ease-out] pointer-events-auto cursor-zoom-out" 
+            onClick={() => setHoveredImage(null)}
+          />
 
           {/* Enlarged image */}
           <div 
@@ -207,8 +136,6 @@ export default function Section4Repairability() {
               src={hoveredImage}
               alt="Enlarged view"
               className="max-w-full h-auto max-h-[88vh] object-contain shadow-2xl border border-white/10 bg-white pointer-events-auto"
-              onMouseEnter={() => handleMouseEnter(hoveredImage)}
-              onMouseLeave={handlePopupImageMouseLeave}
             />
           </div>
         </div>

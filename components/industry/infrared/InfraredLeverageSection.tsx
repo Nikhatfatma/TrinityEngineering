@@ -31,7 +31,7 @@ export default function InfraredLeverageSection() {
                 className={`py-6 md:py-8 ${index > 0 ? "border-t border-[#93C5FD]" : ""}`}
               >
                 <h3 className={HOME_POINT_TITLE_CLASS}>{app.title}</h3>
-                <p className={`mt-3 font-semibold ${HOME_CARD_BODY_CLASS}`}>{app.subtitle}</p>
+                <p className={`mt-6 font-semibold ${HOME_CARD_BODY_CLASS}`}>{app.subtitle}</p>
                 <p className={`mt-3 ${HOME_POINT_BODY_CLASS}`}>{app.body}</p>
               </article>
             ))}

@@ -78,7 +78,7 @@ export default function InsuranceInspections() {
               >
                 <div className="flex gap-6 w-full">
                   <div className="w-full min-w-0">
-                    <h3 className="text-[#0047AB] font-black text-[13px] md:text-[14px] mb-3 uppercase tracking-[0.2em] leading-tight">
+                    <h3 className="text-[#0047AB] font-black text-[13px] md:text-[14px] mb-6 uppercase tracking-[0.2em] leading-tight">
                       {point.title}
                     </h3>
                     <p className="text-gray-600 text-[14px] md:text-[15px] leading-relaxed font-medium opacity-80 group-hover:opacity-100 transition-opacity">

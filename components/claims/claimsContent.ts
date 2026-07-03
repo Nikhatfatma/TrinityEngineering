@@ -7,43 +7,181 @@ export const CLAIMS_SECTION_SHELL =
 export const CLAIMS_CONTENT_WIDTH = "mx-auto w-full max-w-5xl min-w-0";
 
 export const CLAIMS_HERO = {
-  titleLine1: "Forensic Engineering",
-  titleLine2: "For Property Claims",
+  eyebrow: "THE TRUSTED, INDEPENDENT, UNBIASED THIRD-PARTY EXPERTS",
+  title: "Forensic Inspections",
   subtitle:
-    "Independent, defensible engineering determinations for the insurance restoration industry. Every inspection is performed by a licensed professional engineer and peer reviewed before we send you the inspection report. Our reports are built on evidence-based findings and transparent methodology. We deliver the highest level of quality and professionalism combined with the fastest turnaround in the industry.",
-  primaryCta: { label: "Learn More", href: "#steep-and-high-reports" },
-  secondaryCta: { label: "Submit Inspection", href: "/submit-inspection" },
+    "Storm damage, structural, water loss, large or complex loss, small fire, component, and other claim types",
+  cta: { label: "Submit Inspection", href: "/submit-inspection" },
 } as const;
 
 export const CLAIMS_STEEP_SECTION = {
-  title: "Steep And High Experts",
-  introBoldPhrase: "no exceptions",
-  intro:
-    "We access every roof we are assigned to inspect, no exceptions. Safety is our top priority, so our team is expertly trained in accessing steep and high roofs with no compromise in quality or safety. In the rare event that any portion of a roof is truly inaccessible, we utilize drone technology to fill the hands-on documentation gaps.",
-  rows: [
+  title: "Complete Inspections & Expert Witness\nClaims Support Service",
+  introBoldPhrase: "",
+  intro: "",
+  imageSrc: "/claims-steep-high.png",
+  imageAlt: "Steep and high roof inspection with aerial lift at residential property",
+  blocks: [
     {
-      id: "roof-access",
-      eyebrow: "Roof access on every job",
-      title: "Steep and High Roofs accessed directly",
+      title: "PHYSICAL CHARACTERISTICS",
       paragraphs: [
-        "Many industry professionals have gone the way of substituting a hands-on inspection with a drone flyover. We are committed to leveraging technology as a supplement to direct inspection — never a replacement for it. Repairability, fastener condition, test-square sampling, and many other aspects of a proper inspection simply cannot be evaluated from the air, so our team physically accesses the roof on every assignment. The findings in your report come from direct, hands-on observation — not from interpreting a photo.",
-      ],
-      imageSrc: "/claims-steep-high.png",
-      imageAlt: "Steep and high roof inspection with aerial lift at residential property",
-      imageLeft: true,
+        "A forensic engineer’s primary job is to document the physical characteristics observed, and state what sources or mechanisms are consistent with those observations.",
+        "We provide advanced training to identify the physical characteristics that are consistent with natural, accidental, and even intentional damages. Every report will provide photos of the physical characteristics and discussion of what could have caused the observations: whether hail, wind, fire, or manipulation."
+      ]
     },
     {
-      id: "drone-heights",
-      eyebrow: "Drones for hard-to-reach places",
-      title: "Inaccessible roof facets documented thoroughly",
+      title: "Fastest Industry Turnaround Uncompromising quality",
       paragraphs: [
-        "Our certified FAA Part 107 unmanned aircraft pilots thoroughly document any portion of a roof that genuinely cannot be reached by hand. High-resolution aerial imagery closes the documentation gap rather than leaving it to assumption, so every facet of the roof is accounted for and nothing goes unexamined.",
-      ],
-      imageSrc: "/claims-inaccessible.png",
-      imageAlt: "Drone documenting church steeple and inaccessible roof facets",
-      imageLeft: false,
+        "Our advanced training, standardized inspection and documentation process, and proprietary report generation systems, along with our scheduling and route optimization systems, enable us to schedule inspections and turnaround more thorough reports and documentation faster than ever."
+      ]
     },
+    {
+      title: "DIRECT ACCESS - NO LADDER ASSISTS",
+      paragraphs: [
+        "Our engineers are trained to safely access even the most challenging roofs. We have the tools and training to completely document every facet and component of the structure."
+      ]
+    },
+    {
+      title: "DRONES SUPPLEMENT - NEVER REPLACE direct Access",
+      paragraphs: [
+        "Many professionals substitute directly inspecting the roof with only a drone flyover. We leverage technology only as a supplement with direct inspection — never a replacement. Inaccessible areas such as steeples or bell-towers are examples of drone needs, and all other accessible portions would still be inspected with direct access of the engineer.",
+        "Repairability, fastener condition, test-square sampling, and many other aspects of a proper inspection cannot be evaluated by drone."
+      ]
+    },
+    {
+      title: "interior leaks and sources",
+      paragraphs: [
+        "We pride ourselves on finding the exact sources of interior leaks. Photos of the leak entry point or other source, along with the indicators of duration or recency, and the full extents and any other information relevant to an interior damage claim is provided. Our goal is to provide you the information to correctly adjust any claim."
+      ]
+    },
+    {
+      title: "ADVANCED INFRARED ANALYSIS",
+      paragraphs: [
+        "We perform infrared thermographic analysis for every interior leak assessment and water loss evaluation. Our engineers are certified thermographers and will thoroughly document and explain the interpretations of the thermal imaging. We provide real answers, substantiated with moisture readings and in depth inspection, to pin-point leak sources and extents, even across multiple stories."
+      ]
+    },
+    {
+      title: "COMPLETE ASSESSMENT",
+      paragraphs: [
+        "Every square foot of the structure envelope and roof is inspected and documented. Ground level items are thoroughly photographed and itemization of all damages are included on every inspection.",
+        "Wind, hail, unintentional mechanical damage or vandalism damages are documented to every component and the entire roof.",
+        "We provide test square photos only as an example of the full roof inspection performed. We never limit our inspection solely to the test square area."
+      ]
+    },
+    {
+      title: "TOTAL CONFIDENCE & TOTAL TRANSPARENCY",
+      paragraphs: [
+        "We will never discuss findings with a secondary party before presenting them to our client. We are also 100% committed to total transparency.",
+        "With client permission, any good faith question from another party will be answered completely and clearly, with references and substantiation. We strive to answer every question you or your clients will have before they are even asked. Follow-up questions give you or your clients the opportunity to clarify any loss, or make a coverage determination, so we will always prioritize the questions you have on any report."
+      ]
+    },
+    {
+      title: "START TO FINISH CLAIMS SUPPORT",
+      paragraphs: [
+        "From initial consult, to inspection and reporting, follow-up questions, and even litigation, our engineers will provide the professionalism, accuracy, and impartiality needed to support all claims services requests.",
+        "It is never our place to make a coverage decision or to force a claim decision one way or another. Our goal is always to provide the information you need to make the right call, every time."
+      ]
+    }
+  ]
+} as const;
+
+export const CLAIMS_DATE_OF_LOSS_SECTION = {
+  title: "Date Of Loss Identification - Effective Policy Dates Questions",
+  images: [
+    { src: "/claims-nexrad-map.png", alt: "NEXRAD Recent Hail History Map" },
+    { src: "/claims-dol-analysis.png", alt: "Date of Loss Analysis Data" }
   ],
+  blocks: [
+    {
+      title: "reported date of loss vs actual",
+      paragraphs: [
+        "Many storms are clearly identified events. But many times, the reported date of loss does not align with the observed physical characteristics.",
+        "Our team is trained in identifying the key empirical and research-backed evidence that can bracket potential dates of loss.",
+        "We have gone even further by bringing all historical storm data in-house. More importantly, we have spent the last 6 years documenting on-site physical characteristics to corroborate actual storm events, including spatter and dent sizes throughout the eastern US. No other engineering firm provides this.",
+        "Our Severe Weather Intelligence reporting pairs our on-site PE-verified measurements with every government-sourced ground truth data and the most advanced radar technology."
+      ]
+    },
+    {
+      title: "NAMED STORM eventS",
+      paragraphs: [
+        "Often, the question is raised whether damages are consistent with a specific named storm or other significant event such as a hurricane, tornado, or micro-burst. Even with these well documented storm swaths and wind speeds or destruction levels, the exact damages attributable to those storms are often complex.",
+        "We compare on-site observations with known event data to determine what damages are consistent with that event, and which must have occurred prior to or afterward."
+      ]
+    }
+  ]
+} as const;
+
+export const CLAIMS_STRUCTURAL_SECTION = {
+  title: "Complete Structural Engineering Support",
+  tags: [
+    "Tree-Fall",
+    "Vehicle Impact",
+    "Fire Damage",
+    "Explosion",
+    "Basement Collapse",
+    "Settlement/Subsidence",
+    "Roof Collapse",
+    "Wall Failure"
+  ],
+  imageSrc: "/claims-structural.jpg",
+  imageAlt: "Structural damage showing collapsed block wall with soil intrusion",
+  blocks: [
+    {
+      title: "Full Structural Suite",
+      paragraphs: [
+        "Our structural design and construction experts available, with extensive experience throughout every structure type we inspect. Regardless of the source of structural damages, we can provide a scope of loss, document whether Code-specific substantial damage has occurred, what level of repairs or modification is necessary, and we can provide designs for estimation or even full design of repairs.",
+        "Our geotechnical expertise also enables us to evaluate and differentiate subsidence, settlement, heave and other soil-related damage sources."
+      ]
+    },
+    {
+      title: "Expedited inspections — accelerated report turnaround",
+      paragraphs: [
+        "Time is of the essence for structural answers after a significant loss. For you or your clients' home or business, every day matters. Down-time for a factory, service company, or your home impacts every aspect of recovery. We can expedite our time to inspect and prioritize your report's completion to get you the answers you need to finalize your claim and move forward with repairs.",
+        "We understand the duty to mitigate losses can impact the ease of inspections. To ensure we can see every part of the structure, we coordinate with any contractor and property owners or managers to accommodate access at every stage."
+      ]
+    },
+    {
+      title: "Ask us about performing a TRI™ evaluation",
+      paragraphs: [
+        "For more information about having a certified TRI™ Evaluator perform a repairability assessment at a subject property, email us at claims@trinitypllc.com or simply submit a request through our online portal and see what a difference a standardized protocol can make. Don't oversimplify, and don't over-complicate, let us use the Trinity Repairability Index™ at one of your jobs, and our report will change the way you think about repairability."
+      ]
+    }
+  ]
+} as const;
+
+
+export const CLAIMS_REPAIRABILITY_SECTION = {
+  title: '"Is this roof repairable?" We have the right answer',
+  imageSrc: "/repairability-main.png",
+  imageAlt: "Trinity Repairability Index scorecard and calculator",
+  blocks: [
+    {
+      title: "The Problem — the neutral unbiased answer",
+      paragraphs: [
+        "Trinity's TRI™ Method is the first unbiased, standardized solution to the repairability question that has plagued our industry for years. Our goal is to move the industry away from addressing repairability as a binary Pass/Fail decision and address the complexity of roof repair in an organized, repeatable way.",
+        "While this industry has standardized processes for many aspects of storm damage claims, no other method solves the problem of determining roofing system repairability fairly.",
+        "The TRI™ Method breaks down the complexity of a roofing system repair by analyzing and scoring 4 primary components:"
+      ],
+      listItems: [
+        "Roof Age",
+        "Granule Retention / Shingle Condition",
+        "Lift Test / Pliability",
+        "Mat Transfer / Separability"
+      ]
+    },
+    {
+      title: "roof repairs are difficult — Not Impossible",
+      paragraphs: [
+        "The complexity of a proper roof repair is often oversimplified by insurance carriers.",
+        "Policyholder representatives respond by over-complicating. The reality is, roof repairs are difficult, but not usually impossible."
+      ]
+    },
+    {
+      title: "Ask us about performing a TRI™ evaluation",
+      paragraphs: [
+        "For more information about having a certified TRI™ Evaluator perform a repairability assessment at a subject property, email us at claims@trinitypllc.com or simply submit a request through our online portal and see what a difference a standardized protocol can make. Don't oversimplify, and don't over-complicate, let us use the Trinity Repairability Index™ at one of your jobs, and our report will change the way you think about repairability."
+      ]
+    }
+  ]
 } as const;
 
 export const CLAIMS_PROCESS = {
@@ -151,8 +289,7 @@ export const CLAIMS_SOURCES = {
 export const CLAIMS_CTA = {
   eyebrow: "Get Started",
   titleLine1: "Request a forensic",
-  titleLine2: "weather report.",
-  subtitle:
-    "SWI reports are produced by Trinity Engineering as a professional service — not a downloadable app. Contact us with a property address and date of loss, and we'll deliver a defensible, citation-backed forensic weather analysis.",
-  cta: { label: "Contact Trinity Engineering", href: "/contact" },
+  titleLine2: "Engineering Inspection.",
+  subtitle: "Submit an inspection request and experience forensic engineering done right. We provide the most detailed analysis for every roof, every component, every claim—which is exactly why we're the name the industry relies on.",
+  cta: { label: "Submit Inspection", href: "/submit-inspection" },
 } as const;

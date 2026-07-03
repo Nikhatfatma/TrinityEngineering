@@ -363,8 +363,13 @@ async function uploadFileToWorkDrive(accessToken, fileName, fileBuffer, mimeType
 }
 
 async function processInsuranceDocumentUpload(data, accessToken) {
-    if (!data?.insuranceDocument?.base64 || !data.insuranceDocument?.fileName) {
+    if (data?.insuranceDocument && (!data.insuranceDocuments || !Array.isArray(data.insuranceDocuments))) {
+        data.insuranceDocuments = [data.insuranceDocument];
+    }
+
+    if (!data?.insuranceDocuments || !Array.isArray(data.insuranceDocuments) || data.insuranceDocuments.length === 0) {
         delete data.insuranceDocument;
+        delete data.insuranceDocuments;
         return;
     }
 
@@ -373,16 +378,60 @@ async function processInsuranceDocumentUpload(data, accessToken) {
         throw new Error('Document upload is not configured. Please contact support.');
     }
 
-    const buffer = Buffer.from(data.insuranceDocument.base64, 'base64');
-    data.insuranceDocumentUrl = await uploadFileToWorkDrive(
-        accessToken,
-        data.insuranceDocument.fileName,
-        buffer,
-        data.insuranceDocument.mimeType,
-        folderId
-    );
-    console.log('[WorkDrive] Uploaded insurance document:', data.insuranceDocumentUrl);
+    const uploadedUrls = [];
+    const categoryCounts = {};
+
+    for (const doc of data.insuranceDocuments) {
+        if (!doc || !doc.base64 || !doc.fileName) continue;
+
+        let categoryName = 'Other';
+        if (doc.categories && Array.isArray(doc.categories) && doc.categories.length > 0) {
+            categoryName = doc.categories.join('_');
+            if (doc.categories.includes('Other') && doc.customCategory) {
+                categoryName = categoryName.replace('Other', doc.customCategory.trim());
+            }
+        } else {
+            categoryName = (doc.category || 'Other').trim();
+            if (categoryName === 'Other' && doc.customCategory) {
+                categoryName = doc.customCategory.trim();
+            }
+        }
+
+        let cleanedCategory = categoryName
+            .replace(/\s+/g, '_')
+            .replace(/[^a-zA-Z0-9_-]/g, '');
+
+        if (!cleanedCategory) {
+            cleanedCategory = 'Document';
+        }
+
+        categoryCounts[cleanedCategory] = (categoryCounts[cleanedCategory] || 0) + 1;
+        const sequence = categoryCounts[cleanedCategory];
+
+        const extMatch = doc.fileName.match(/\.[^.]+$/);
+        const ext = extMatch ? extMatch[0] : '';
+
+        const newFileName = `${cleanedCategory}_${sequence}${ext}`;
+
+        const buffer = Buffer.from(doc.base64, 'base64');
+        const fileUrl = await uploadFileToWorkDrive(
+            accessToken,
+            newFileName,
+            buffer,
+            doc.mimeType,
+            folderId
+        );
+        
+        uploadedUrls.push(fileUrl);
+    }
+
+    if (uploadedUrls.length > 0) {
+        data.insuranceDocumentUrl = `https://workdrive.zoho.com/folder/${folderId}`;
+        console.log('[WorkDrive] Uploaded documents successfully:', uploadedUrls);
+    }
+
     delete data.insuranceDocument;
+    delete data.insuranceDocuments;
 }
 
 async function notifyFailureOnCliq({ rowId, payload, claimNumber, adjusterEmail, errorDetails, createdTime }) {
@@ -956,6 +1005,30 @@ module.exports = async (context, basicIO) => {
             }
             context.close();
 
+        } else if (action === 'getCompanyTypes') {
+            const zcql = catalystApp.zcql();
+            try {
+                const allCompanies = await fetchInsuranceCompanyRows(zcql, "status = 'Active'");
+                const typesSet = new Set();
+                (allCompanies || []).forEach(row => {
+                    const type = row.InsuranceCompanies.company_type;
+                    if (type) {
+                        typesSet.add(type.trim());
+                    }
+                });
+                
+                // Ensure default types are present just in case DB is empty for them
+                ['Insurance Company', 'IA Company'].forEach(t => typesSet.add(t));
+                
+                const uniqueTypes = Array.from(typesSet).sort();
+                
+                basicIO.write(JSON.stringify({ success: true, results: uniqueTypes }));
+            } catch (err) {
+                console.error("getCompanyTypes Error:", err);
+                basicIO.write(JSON.stringify({ success: false, error: err.message }));
+            }
+            context.close();
+
             /* ================================================================ */
             /*  ACTION: searchInsuranceCompanies                                */
             /*  Searches both InsuranceCompanies.name and InsuranceAliases      */
@@ -1045,6 +1118,9 @@ module.exports = async (context, basicIO) => {
                 let matchedBy = 'name';
                 if (nameFound && aliasFound) matchedBy = 'both';
                 else if (aliasFound) matchedBy = 'alias';
+
+                // Sort results alphabetically by name
+                results.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
 
                 basicIO.write(JSON.stringify({ success: true, results, matchedBy }));
                 context.close();
@@ -1336,6 +1412,7 @@ module.exports = async (context, basicIO) => {
                 // Support both flat and nested data from frontend
                 const inputData = basicIO.getArgument('data') || {};
                 const companyName = String(inputData.name || basicIO.getArgument('name') || '').trim();
+                const companyType = String(inputData.companyType || basicIO.getArgument('company_type') || '').trim();
                 createCompanyName = companyName;
 
                 if (!companyName) {
@@ -1355,6 +1432,11 @@ module.exports = async (context, basicIO) => {
                         Status: "Pending"
                     }
                 };
+
+                // Add Company_Type field to the Zoho payload if provided
+                if (companyType) {
+                    createPayload.data.Company_Type = companyType;
+                }
 
                 console.log(`[createCompany] Creating Company: ${createUrl}`, JSON.stringify(createPayload));
 
@@ -1379,11 +1461,15 @@ module.exports = async (context, basicIO) => {
                 // Store in local DB for immediate search availability
                 try {
                     const table = catalystApp.datastore().table('InsuranceCompanies');
-                    await table.insertRow({
+                    const insertRow = {
                         name: companyName,
                         zoho_creator_id: creatorId,
                         status: 'Pending'
-                    });
+                    };
+                    if (companyType) {
+                        insertRow.company_type = companyType;
+                    }
+                    await table.insertRow(insertRow);
                 } catch (dbErr) {
                     console.error("[createCompany] DB Storage Failed:", dbErr.message);
                 }
@@ -1969,6 +2055,61 @@ module.exports = async (context, basicIO) => {
                 basicIO.write(JSON.stringify(result));
             } catch (err) {
                 console.error('getMyClaims Error:', err);
+                basicIO.write(JSON.stringify({ success: false, error: err.message }));
+            }
+            context.close();
+
+        } else if (action === 'getUserPreferences') {
+            try {
+                const result = await portalAuth.handleGetUserPreferences(catalystApp, {
+                    sessionToken: getArg('sessionToken') || getArg('token'),
+                    insuranceCompany: getArg('insuranceCompany'),
+                    iaCompany: getArg('iaCompany')
+                });
+                basicIO.write(JSON.stringify(result));
+            } catch (err) {
+                console.error('getUserPreferences Error:', err);
+                basicIO.write(JSON.stringify({ success: false, error: err.message }));
+            }
+            context.close();
+
+        } else if (action === 'saveUserPreferences') {
+            try {
+                const result = await portalAuth.handleSaveUserPreferences(catalystApp, {
+                    sessionToken: getArg('sessionToken') || getArg('token'),
+                    insuranceCompany: getArg('insuranceCompany'),
+                    iaCompany: getArg('iaCompany'),
+                    preferences: body.preferences || getArg('preferences')
+                });
+                basicIO.write(JSON.stringify(result));
+            } catch (err) {
+                console.error('saveUserPreferences Error:', err);
+                basicIO.write(JSON.stringify({ success: false, error: err.message }));
+            }
+            context.close();
+
+        } else if (action === 'getCarrierContacts') {
+            try {
+                const result = await portalAuth.handleGetCarrierContacts(catalystApp, {
+                    sessionToken: getArg('sessionToken') || getArg('token')
+                });
+                basicIO.write(JSON.stringify(result));
+            } catch (err) {
+                console.error('getCarrierContacts Error:', err);
+                basicIO.write(JSON.stringify({ success: false, error: err.message }));
+            }
+            context.close();
+
+        } else if (action === 'saveCarrierContact') {
+            try {
+                const result = await portalAuth.handleSaveCarrierContact(catalystApp, {
+                    sessionToken: getArg('sessionToken') || getArg('token'),
+                    adjusterEmail: getArg('adjusterEmail'),
+                    contact: body.contact || getArg('contact')
+                });
+                basicIO.write(JSON.stringify(result));
+            } catch (err) {
+                console.error('saveCarrierContact Error:', err);
                 basicIO.write(JSON.stringify({ success: false, error: err.message }));
             }
             context.close();
