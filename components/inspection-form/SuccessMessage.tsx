@@ -2,41 +2,43 @@
 
 interface SuccessMessageProps {
   onReset: () => void;
+  onContinue?: () => void;
 }
 
 function VerifiedBadgeIcon() {
   return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      xmlns="http://www.w3.org/2000/svg"
+    <span
+      className="material-symbols-outlined text-[4.5rem] sm:text-[5rem] text-[#2563EB] leading-none select-none"
+      style={{ fontVariationSettings: "'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 48" }}
       aria-hidden
-      className="h-[4.5rem] w-[4.5rem] sm:h-20 sm:w-20"
     >
-      <path
-        d="M23 12l-2.44-2.79.34-3.69-3.61-1.21L15 2l-3-2.69L9 2 5.71 4.31 2.1 5.52l.34 3.69L0 12l2.44 2.79-.34 3.69 3.61 1.21L9 22l3 2.69L15 22l3.29-2.31 3.61-1.21-.34-3.69L23 12z"
-        fill="#2563EB"
-      />
-      <path
-        d="M14.5 15.5l-3.5-3.5 1.41-1.41L14.5 13l4.59-4.59L20.5 9.91 14.5 15.5z"
-        fill="white"
-      />
-    </svg>
+      verified
+    </span>
   );
 }
 
-export default function SuccessMessage(_props: SuccessMessageProps) {
+export default function SuccessMessage({ onContinue }: SuccessMessageProps) {
   return (
     <div className="fixed inset-x-0 top-16 bottom-0 z-30 flex flex-col items-center justify-center bg-white px-6 text-center">
       <VerifiedBadgeIcon />
 
-      <h2 className="mt-8 text-lg font-medium tracking-tight text-[#8B9CB3] sm:text-xl">
+      <h2 className="mt-6 text-xl font-bold tracking-tight text-gray-900 sm:text-2xl">
         Submission successful
       </h2>
 
-      <p className="mt-3 max-w-md text-sm font-normal leading-relaxed text-[#5C6B7F] sm:text-[15px]">
+      <p className="mt-3 max-w-md text-sm font-normal leading-relaxed text-gray-700 sm:text-base">
         Our team will review the details and reach out soon.
       </p>
+
+      {onContinue && (
+        <button
+          type="button"
+          onClick={onContinue}
+          className="mt-8 inline-flex min-w-[10rem] items-center justify-center rounded-md bg-[#0047AB] px-6 py-2.5 text-sm font-bold text-white transition-colors hover:bg-[#003580]"
+        >
+          Continue
+        </button>
+      )}
     </div>
   );
 }

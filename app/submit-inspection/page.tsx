@@ -10,6 +10,8 @@ import SelectCard from "@/components/inspection-form/SelectCard";
 import CheckboxToggle from "@/components/inspection-form/CheckboxToggle";
 import AddressGroup from "@/components/inspection-form/AddressGroup";
 import SuccessMessage from "@/components/inspection-form/SuccessMessage";
+import ServiceAddOns from "@/components/inspection-form/ServiceAddOns";
+import { SERVICE_ADD_ONS } from "@/components/inspection-form/serviceAddOnsContent";
 import PhoneInputField from "@/components/inspection-form/PhoneInputField";
 import {
   ClipboardList,
@@ -43,7 +45,8 @@ import {
   Calendar,
   UserCheck,
   Upload,
-  Bookmark
+  Bookmark,
+  PackagePlus
 } from "lucide-react";
 import { isValidEmail, isValidPhoneNumber, isValidZipCode, validateIaRecipients, type IaRecipient, validateAdjusterEmails, type AdjusterEmail, isValidMMDDYYYY, type ContactEmail, validateContactEmails } from "@/lib/utils/validation";
 import { DatePicker } from "@/components/inspection-form/DatePicker";
@@ -105,6 +108,7 @@ const SEND_COPY_OPTIONS = ["all", "report", "invoice", "notifications"] as const
 
 const WIZARD_STEPS = [
   { title: "Inspection & Property", icon: ClipboardList },
+  { title: "Service", icon: PackagePlus },
   { title: "Insurance & Adjuster", icon: Shield },
   { title: "Property Contact Info", icon: User },
   { title: "Roofer & Public Adjuster", icon: Home },
@@ -118,8 +122,8 @@ const WIZARD_STEPS = [
  * JS object key order.
  */
 const STEP_FIELD_ORDER: Record<number, string[]> = {
-  1: ["primaryClientType", "claimNumber", "adjusterFirstName", "adjusterLastName", "adjusterPhone", "adjusterEmail" as any, "iaCompany", "iaFirstName", "iaLastName", "iaPhone"],
-  2: ["policyholderFirstName", "policyholderLastName", "streetAddress", "city", "state", "zip"],
+  2: ["primaryClientType", "claimNumber", "adjusterFirstName", "adjusterLastName", "adjusterPhone", "adjusterEmail" as any, "iaCompany", "iaFirstName", "iaLastName", "iaPhone"],
+  3: ["policyholderFirstName", "policyholderLastName", "streetAddress", "city", "state", "zip"],
 };
 
 /* ------------------------------------------------------------------ */
@@ -148,6 +152,7 @@ interface FormData {
   iaCompany: string;
   contactEmails: ContactEmail[];
   primaryClientType: "Adjuster (Carrier)" | "Independent Adjuster" | "";
+  serviceAddOns: string[];
   // Step 2 - Policy & Address
   policyholderFirstName: string;
   policyholderLastName: string;
@@ -195,6 +200,7 @@ const INITIAL_FORM_DATA: FormData = {
   iaCompany: "",
   contactEmails: [{ email: "", contactType: "Adjuster (Carrier)", sendCopy: ["all", "report", "invoice", "notifications"] }],
   primaryClientType: "",
+  serviceAddOns: [],
   policyholderFirstName: "",
   policyholderLastName: "",
   policyholderPhone1: "",
@@ -246,19 +252,27 @@ export default function SubmitInspectionPage() {
 
           // Follow role-based defaults immediately
           if (user.role === "IA") {
+            const nameParts = (user.name || "").trim().split(/\s+/).filter(Boolean);
+            const iaFirst = nameParts.length > 0 ? nameParts[0] : "";
+            const iaLast = nameParts.length > 1 ? nameParts.slice(1).join(" ") : "";
             setFormData((prev): FormData => {
               const hasIa = prev.contactEmails.some(c => c.contactType === "IA");
-              const baseContactEmails: ContactEmail[] = hasIa 
-                ? prev.contactEmails 
-                : [...prev.contactEmails, { email: "", contactType: "IA", sendCopy: ["all", "report", "invoice", "notifications"] }];
+              const baseContactEmails: ContactEmail[] = hasIa
+                ? prev.contactEmails.map(c => (c.contactType === "IA" && !c.email) ? { ...c, email: user.email || "" } : c)
+                : [...prev.contactEmails, { email: user.email || "", contactType: "IA", sendCopy: ["all", "report", "invoice", "notifications"] }];
               return {
                 ...prev,
                 isIAClaim: true,
                 primaryClientType: "Independent Adjuster",
+                iaFirstName: prev.iaFirstName || iaFirst,
+                iaLastName: prev.iaLastName || iaLast,
                 contactEmails: baseContactEmails,
               };
             });
           } else if (user.role === "Adjuster") {
+            const nameParts = (user.name || "").trim().split(/\s+/).filter(Boolean);
+            const adjFirst = nameParts.length > 0 ? nameParts[0] : "";
+            const adjLast = nameParts.length > 1 ? nameParts.slice(1).join(" ") : "";
             setFormData((prev): FormData => {
               const updatedEmails = [...prev.contactEmails];
               const primaryIdx = updatedEmails.findIndex(c => c.contactType === "Adjuster (Carrier)");
@@ -281,6 +295,8 @@ export default function SubmitInspectionPage() {
                 ...prev,
                 isIAClaim: false,
                 primaryClientType: "Adjuster (Carrier)",
+                adjusterFirstName: prev.adjusterFirstName || adjFirst,
+                adjusterLastName: prev.adjusterLastName || adjLast,
                 contactEmails: updatedEmails as ContactEmail[],
               };
             });
@@ -290,17 +306,18 @@ export default function SubmitInspectionPage() {
       .catch((err) => console.error("Failed to check portal session:", err));
   }, []);
 
-  // Load Carrier Adjuster preferences scoped by User + selected Insurance Company
+  // Load Carrier Adjuster preferences.
+  // On login (no company yet) the most recent saved preferences load so the adjuster's own details prepopulate.
+  // Once an Insurance Company is selected, that company's saved preferences are loaded instead.
   useEffect(() => {
     if (!portalUser || portalUser.role !== "Adjuster") return;
 
     const company = formData.insuranceCompany ? formData.insuranceCompany.trim() : "";
-    if (!company) {
-      setLoadedPreferences(null);
-      return;
-    }
+    const prefsUrl = company
+      ? `/api/portal/preferences?insuranceCompany=${encodeURIComponent(company)}`
+      : `/api/portal/preferences`;
 
-    fetch(`/api/portal/preferences?insuranceCompany=${encodeURIComponent(company)}`)
+    fetch(prefsUrl)
       .then((res) => res.json())
       .then((data) => {
         if (data.success && data.preferences) {
@@ -330,6 +347,10 @@ export default function SubmitInspectionPage() {
           setLoadedPreferences(null);
           setFormData((prev): FormData => {
             const iaEmails = prev.contactEmails.filter(c => c.contactType !== "Adjuster (Carrier)");
+            // No saved preferences for this company yet — fall back to the logged-in adjuster's own profile
+            const nameParts = (portalUser.name || "").trim().split(/\s+/).filter(Boolean);
+            const adjFirst = nameParts.length > 0 ? nameParts[0] : "";
+            const adjLast = nameParts.length > 1 ? nameParts.slice(1).join(" ") : "";
             const defaultAdjusterEmail: ContactEmail[] = [
               {
                 email: portalUser.email || "",
@@ -339,8 +360,8 @@ export default function SubmitInspectionPage() {
             ];
             return {
               ...prev,
-              adjusterFirstName: "",
-              adjusterLastName: "",
+              adjusterFirstName: adjFirst,
+              adjusterLastName: adjLast,
               adjusterPhone: "",
               adjusterPhoneExt: "",
               adjusterCompany: "",
@@ -353,8 +374,15 @@ export default function SubmitInspectionPage() {
   }, [portalUser, formData.insuranceCompany]);
 
   // Load IA preferences scoped by User + IA Company
+  // Only prepopulate IA details when the primary client for this project is the Independent Adjuster.
+  // If the primary client is the Carrier Adjuster, IA details must NOT be prepopulated.
   useEffect(() => {
     if (!portalUser || portalUser.role !== "IA") return;
+
+    if (formData.primaryClientType === "Adjuster (Carrier)") {
+      setLoadedPreferences(null);
+      return;
+    }
 
     const company = formData.iaCompany ? formData.iaCompany.trim() : "";
     if (!company) {
@@ -390,17 +418,21 @@ export default function SubmitInspectionPage() {
           setLoadedPreferences(null);
           setFormData((prev): FormData => {
             const carrierEmails = prev.contactEmails.filter(c => c.contactType !== "IA");
+            // No saved preferences for this IA company yet — fall back to the logged-in IA user's own profile
+            const nameParts = (portalUser.name || "").trim().split(/\s+/).filter(Boolean);
+            const iaFirst = nameParts.length > 0 ? nameParts[0] : "";
+            const iaLast = nameParts.length > 1 ? nameParts.slice(1).join(" ") : "";
             const defaultIaEmail: ContactEmail[] = [
               {
-                email: "",
+                email: portalUser.email || "",
                 contactType: "IA",
                 sendCopy: ["all", "report", "invoice", "notifications"]
               }
             ];
             return {
               ...prev,
-              iaFirstName: "",
-              iaLastName: "",
+              iaFirstName: iaFirst,
+              iaLastName: iaLast,
               iaPhone: "",
               contactEmails: [...carrierEmails, ...defaultIaEmail]
             };
@@ -408,7 +440,7 @@ export default function SubmitInspectionPage() {
         }
       })
       .catch((err) => console.error("Failed to load IA preferences:", err));
-  }, [portalUser, formData.iaCompany]);
+  }, [portalUser, formData.iaCompany, formData.primaryClientType]);
 
   const [showErrors, setShowErrors] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
@@ -512,8 +544,8 @@ export default function SubmitInspectionPage() {
     setShouldSavePreferences(shouldSave);
     setHasChosenPreferences(true);
     setShowPreferencesModal(false);
-    setCurrentStep(2);
-    setMaxCompletedStep((prev) => Math.max(prev, 2));
+    setCurrentStep(3);
+    setMaxCompletedStep((prev) => Math.max(prev, 3));
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
@@ -560,6 +592,7 @@ export default function SubmitInspectionPage() {
   /* â”€â”€ Layer 2: IA Carrier Contacts (autofill suggestions) â”€â”€ */
   interface CarrierContact {
     adjusterEmail: string;
+    scopingCompany?: string;
     adjusterFirstName?: string;
     adjusterLastName?: string;
     adjusterPhone?: string;
@@ -787,15 +820,15 @@ export default function SubmitInspectionPage() {
 
   // Log Skip/Next button state changes
   useEffect(() => {
-    if (currentStep === 3) {
+    if (currentStep === 4) {
       const isEmpty = isStep3FieldsEmpty();
       const currentState = isEmpty ? "Skip" : "Next";
       if (currentState !== lastButtonState) {
-        console.info(`[Step 3] Button state changed to: ${currentState}`);
+        console.info(`[Step 4] Button state changed to: ${currentState}`);
         setLastButtonState(currentState);
       }
     } else {
-      // Reset tracker when leaving step 3
+      // Reset tracker when leaving roofer step
       if (lastButtonState !== "Next") setLastButtonState("Next");
     }
   }, [formData, currentStep, isStep3FieldsEmpty, lastButtonState]);
@@ -1089,10 +1122,13 @@ export default function SubmitInspectionPage() {
                         onClick={() => {
                           setInsuranceDocuments(prev => prev.map(item => {
                             if (item.id === doc.id) {
-                              const newCategories = item.categories.includes(cat)
-                                ? item.categories.filter(c => c !== cat)
-                                : [...item.categories, cat];
-                              return { ...item, categories: newCategories };
+                              // Single-select: only one type per document. Clicking the selected one clears it.
+                              const alreadySelected = item.categories.includes(cat);
+                              return {
+                                ...item,
+                                categories: alreadySelected ? [] : [cat],
+                                customCategory: cat === "Other" && !alreadySelected ? item.customCategory : "",
+                              };
                             }
                             return item;
                           }));
@@ -1299,8 +1335,8 @@ export default function SubmitInspectionPage() {
       return;
     }
 
-    // Step 1: Insurance & Adjuster (merged validation)
-    if (currentStep === 1) {
+    // Step 2: Insurance & Adjuster (merged validation)
+    if (currentStep === 2) {
       const insuranceErrors = validateInsuranceStep(formData);
       const adjusterErrors = validateAdjusterStep(formData);
       const errors = { ...insuranceErrors, ...adjusterErrors };
@@ -1382,7 +1418,7 @@ export default function SubmitInspectionPage() {
             const { errors: aErrs } = validateContactEmails(formData.contactEmails.filter(c => c.contactType === "Adjuster (Carrier)"));
             return aErrs[i] || "";
           }),
-          1 // step index for priority ordering
+          2 // step index for priority ordering
         );
         return;
       }
@@ -1399,23 +1435,23 @@ export default function SubmitInspectionPage() {
       }
     }
 
-    // Step 2: Policy & Address (merged validation)
-    if (currentStep === 2) {
+    // Step 3: Policy & Address (merged validation)
+    if (currentStep === 3) {
       const policyErrors = validatePolicyholderStep(formData);
       const addressErrors = validateAddressStep(formData);
       const errors = { ...policyErrors, ...addressErrors };
       setFieldErrors(errors);
       if (Object.keys(errors).length > 0) {
         setShowErrors(true);
-        scrollToFirstInvalidField(errors, [], [], 2);
+        scrollToFirstInvalidField(errors, [], [], 3);
         return;
       }
       setShowErrors(false);
       setFieldErrors({});
     }
 
-    // Step 3: Roofer & Public Adjuster
-    if (currentStep === 3) {
+    // Step 4: Roofer & Public Adjuster
+    if (currentStep === 4) {
       try {
         const queue: ('roofer' | 'adjuster')[] = [];
 
@@ -1435,7 +1471,7 @@ export default function SubmitInspectionPage() {
         }
 
         if (queue.length > 0) {
-          console.info("[Step 3] Validation required. Queue initialized:", queue);
+          console.info("[Step 4] Validation required. Queue initialized:", queue);
 
           // Set field errors immediately so they appear when the user is sent back
           const newErrors: Record<string, string> = { ...fieldErrors };
@@ -1466,13 +1502,13 @@ export default function SubmitInspectionPage() {
 
         setFieldErrors(errors);
         if (Object.keys(errors).length > 0) {
-          console.info("[Step 3] Formatting errors detected:", errors);
+          console.info("[Step 4] Formatting errors detected:", errors);
           scrollToFirstInvalidField(errors);
           return;
         }
         setFieldErrors({});
       } catch (err) {
-        console.error("Error during Step 3 validation:", err);
+        console.error("Error during Step 4 validation:", err);
       }
     }
 
@@ -1623,9 +1659,9 @@ export default function SubmitInspectionPage() {
       let insuranceDocumentPayload: { fileName: string; mimeType: string; base64: string } | undefined;
       let insuranceDocumentsPayload: Array<{ fileName: string; mimeType: string; base64: string; categories: string[]; customCategory?: string }> = [];
 
-      if (insuranceDocuments.length > 0) {
+      if (validDocsSubmit.length > 0) {
         insuranceDocumentsPayload = await Promise.all(
-          insuranceDocuments.map(async (doc) => {
+          validDocsSubmit.map(async (doc) => {
             const file = doc.file!;
             const b64Data = (await readInsuranceDocumentAsBase64(file)) as { base64: string };
             return {
@@ -1639,7 +1675,7 @@ export default function SubmitInspectionPage() {
         );
         insuranceDocumentPayload = {
           fileName: insuranceDocumentsPayload[0].fileName,
-          mimeType: insuranceDocuments[0].file!.type || "application/octet-stream",
+          mimeType: validDocsSubmit[0].file!.type || "application/octet-stream",
           base64: insuranceDocumentsPayload[0].base64
         };
       }
@@ -1725,6 +1761,7 @@ export default function SubmitInspectionPage() {
           const adjEmail = carrierEmailEntry?.email?.trim();
           if (adjEmail && formData.adjusterFirstName) {
             const contactToSave = {
+              scopingCompany: formData.insuranceCompany ? formData.insuranceCompany.trim() : "",
               adjusterFirstName: formData.adjusterFirstName,
               adjusterLastName: formData.adjusterLastName,
               adjusterPhone: formData.adjusterPhone,
@@ -1740,10 +1777,14 @@ export default function SubmitInspectionPage() {
               .then((contactResult) => {
                 if (contactResult.success) {
                   console.info("Carrier contact saved for future autofill");
-                  // Update local carrierContacts list so autofill works immediately
+                  // Update local carrierContacts list so autofill works immediately.
+                  // Identity is company name + first name + last name (not email).
                   setCarrierContacts(prev => {
-                    const existing = prev.findIndex(c => c.adjusterEmail.toLowerCase() === adjEmail.toLowerCase());
-                    const updated = { adjusterEmail: adjEmail, ...contactToSave };
+                    const keyOf = (c: CarrierContact) =>
+                      `${(c.scopingCompany || "").trim().toLowerCase()}|${(c.adjusterFirstName || "").trim().toLowerCase()}|${(c.adjusterLastName || "").trim().toLowerCase()}`;
+                    const updated: CarrierContact = { adjusterEmail: adjEmail, ...contactToSave };
+                    const updatedKey = keyOf(updated);
+                    const existing = prev.findIndex(c => keyOf(c) === updatedKey);
                     if (existing > -1) {
                       const next = [...prev];
                       next[existing] = updated;
@@ -2105,13 +2146,17 @@ export default function SubmitInspectionPage() {
   };
 
   const filterAdjusterSuggestions = (field: "firstName" | "lastName" | "email", value: string) => {
-    if (!value.trim() || carrierContacts.length === 0) {
+    // A company must be selected first, and suggestions are scoped to that company's saved contacts.
+    const selectedCompany = (formData.insuranceCompany || "").trim().toLowerCase();
+    if (!value.trim() || carrierContacts.length === 0 || !selectedCompany) {
       setAdjusterSuggestions([]);
       setAdjusterSuggestField(null);
       return;
     }
     const q = value.trim().toLowerCase();
     const matches = carrierContacts.filter((c) => {
+      const contactCompany = (c.scopingCompany || "").trim().toLowerCase();
+      if (contactCompany !== selectedCompany) return false;
       if (field === "firstName") return (c.adjusterFirstName || "").toLowerCase().startsWith(q);
       if (field === "lastName") return (c.adjusterLastName || "").toLowerCase().startsWith(q);
       if (field === "email") return (c.adjusterEmail || "").toLowerCase().startsWith(q);
@@ -2185,7 +2230,7 @@ export default function SubmitInspectionPage() {
       )}
 
       <main className={`${isSubmitted ? "h-[calc(100vh-64px)] flex items-start justify-center pt-24" : "pt-20 pb-8"}`}>
-        <div className={`${isSubmitted ? "max-w-xl" : "max-w-5xl"} mx-auto ${currentStep === 4 ? "px-12" : "px-6"}`}>
+        <div className={`${isSubmitted ? "max-w-xl" : "max-w-5xl"} mx-auto ${currentStep === 5 ? "px-12" : "px-6"}`}>
 
           {/* â”€â”€ Sticky Wrapper â€“ Only visible for Wizard Steps â”€â”€ */}
           {!isSubmitted && (
@@ -2306,9 +2351,23 @@ export default function SubmitInspectionPage() {
                 )}
 
                 {/* ================================================ */}
-                {/*  STEP 1 â€“ Insurance & Adjuster (merged)        */}
+                {/*  STEP 1 – Service Add-ons                        */}
                 {/* ================================================ */}
                 {currentStep === 1 && (
+                  <FormSection>
+                    <ServiceAddOns
+                      selectedIds={formData.serviceAddOns}
+                      onChange={(selectedIds) =>
+                        setFormData((prev) => ({ ...prev, serviceAddOns: selectedIds }))
+                      }
+                    />
+                  </FormSection>
+                )}
+
+                {/* ================================================ */}
+                {/*  STEP 2 – Insurance & Adjuster (merged)        */}
+                {/* ================================================ */}
+                {currentStep === 2 && (
                   <FormSection>
                     <div className="space-y-3 animate-fadeIn">
                       {/* IA Toggle â€” at the top */}
@@ -2356,7 +2415,49 @@ export default function SubmitInspectionPage() {
                                         type="button"
                                         id={`primaryClient-${opt.id.replace(/\s+/g, '')}`}
                                         onClick={() => {
-                                          setFormData({ ...formData, primaryClientType: opt.id as any });
+                                          const selectedType = opt.id;
+                                          setFormData((prev): FormData => {
+                                            // Switching the primary client type must NOT wipe already-entered
+                                            // details for either side. We only change the selected type and,
+                                            // additively, make sure the relevant contact row exists.
+                                            let contactEmails = [...prev.contactEmails];
+
+                                            if (selectedType === "Adjuster (Carrier)") {
+                                              // Keep IA details/emails intact; just ensure a Carrier contact row exists.
+                                              const hasCarrier = contactEmails.some(c => c.contactType === "Adjuster (Carrier)");
+                                              if (!hasCarrier) {
+                                                contactEmails = [
+                                                  { email: "", contactType: "Adjuster (Carrier)", sendCopy: ["all", "report", "invoice", "notifications"] },
+                                                  ...contactEmails,
+                                                ];
+                                              }
+                                              return {
+                                                ...prev,
+                                                primaryClientType: selectedType as FormData["primaryClientType"],
+                                                contactEmails,
+                                              };
+                                            }
+
+                                            // Independent Adjuster: keep Carrier details/emails intact. Only ensure an
+                                            // IA contact row exists and prefill the IA name from login if it's still empty.
+                                            const nameParts = (portalUser?.name || "").trim().split(/\s+/).filter(Boolean);
+                                            const iaFirst = nameParts.length > 0 ? nameParts[0] : "";
+                                            const iaLast = nameParts.length > 1 ? nameParts.slice(1).join(" ") : "";
+                                            const hasIa = contactEmails.some(c => c.contactType === "IA");
+                                            if (!hasIa) {
+                                              contactEmails = [
+                                                ...contactEmails,
+                                                { email: portalUser?.email || "", contactType: "IA", sendCopy: ["all", "report", "invoice", "notifications"] },
+                                              ];
+                                            }
+                                            return {
+                                              ...prev,
+                                              primaryClientType: selectedType as FormData["primaryClientType"],
+                                              iaFirstName: prev.iaFirstName || iaFirst,
+                                              iaLastName: prev.iaLastName || iaLast,
+                                              contactEmails,
+                                            };
+                                          });
                                           setFieldErrors(prev => {
                                             const next = { ...prev };
                                             delete next.primaryClientType;
@@ -2510,6 +2611,7 @@ export default function SubmitInspectionPage() {
                                   name="iaPhone"
                                   value={formData.iaPhone}
                                   onChange={handleChange}
+                                  required
                                   invalid={!!fieldErrors.iaPhone}
                                   error={fieldErrors.iaPhone}
                                 />
@@ -2533,7 +2635,7 @@ export default function SubmitInspectionPage() {
                                             const { errors } = validateContactEmails(nextEmails.filter(c => c.contactType === "IA"));
                                             setIaEmailErrors(errors);
                                             setIaSectionError("");
-                                          }} type="email" placeholder="ia@company.com" icon={Mail} />
+                                          }} type="email" placeholder="ia@company.com" icon={Mail} required={localIndex === 0} />
 
                                           {/* Send copy of â€” multi-select checkboxes */}
                                           <div>
@@ -3401,9 +3503,9 @@ export default function SubmitInspectionPage() {
                 )}
 
                 {/* ================================================ */}
-                {/*  STEP 2 â€“ Policy & Address (merged)              */}
+                {/*  STEP 3 â€“ Policy & Address (merged)              */}
                 {/* ================================================ */}
-                {currentStep === 2 && (
+                {currentStep === 3 && (
                   <FormSection>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3 animate-fadeIn">
                       {/* LEFT â€” Property Contact (Policyholder) */}
@@ -3482,9 +3584,9 @@ export default function SubmitInspectionPage() {
                 )}
 
                 {/* ================================================ */}
-                {/*  STEP 3 â€“ Roofer & Public Adjuster               */}
+                {/*  STEP 4 â€“ Roofer & Public Adjuster               */}
                 {/* ================================================ */}
-                {currentStep === 3 && (
+                {currentStep === 4 && (
                   <FormSection>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3 animate-fadeIn">
                       {/* LEFT â€” Roofer */}
@@ -3517,9 +3619,9 @@ export default function SubmitInspectionPage() {
                 )}
 
                 {/* ================================================ */}
-                {/*  STEP 4 â€“ Review & Submit                        */}
+                {/*  STEP 5 â€“ Review & Submit                        */}
                 {/* ================================================ */}
-                {currentStep === 4 && (
+                {currentStep === 5 && (
                   <div className="animate-fadeIn space-y-6">
                     <FormSection>
                       <div className="space-y-4">
@@ -3530,8 +3632,19 @@ export default function SubmitInspectionPage() {
                           {formData.buildingType && <ReviewRow label="Building Type" value={formData.buildingType} />}
                         </ReviewBlock>
 
-                        {/* 2. Insurance & Adjuster */}
-                        <ReviewBlock stepNumber="2." title="Insurance & Adjuster" icon={Shield} onEdit={() => setCurrentStep(1)}>
+                        {/* 2. Service Add-ons */}
+                        <ReviewBlock stepNumber="2." title="Service" icon={PackagePlus} onEdit={() => setCurrentStep(1)}>
+                          {SERVICE_ADD_ONS.map((addon) => (
+                            <ReviewRow
+                              key={addon.id}
+                              label={addon.title}
+                              value={formData.serviceAddOns.includes(addon.id) ? "Selected" : "Not selected"}
+                            />
+                          ))}
+                        </ReviewBlock>
+
+                        {/* 3. Insurance & Adjuster */}
+                        <ReviewBlock stepNumber="3." title="Insurance & Adjuster" icon={Shield} onEdit={() => setCurrentStep(2)}>
                           {formData.isIAClaim && (
                             <>
                               <ReviewRow label="IA Company" value={formData.iaCompany} />
@@ -3551,7 +3664,9 @@ export default function SubmitInspectionPage() {
 
                           <div className="col-span-full border-t-[2px] border-gray-200 dark:border-gray-700 mt-2 mb-2"></div>
 
+                          {/* Adjuster Company — hidden for now, restore when needed
                           <ReviewRow label="Adjuster Company" value={formData.adjusterCompany} />
+                          */}
                           <ReviewRow label="Adjuster Name" value={`${formData.adjusterFirstName} ${formData.adjusterLastName}`.trim()} />
                           {(() => {
                             const adjEmails = formData.contactEmails.filter(c => c.contactType === "Adjuster (Carrier)");
@@ -3572,8 +3687,8 @@ export default function SubmitInspectionPage() {
                           {formData.primaryClientType && <ReviewRow label="Primary Client" value={formData.primaryClientType} />}
                         </ReviewBlock>
 
-                        {/* 3. Property Contact Info & Address */}
-                        <ReviewBlock stepNumber="3." title="Property Contact Info" icon={User} onEdit={() => setCurrentStep(2)}>
+                        {/* 4. Property Contact Info & Address */}
+                        <ReviewBlock stepNumber="4." title="Property Contact Info" icon={User} onEdit={() => setCurrentStep(3)}>
                           <ReviewRow label="Primary Name" value={`${formData.policyholderFirstName} ${formData.policyholderLastName}`.trim()} />
                           <ReviewRow label="Primary Phone" value={formData.policyholderPhone1} />
                           {formData.policyholderPhone1Extra && <ReviewRow label="Primary Phone 2" value={formData.policyholderPhone1Extra} />}
@@ -3591,8 +3706,8 @@ export default function SubmitInspectionPage() {
                           <ReviewRow label="Zip Code" value={formData.zip} />
                         </ReviewBlock>
 
-                        {/* 4. Roofer & Public Adjuster */}
-                        <ReviewBlock stepNumber="4." title="Roofer & Public Adjuster" icon={Home} onEdit={() => setCurrentStep(3)} optional>
+                        {/* 5. Roofer & Public Adjuster */}
+                        <ReviewBlock stepNumber="5." title="Roofer & Public Adjuster" icon={Home} onEdit={() => setCurrentStep(4)} optional>
                           {/* Roofer */}
                           {!(formData.rooferName || formData.rooferCompany || formData.rooferPhone || formData.rooferEmail) ? (
                             <div className="col-span-full text-[13px] italic text-gray-300 dark:text-gray-600 self-center">No Roofer Provided</div>
@@ -3646,7 +3761,7 @@ export default function SubmitInspectionPage() {
                       onClick={handleNext}
                       className="inline-flex items-center gap-1 bg-primary hover:bg-primary-dark dark:bg-accent dark:hover:bg-accent-light text-white px-4 py-1.5 rounded-lg font-bold text-xs transition-all shadow-md hover:shadow-lg hover:scale-[1.02] active:scale-[0.98]"
                     >
-                      {currentStep === 3 && isStep3FieldsEmpty() ? "Skip" : "Next"}
+                      {currentStep === 4 && isStep3FieldsEmpty() ? "Skip" : "Next"}
                       <ArrowRight className="w-4 h-4" />
                     </button>
                   ) : (
@@ -3776,8 +3891,8 @@ export default function SubmitInspectionPage() {
 
                   if (isLastItem) {
                     // Navigate if it was the only/last issue
-                    setCurrentStep(4);
-                    setMaxCompletedStep((prev) => Math.max(prev, 4));
+                    setCurrentStep(5);
+                    setMaxCompletedStep((prev) => Math.max(prev, 5));
                     window.scrollTo({ top: 0, behavior: "smooth" });
                   } else {
                     // Stay on step 3 if more issues exist (will re-trigger on next click)

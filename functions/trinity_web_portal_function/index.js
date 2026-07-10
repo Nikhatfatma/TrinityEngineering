@@ -110,6 +110,12 @@ function mapFormDataToCreator(data) {
 
     const primaryAdjuster = data.contactEmails.find(c => c.contactType === "Adjuster (Carrier)") || {};
     const primaryIA = data.contactEmails.find(c => c.contactType === "IA") || {};
+    const policyholderFullName = `${String(data.policyholderFirstName || "").trim()} ${String(data.policyholderLastName || "").trim()}`.replace(/\s+/g, " ").trim();
+
+    const serviceAddOns = Array.isArray(data.serviceAddOns) ? data.serviceAddOns : [];
+    const serviceAddOnLabels = [];
+    if (serviceAddOns.includes("swi")) serviceAddOnLabels.push("Severe Weather Intelligence");
+    if (serviceAddOns.includes("tri")) serviceAddOnLabels.push("TRI Repairability Evaluation");
 
     // Combine all emails into a single subform as before
     const unifiedSubform = data.contactEmails.map(c => ({
@@ -147,7 +153,8 @@ function mapFormDataToCreator(data) {
                 first_name: data.policyholderFirstName || "",
                 last_name: data.policyholderLastName || ""
             },
-            PH_Name_Commercial: data.buildingType === 'commercial-municipal-industrial' ? (data.policyholderFirstName + " " + data.policyholderLastName).trim() : "",
+            Policyholder_Name: policyholderFullName,
+            PH_Name_Commercial: data.buildingType === 'commercial-municipal-industrial' ? policyholderFullName : "",
             PH_Phone_1: [data.policyholderPhone1, data.policyholderPhone1Extra].filter(Boolean).join(", "),
             Property_Contact_Email: data.propertyContactEmail || "",
             Spouse_or_Second_Policyholder: {
@@ -164,7 +171,7 @@ function mapFormDataToCreator(data) {
             },
             Date_of_Loss: data.dateOfLoss || "",
             Policy_Number: data.policyNumber || "",
-            ...(data.insuranceDocumentUrl ? { Insurance_Document_URL: data.insuranceDocumentUrl } : {}),
+            ...(data.insuranceDocumentUrl ? { Insurance_Document_URL: { value: "View Documents", url: data.insuranceDocumentUrl, title: "Insurance Documents" } } : {}),
             Adjuster_Company: data.adjusterCompany || "",
             Primary_Client: data.primaryClientType || "",
             Primary_Client_Type_Selection: data.primaryClientType ? [data.primaryClientType] : [],
@@ -182,8 +189,11 @@ function mapFormDataToCreator(data) {
             Public_Adjuster_Company: data.publicAdjusterCompany || "",
             Public_Adjuster_Phone: data.publicAdjusterPhone || "",
             Public_Adjuster_Email: data.publicAdjusterEmail || "",
+            SWI_Add_On_Requested: serviceAddOns.includes("swi") ? "true" : "false",
+            TRI_Add_On_Requested: serviceAddOns.includes("tri") ? "true" : "false",
+            Service_Add_Ons: serviceAddOnLabels,
             // Inspection_Request: inspectionType, // Disabled: This is a Lookup field and needs an ID, not a string
-            Inspection_Name: `${(data.policyholderFirstName + " " + data.policyholderLastName).trim()} - ${inspectionType}`
+            Inspection_Name: `${policyholderFullName} - ${inspectionType}`
         }
     };
 }
@@ -362,6 +372,59 @@ async function uploadFileToWorkDrive(accessToken, fileName, fileBuffer, mimeType
     throw new Error('WorkDrive upload succeeded but no document URL was returned.');
 }
 
+// Build a human-readable, filesystem-safe folder name for a policy.
+// Format: "<Claim Number> - <Date of Loss>".
+// Date of Loss is a mandatory field and acts as the date stamp, so two submissions with
+// the same claim number still get distinct folders.
+function buildPolicyFolderName(data) {
+    const claim = (data.claimNumber || '').toString().trim();
+
+    // Date stamp from the (mandatory) Date of Loss; fall back to today's date if absent.
+    const dateStamp = (data.dateOfLoss || '').toString().trim() || new Date().toISOString().slice(0, 10);
+
+    const name = claim ? `${claim} - ${dateStamp}` : dateStamp;
+
+    // Strip characters WorkDrive disallows in names and collapse whitespace.
+    return name
+        .replace(/[\\/:*?"<>|]/g, '-')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .slice(0, 120);
+}
+
+// Create a dedicated folder for the submission under the given parent (team) folder.
+// "checkduplicatename: false" tells WorkDrive to append a date-timestamp to the name
+// automatically if a folder with the same name already exists, so uploads never collide.
+async function createWorkDriveFolder(accessToken, parentId, folderName) {
+    const response = await fetch('https://workdrive.zoho.com/api/v1/files', {
+        method: 'POST',
+        headers: {
+            'Authorization': `Zoho-oauthtoken ${accessToken}`,
+            'Content-Type': 'application/json',
+            'Accept': 'application/vnd.api+json',
+            'checkduplicatename': 'false'
+        },
+        body: JSON.stringify({
+            data: {
+                attributes: { name: folderName, parent_id: parentId },
+                type: 'files'
+            }
+        })
+    });
+
+    const json = await response.json();
+    if (!response.ok) {
+        throw new Error(`WorkDrive folder creation failed (HTTP ${response.status}): ${JSON.stringify(json)}`);
+    }
+
+    const resource = json?.data;
+    const id = resource?.id || resource?.attributes?.resource_id;
+    if (!id) {
+        throw new Error('WorkDrive folder created but no folder ID was returned.');
+    }
+    return { id, permalink: resource?.attributes?.permalink || null };
+}
+
 async function processInsuranceDocumentUpload(data, accessToken) {
     if (data?.insuranceDocument && (!data.insuranceDocuments || !Array.isArray(data.insuranceDocuments))) {
         data.insuranceDocuments = [data.insuranceDocument];
@@ -373,9 +436,26 @@ async function processInsuranceDocumentUpload(data, accessToken) {
         return;
     }
 
-    const folderId = (process.env.ZOHO_WORKDRIVE_FOLDER_ID || '').replace(/['"]/g, '').trim();
-    if (!folderId) {
+    const teamFolderId = (process.env.ZOHO_WORKDRIVE_FOLDER_ID || '').replace(/['"]/g, '').trim();
+    if (!teamFolderId) {
         throw new Error('Document upload is not configured. Please contact support.');
+    }
+
+    // Each submission gets its own dedicated folder inside the team folder, named by
+    // policy name + Date of Loss. Files are then uploaded into that folder so documents
+    // stay grouped per policy and are easy to locate.
+    const policyFolderName = buildPolicyFolderName(data);
+    let uploadFolderId = teamFolderId;
+    let policyFolderUrl = `https://workdrive.zoho.com/folder/${teamFolderId}`;
+    try {
+        const policyFolder = await createWorkDriveFolder(accessToken, teamFolderId, policyFolderName);
+        uploadFolderId = policyFolder.id;
+        policyFolderUrl = policyFolder.permalink || `https://workdrive.zoho.com/folder/${policyFolder.id}`;
+        console.log(`[WorkDrive] Created policy folder "${policyFolderName}" (${uploadFolderId})`);
+    } catch (folderErr) {
+        // If the policy folder can't be created, fall back to the team folder so the
+        // submission itself never fails because of folder organization.
+        console.warn(`[WorkDrive] Could not create policy folder "${policyFolderName}", falling back to team folder:`, folderErr.message);
     }
 
     const uploadedUrls = [];
@@ -419,14 +499,15 @@ async function processInsuranceDocumentUpload(data, accessToken) {
             newFileName,
             buffer,
             doc.mimeType,
-            folderId
+            uploadFolderId
         );
         
         uploadedUrls.push(fileUrl);
     }
 
     if (uploadedUrls.length > 0) {
-        data.insuranceDocumentUrl = `https://workdrive.zoho.com/folder/${folderId}`;
+        // Point the stored link at the specific policy folder, not the shared team folder.
+        data.insuranceDocumentUrl = policyFolderUrl;
         console.log('[WorkDrive] Uploaded documents successfully:', uploadedUrls);
     }
 

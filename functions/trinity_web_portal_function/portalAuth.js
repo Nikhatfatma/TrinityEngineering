@@ -276,7 +276,7 @@ async function sendOtpEmail(catalystApp, { toEmail, inviteName, otp, expiryMinut
             auth: { user: smtpUser, pass: smtpPass }
         });
         await transporter.sendMail({
-            from: `"Trinity Portal" <${smtpUser}>`,
+            from: `"Trinity Portal" <${fromEmail}>`,
             to: toEmail,
             subject,
             text,
@@ -558,6 +558,17 @@ async function handleLogout(catalystApp, { sessionToken }) {
     return { success: true, message: 'Logged out' };
 }
 
+function isZohoNoRecordsResponse(response, data) {
+    const message = String(data?.message || data?.error || '').toLowerCase();
+    return (
+        response.status === 404 ||
+        data?.code === 9280 ||
+        message.includes('no records') ||
+        message.includes('no data') ||
+        message.includes('no matching')
+    );
+}
+
 async function fetchClaimsForUser(email, role, getNewAccessToken) {
     const normalizedEmail = normalizeEmail(email);
     const owner = (process.env.ZOHO_CREATOR_ACCOUNT_OWNER || 'trinity5').trim();
@@ -595,7 +606,16 @@ async function fetchClaimsForUser(email, role, getNewAccessToken) {
 
         const data = await response.json();
         if (!response.ok) {
+            if (isZohoNoRecordsResponse(response, data)) {
+                hasMore = false;
+                break;
+            }
             throw new Error(data.message || `Failed to fetch claims (${response.status})`);
+        }
+
+        if (data.code && data.code !== 3000 && isZohoNoRecordsResponse(response, data)) {
+            hasMore = false;
+            break;
         }
 
         const batch = data.data || [];
@@ -623,13 +643,49 @@ async function fetchClaimsForUser(email, role, getNewAccessToken) {
     });
 }
 
+function parsePolicyholderNameParts(value) {
+    if (!value) return null;
+
+    if (typeof value === 'object') {
+        const first = String(value.first_name || value.First_Name || '').trim();
+        const last = String(value.last_name || value.Last_Name || '').trim();
+        if (first || last) return { first, last };
+        if (value.display_value) return parsePolicyholderNameParts(value.display_value);
+        return null;
+    }
+
+    const trimmed = String(value).trim();
+    if (!trimmed) return null;
+
+    const commaMatch = trimmed.match(/^([^,]+),\s*(.+)$/);
+    if (commaMatch) {
+        return { first: commaMatch[2].trim(), last: commaMatch[1].trim() };
+    }
+
+    return { first: trimmed, last: '' };
+}
+
+function formatPolicyholderNameParts(parts) {
+    if (!parts) return '';
+    return [parts.first, parts.last].filter(Boolean).join(' ').trim();
+}
+
 function formatPolicyholderName(row) {
     const phName = row.PH_Name_Individual || row.ph_name_individual;
-    if (phName && typeof phName === 'object') {
-        return [phName.first_name, phName.last_name].filter(Boolean).join(' ').trim();
+    const fromPhName = formatPolicyholderNameParts(parsePolicyholderNameParts(phName));
+    if (fromPhName) return fromPhName;
+
+    const fromPolicyholderName = formatPolicyholderNameParts(parsePolicyholderNameParts(row.Policyholder_Name));
+    if (fromPolicyholderName) return fromPolicyholderName;
+
+    const inspectionName = String(row.Inspection_Name || '').trim();
+    if (inspectionName) {
+        const dashIdx = inspectionName.lastIndexOf(' - ');
+        const nameOnly = dashIdx > 0 ? inspectionName.slice(0, dashIdx).trim() : inspectionName;
+        return formatPolicyholderNameParts(parsePolicyholderNameParts(nameOnly)) || nameOnly;
     }
-    if (typeof phName === 'string') return phName;
-    return row.Policyholder_Name || row.Inspection_Name || '';
+
+    return '';
 }
 
 async function handleGetMyClaims(catalystApp, { sessionToken }, getNewAccessToken) {
@@ -650,6 +706,18 @@ async function handleGetMyClaims(catalystApp, { sessionToken }, getNewAccessToke
             user: sessionResult.user
         };
     } catch (err) {
+        const msg = String(err.message || '').toLowerCase();
+        if (
+            msg.includes('no records') ||
+            msg.includes('no data') ||
+            msg.includes('9280')
+        ) {
+            return {
+                success: true,
+                claims: [],
+                user: sessionResult.user
+            };
+        }
         console.error('[getMyClaims] Error:', err.message);
         return { success: false, error: err.message };
     }
@@ -671,14 +739,13 @@ async function handleGetUserPreferences(catalystApp, { sessionToken, insuranceCo
         company = insuranceCompany;
     }
 
-    if (!company || !String(company).trim()) {
-        return { success: true, preferences: null };
-    }
-
-    const safeCompany = escapeZcql(String(company).trim());
     const safeEmail = escapeZcql(email);
 
-    const query = `SELECT ROWID, user_email, scoping_company, preferences_json FROM UserPreferences WHERE user_email = '${safeEmail}' AND scoping_company = '${safeCompany}' LIMIT 1`;
+    // No company specified (e.g. on login) — return the user's most recent saved preferences
+    // so their own details (name, phone, email, extension, email preferences) can prepopulate.
+    const query = (!company || !String(company).trim())
+        ? `SELECT ROWID, user_email, scoping_company, preferences_json FROM UserPreferences WHERE user_email = '${safeEmail}' ORDER BY ROWID DESC LIMIT 1`
+        : `SELECT ROWID, user_email, scoping_company, preferences_json FROM UserPreferences WHERE user_email = '${safeEmail}' AND scoping_company = '${escapeZcql(String(company).trim())}' LIMIT 1`;
 
     try {
         const rows = await zcql.executeZCQLQuery(query);
@@ -832,17 +899,42 @@ async function handleSaveCarrierContact(catalystApp, { sessionToken, adjusterEma
     const zcql = catalystApp.zcql();
     const table = catalystApp.datastore().table('IACarrierContacts');
     const safeIaEmail = escapeZcql(email);
-    const safeAdjEmail = escapeZcql(normalizedAdjEmail);
     const contactJson = JSON.stringify(contact);
 
-    try {
-        const query = `SELECT ROWID FROM IACarrierContacts WHERE user_email = '${safeIaEmail}' AND adjuster_email = '${safeAdjEmail}' LIMIT 1`;
-        const rows = await zcql.executeZCQLQuery(query);
+    // Dedup identity for a saved carrier contact = scoping company + adjuster first name + last name.
+    const targetCompany = String(contact.scopingCompany || '').trim().toLowerCase();
+    const targetFirst = String(contact.adjusterFirstName || '').trim().toLowerCase();
+    const targetLast = String(contact.adjusterLastName || '').trim().toLowerCase();
 
+    try {
+        // Find an existing contact for this user that matches company + first name + last name.
+        const rows = await zcql.executeZCQLQuery(
+            `SELECT ROWID, contact_json FROM IACarrierContacts WHERE user_email = '${safeIaEmail}' LIMIT 200`
+        );
+
+        let matchRowId = null;
         if (rows && rows.length > 0) {
-            const rowId = rows[0].IACarrierContacts.ROWID;
+            for (const r of rows) {
+                const row = r.IACarrierContacts;
+                let parsed = {};
+                try {
+                    parsed = JSON.parse(row.contact_json || '{}');
+                } catch (e) {
+                    continue;
+                }
+                const c = String(parsed.scopingCompany || '').trim().toLowerCase();
+                const f = String(parsed.adjusterFirstName || '').trim().toLowerCase();
+                const l = String(parsed.adjusterLastName || '').trim().toLowerCase();
+                if (c === targetCompany && f === targetFirst && l === targetLast) {
+                    matchRowId = row.ROWID;
+                    break;
+                }
+            }
+        }
+
+        if (matchRowId) {
             await table.updateRow({
-                ROWID: rowId,
+                ROWID: matchRowId,
                 user_email: email,
                 adjuster_email: normalizedAdjEmail,
                 contact_json: contactJson

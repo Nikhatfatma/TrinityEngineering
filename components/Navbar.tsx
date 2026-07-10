@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Menu, X, ArrowRight, User, LogOut } from "lucide-react";
+import { Menu, X, ChevronDown, ChevronUp, User, LogOut, ClipboardList } from "lucide-react";
 
 interface PortalUser {
   email: string;
@@ -13,11 +13,14 @@ interface PortalUser {
 export default function Navbar() {
   const [scrolled, setScrolled] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [mobileResearchOpen, setMobileResearchOpen] = useState(false);
+  const [mobileAuthPressed, setMobileAuthPressed] = useState<"inspections" | "logout" | null>(null);
   const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
   const [portalUser, setPortalUser] = useState<PortalUser | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [hasLocalSession, setHasLocalSession] = useState(false);
   const pathname = usePathname();
+  const isOnMyInspectionsPage = pathname === "/portal/claims" || pathname.startsWith("/portal/claims/");
   const hasMediaHero =
     pathname === "/" ||
     pathname === "/claims" ||
@@ -46,6 +49,13 @@ export default function Navbar() {
 
   useEffect(() => {
     setMobileMenuOpen(false);
+    setProfileDropdownOpen(false);
+  }, [pathname]);
+
+  useEffect(() => {
+    if (pathname.startsWith("/industry/")) {
+      setMobileResearchOpen(true);
+    }
   }, [pathname]);
 
   useEffect(() => {
@@ -90,12 +100,109 @@ export default function Navbar() {
       await fetch("/api/portal/logout", { method: "POST" });
     } finally {
       setPortalUser(null);
+      setProfileDropdownOpen(false);
       localStorage.removeItem("portal_logged_in");
       setHasLocalSession(false);
       setMobileMenuOpen(false);
       window.location.href = "/login";
     }
   }, []);
+
+  const profileTriggerClass = `flex items-center gap-2 px-1.5 py-1.5 rounded-full border transition-all duration-300 ${
+    isSolidHeader
+      ? "border-gray-200 hover:border-blue-500 hover:shadow-md bg-white/50"
+      : "border-white/20 hover:border-white/60 bg-white/10 hover:bg-white/20"
+  }`;
+
+  const profileAvatarClass = `w-7 h-7 rounded-full flex items-center justify-center shrink-0 ${
+    isSolidHeader ? "bg-gradient-to-br from-[#0047AB] to-[#001D3D] text-white shadow-sm" : "bg-white text-[#0047AB]"
+  }`;
+
+  const profileNameClass = `text-[11px] font-bold tracking-wider pr-2 truncate max-w-[100px] ${
+    isSolidHeader ? "text-gray-900" : "text-white"
+  }`;
+
+  const getMobileNavHref = (item: string) => {
+    if (item === "CONTACT") return "tel:+18559295888";
+    return getNavHref(item);
+  };
+
+  const isMobileNavActive = (item: string) => {
+    if (item === "CONTACT") return false;
+    return isNavActive(item);
+  };
+
+  const isMobileResearchActive = pathname.startsWith("/industry/");
+
+  const mobileNavLinkClass = (isActive: boolean) =>
+    `inline-block w-fit border-b-2 py-2.5 text-[14px] font-semibold tracking-[0.12em] transition-[color,border-color] duration-150 md:py-3 md:text-[16px] ${
+      isActive
+        ? "border-[#0047AB] font-bold text-[#0047AB]"
+        : "border-transparent text-[#111827]"
+    }`;
+
+  const mobileSubNavLinkClass = (isActive: boolean) =>
+    `inline-block w-fit border-b-2 py-2.5 pl-1 text-[12px] font-semibold tracking-[0.1em] transition-[color,border-color] duration-150 md:py-3 md:text-[14px] ${
+      isActive
+        ? "border-[#0047AB] font-bold text-[#0047AB]"
+        : "border-transparent text-[#111827]"
+    }`;
+
+  const renderMobileNavItem = (item: string) => {
+    const href = getMobileNavHref(item);
+    const isActive = isMobileNavActive(item);
+    const className = mobileNavLinkClass(isActive);
+
+    if (item === "CONTACT") {
+      return (
+        <span
+          key={item}
+          aria-disabled="true"
+          className="inline-block w-fit cursor-not-allowed border-b-2 border-transparent py-2.5 text-[14px] font-semibold tracking-[0.12em] text-gray-400 md:py-3 md:text-[16px]"
+        >
+          {item}
+        </span>
+      );
+    }
+
+    if (isExternalNavItem(item)) {
+      return (
+        <a key={item} href={href} onClick={() => setMobileMenuOpen(false)} className={className}>
+          {item}
+        </a>
+      );
+    }
+
+    return (
+      <Link
+        key={item}
+        href={href}
+        aria-current={isActive ? "page" : undefined}
+        onClick={() => setMobileMenuOpen(false)}
+        className={className}
+      >
+        {item}
+      </Link>
+    );
+  };
+
+  const mobileAuthButtonClass = (id: "inspections" | "logout", isActive = false) => {
+    const isHighlighted = isActive || mobileAuthPressed === id;
+
+    return `flex w-full items-center justify-center gap-2 rounded-md border px-4 py-3 text-[11px] font-bold tracking-[0.14em] uppercase transition-colors duration-150 md:py-3.5 md:text-[13px] ${
+      isHighlighted
+        ? "border-[#0047AB] bg-[#0047AB] text-white"
+        : "border-gray-300 bg-white text-gray-800"
+    }`;
+  };
+
+  const mobileAuthButtonHandlers = (id: "inspections" | "logout") => ({
+    onMouseEnter: () => setMobileAuthPressed(id),
+    onMouseLeave: () => setMobileAuthPressed(null),
+    onTouchStart: () => setMobileAuthPressed(id),
+    onTouchEnd: () => setMobileAuthPressed(null),
+    onTouchCancel: () => setMobileAuthPressed(null),
+  });
 
   const authLinkClass = `relative group/login flex items-center transition-all duration-500 uppercase tracking-[0.14em] font-black xl:tracking-[0.2em] ${
     isSolidHeader
@@ -115,6 +222,7 @@ export default function Navbar() {
       document.body.style.overflow = "hidden";
     } else {
       document.body.style.overflow = "";
+      setMobileAuthPressed(null);
     }
     return () => {
       mq.removeEventListener("change", onResize);
@@ -123,6 +231,15 @@ export default function Navbar() {
   }, [mobileMenuOpen]);
 
   const navItems = ["HOME", "CLAIMS", "SWI", "FORTIFIED", "CAREERS", "EDUCATION"];
+
+  const researchSubItems = [
+    { label: "DRONE INSPECTIONS", href: "/industry/drone-technology", disabled: true },
+    { label: "INFRARED (IR) IMAGING", href: "/industry/infrared-thermography", disabled: true },
+    { label: "FORENSIC ENGINEERING", href: "/industry/research-and-testing", disabled: true },
+  ];
+
+  const mobileNavItemsBeforeResearch = ["HOME", "CLAIMS", "SWI", "FORTIFIED"];
+  const mobileNavItemsAfterResearch = ["CAREERS", "EDUCATION", "CONTACT"];
 
   /** External careers portal — replace internal `/careers` route for now */
   const CAREERS_EXTERNAL_URL = "https://careers.trinitypllc.com/jobs/Careers";
@@ -255,71 +372,71 @@ export default function Navbar() {
                       </span>
                     </Link>
                   )
-                ) : portalUser && pathname.startsWith("/portal") ? (
+                ) : portalUser ? (
                   <div className="relative">
                     <button
                       type="button"
-                      onClick={() => setProfileDropdownOpen(!profileDropdownOpen)}
-                      className={`flex items-center gap-2 px-1.5 py-1.5 rounded-full border transition-all duration-300 ${
-                        isSolidHeader
-                          ? "border-gray-200 hover:border-blue-500 hover:shadow-md bg-white/50"
-                          : "border-white/20 hover:border-white/60 bg-white/10 hover:bg-white/20"
-                      }`}
+                      aria-expanded={profileDropdownOpen}
+                      aria-haspopup="menu"
+                      onClick={() => setProfileDropdownOpen((open) => !open)}
+                      className={profileTriggerClass}
                     >
-                      <div className={`w-7 h-7 rounded-full flex items-center justify-center shrink-0 ${
-                        isSolidHeader ? "bg-[#0047AB] text-white" : "bg-white/20 text-white"
-                      }`}>
+                      <div className={profileAvatarClass}>
                         <User size={14} strokeWidth={2.5} />
                       </div>
-                      <span className={`text-[11px] font-bold tracking-wider pr-2 truncate max-w-[100px] ${
-                        isSolidHeader ? "text-gray-900" : "text-white"
-                      }`}>
-                        {portalUser.name?.split(' ')[0] || "PROFILE"}
+                      <span className={profileNameClass}>
+                        {portalUser.name?.split(" ")[0] || "PROFILE"}
                       </span>
                     </button>
                     {profileDropdownOpen && (
                       <>
-                        <div className="fixed inset-0 z-40" onClick={() => setProfileDropdownOpen(false)} />
-                        <div className="absolute right-0 mt-3 w-64 rounded-2xl bg-white/80 backdrop-blur-xl shadow-[0_8px_30px_rgb(0,0,0,0.12)] border border-white z-50 overflow-hidden transform opacity-100 scale-100 transition-all duration-200 origin-top-right">
-                          <div className="px-5 py-4 bg-gradient-to-br from-white/90 to-blue-50/80 border-b border-gray-100/50">
-                            <p className="text-sm font-extrabold text-gray-900 truncate tracking-tight">{portalUser.name}</p>
-                            <p className="text-xs font-medium text-gray-500 truncate mt-0.5">{portalUser.email}</p>
+                        <div
+                          className="fixed inset-0 z-40"
+                          onClick={() => setProfileDropdownOpen(false)}
+                          aria-hidden="true"
+                        />
+                        <div
+                          role="menu"
+                          className="absolute right-0 mt-3 w-64 rounded-2xl bg-white/95 backdrop-blur-xl shadow-[0_8px_30px_rgb(0,0,0,0.12)] border border-gray-100 z-50 overflow-hidden transform opacity-100 scale-100 transition-all duration-200 origin-top-right"
+                        >
+                          <div className="px-5 py-4 bg-gradient-to-br from-white to-blue-50/80 border-b border-gray-100/80">
+                            <p className="text-sm font-extrabold text-gray-900 truncate tracking-tight">
+                              {portalUser.name}
+                            </p>
+                            <p className="text-xs font-medium text-gray-500 truncate mt-0.5">
+                              {portalUser.email}
+                            </p>
                           </div>
                           <div className="p-2">
+                            {!isOnMyInspectionsPage && (
+                              <Link
+                                href="/portal/claims"
+                                role="menuitem"
+                                onClick={() => setProfileDropdownOpen(false)}
+                                className="group flex items-center gap-3 w-full text-left px-3 py-2.5 text-[11px] font-black tracking-widest text-gray-600 rounded-xl hover:bg-[#E6F0FF] hover:text-[#0047AB] transition-all duration-300 uppercase"
+                              >
+                                <div className="w-7 h-7 rounded-full bg-[#E6F0FF] flex items-center justify-center group-hover:bg-[#0047AB]/10 transition-colors text-[#0047AB]">
+                                  <ClipboardList size={13} strokeWidth={2.5} />
+                                </div>
+                                My Inspections
+                              </Link>
+                            )}
                             <button
+                              type="button"
+                              role="menuitem"
                               onClick={handleLogout}
-                              className="group flex items-center gap-3 w-full text-left px-3 py-2.5 text-[11px] font-black tracking-widest text-gray-500 rounded-xl hover:bg-gray-100 hover:text-gray-900 transition-all duration-300 uppercase"
+                              className={`group flex items-center gap-3 w-full text-left px-3 py-2.5 text-[11px] font-black tracking-widest text-gray-600 rounded-xl hover:bg-[#E6F0FF] hover:text-[#0047AB] transition-all duration-300 uppercase ${isOnMyInspectionsPage ? "" : "mt-1"}`}
                             >
-                              <div className="w-7 h-7 rounded-full bg-gray-50 flex items-center justify-center group-hover:bg-gray-200 transition-colors text-gray-400 group-hover:text-gray-700">
+                              <div className="w-7 h-7 rounded-full bg-[#E6F0FF] flex items-center justify-center group-hover:bg-[#0047AB]/10 transition-colors text-[#0047AB]">
                                 <LogOut size={13} strokeWidth={2.5} />
                               </div>
-                              LOGOUT
+                              Logout
                             </button>
                           </div>
                         </div>
                       </>
                     )}
                   </div>
-                ) : portalUser ? (
-                  <Link
-                    href="/portal/claims"
-                    className={`flex items-center gap-2 px-1.5 py-1.5 rounded-full border transition-all duration-300 group/profile ${
-                      isSolidHeader
-                        ? "border-gray-200 hover:border-blue-500 hover:shadow-md bg-white/50"
-                        : "border-white/20 hover:border-white/60 bg-white/10 hover:bg-white/20"
-                    }`}
-                  >
-                    <div className={`w-7 h-7 rounded-full flex items-center justify-center shrink-0 transition-transform duration-300 group-hover/profile:scale-110 ${
-                      isSolidHeader ? "bg-gradient-to-br from-[#0047AB] to-[#001D3D] text-white shadow-sm" : "bg-white text-[#0047AB]"
-                    }`}>
-                      <User size={14} strokeWidth={2.5} />
-                    </div>
-                    <span className={`text-[11px] font-bold tracking-wider pr-2 truncate max-w-[100px] ${
-                      isSolidHeader ? "text-gray-900" : "text-white"
-                    }`}>
-                      {portalUser.name?.split(' ')[0] || "PROFILE"}
-                    </span>
-                  </Link>
                 ) : (
                   <Link href="/login" className={authLinkClass}>
                     <span className="relative z-10 transition-transform duration-500 group-hover/login:-translate-x-1">
@@ -342,26 +459,24 @@ export default function Navbar() {
             <span className={mobilePhoneClass}>
               (855) 929-5888
             </span>
-            <button
-              type="button"
-              aria-label={mobileMenuOpen ? "Close menu" : "Open menu"}
-              aria-expanded={mobileMenuOpen}
-              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="p-1 -mr-0.5"
-            >
-              {mobileMenuOpen ? (
-                <X className={mobileHeaderText} size={20} strokeWidth={2.5} />
-              ) : (
+            {!mobileMenuOpen && (
+              <button
+                type="button"
+                aria-label="Open menu"
+                aria-expanded={false}
+                onClick={() => setMobileMenuOpen(true)}
+                className="p-1 -mr-0.5"
+              >
                 <Menu className={mobileHeaderText} size={20} strokeWidth={2.5} />
-              )}
-            </button>
+              </button>
+            )}
           </div>
         </div>
       </nav>
 
       {mobileMenuOpen && (
         <div
-          className="fixed inset-0 z-[100] lg:hidden"
+          className="fixed inset-0 z-[9999] lg:hidden"
           role="dialog"
           aria-modal="true"
           aria-label="Mobile navigation"
@@ -369,120 +484,133 @@ export default function Navbar() {
           <button
             type="button"
             aria-label="Close menu"
-            className="absolute inset-0 bg-[#05111D]/55 backdrop-blur-[3px]"
+            className="absolute inset-0 bg-black/35"
             onClick={() => setMobileMenuOpen(false)}
           />
 
-          <div
-            className="absolute top-0 right-0 z-10 flex w-[min(220px,calc(100vw-48px))] max-h-[100dvh] flex-col overflow-hidden rounded-bl-xl bg-white shadow-[-8px_0_28px_rgba(0,0,0,0.15)] animate-slide-in-right"
-          >
-            <div className="h-0.5 shrink-0 bg-gradient-to-r from-[#0047AB] via-[#2563EB] to-[#60A5FA]" />
-
-            <div className="flex h-11 shrink-0 items-center justify-between border-b border-gray-100/90 px-3">
+          <div className="absolute inset-y-0 right-0 z-10 flex w-[min(285px,calc(100vw-1.5rem))] flex-col overflow-hidden bg-[#E8EBF0] shadow-[-6px_0_24px_rgba(0,0,0,0.12)] md:w-[min(440px,calc(100vw-2rem))]">
+            <div className="flex shrink-0 items-center justify-between border-b border-gray-200/80 px-5 py-4 md:px-6">
               <Link href="/" onClick={() => setMobileMenuOpen(false)} className="min-w-0">
                 <img
                   src="/logo-navbar-dark.png"
                   alt="Trinity Engineering"
-                  className="h-7 w-auto object-contain sm:h-8"
+                  className="h-8 w-auto object-contain md:h-9"
                 />
               </Link>
               <button
                 type="button"
                 aria-label="Close menu"
                 onClick={() => setMobileMenuOpen(false)}
-                className="rounded-full p-1.5 text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-900"
+                className="p-1.5 text-[#0047AB]"
               >
-                <X size={18} strokeWidth={2.25} />
+                <X size={22} strokeWidth={2.5} className="md:h-6 md:w-6" />
               </button>
             </div>
 
-            <div className="flex flex-col overflow-y-auto px-2.5 py-3">
-              <nav className="flex flex-col gap-0.5">
-                {navItems.map((item) => {
-                  const href = getNavHref(item);
-                  const isActive = isNavActive(item);
-                  const mobileLinkClass = `rounded-md px-2.5 py-2 text-[11px] font-semibold tracking-[0.12em] transition-all duration-200 ${
-                    isActive
-                      ? "bg-[#0047AB]/10 text-[#0047AB] ring-1 ring-[#0047AB]/20"
-                      : "text-gray-700 hover:bg-gray-50 hover:text-[#0047AB]"
-                  }`;
+            <div className="min-h-0 flex-1 overflow-y-auto px-5 py-3 md:px-6 md:py-4">
+              <nav className="flex flex-col">
+                {mobileNavItemsBeforeResearch.map((item) => renderMobileNavItem(item))}
 
-                  return isExternalNavItem(item) ? (
-                    <a
-                      key={item}
-                      href={href}
-                      onClick={() => setMobileMenuOpen(false)}
-                      className={mobileLinkClass}
+                <div>
+                  <button
+                    type="button"
+                    aria-expanded={mobileResearchOpen}
+                    onClick={() => setMobileResearchOpen((open) => !open)}
+                    className="flex w-full items-center justify-between gap-2 py-2.5 text-left text-[14px] font-semibold tracking-[0.12em] text-[#111827] md:py-3 md:text-[16px]"
+                  >
+                    <span
+                      className={`inline-block w-fit border-b-2 transition-[color,border-color] duration-150 ${
+                        isMobileResearchActive
+                          ? "border-[#0047AB] font-bold text-[#0047AB]"
+                          : "border-transparent"
+                      }`}
                     >
-                      {item}
-                    </a>
-                  ) : (
-                    <Link
-                      key={item}
-                      href={href}
-                      aria-current={isActive ? "page" : undefined}
-                      onClick={() => setMobileMenuOpen(false)}
-                      className={mobileLinkClass}
-                    >
-                      {item}
-                    </Link>
-                  );
-                })}
-              </nav>
+                      RESEARCH &amp; TESTING
+                    </span>
+                    {mobileResearchOpen ? (
+                      <ChevronUp size={18} strokeWidth={2.25} className="shrink-0 text-[#0047AB] md:h-5 md:w-5" />
+                    ) : (
+                      <ChevronDown size={18} strokeWidth={2.25} className="shrink-0 text-[#0047AB] md:h-5 md:w-5" />
+                    )}
+                  </button>
 
-              {showAuthNav && (
-                <div className="mt-3 border-t border-gray-100 pt-3 space-y-2">
-                  {portalUser && pathname.startsWith("/portal") ? (
-                    <div className="bg-gradient-to-b from-white to-gray-50/50 rounded-2xl p-4 border border-gray-100/80 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.05)] mt-4">
-                      <div className="flex items-center gap-3.5 mb-4 pb-4 border-b border-gray-100">
-                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#0047AB] to-[#001D3D] text-white flex items-center justify-center shrink-0 shadow-sm">
-                          <User size={18} strokeWidth={2.5} />
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <p className="text-[14px] font-extrabold text-gray-900 truncate tracking-tight">{portalUser.name}</p>
-                          <p className="text-[11px] font-medium text-gray-500 truncate mt-0.5">{portalUser.email}</p>
-                        </div>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={handleLogout}
-                        className="flex w-full items-center justify-center gap-2 rounded-xl bg-gray-50 text-gray-700 border border-gray-100 px-4 py-3 text-[11px] font-black tracking-[0.18em] transition-all duration-300 hover:bg-gray-100 hover:text-gray-900 uppercase shadow-sm"
-                      >
-                        <LogOut size={14} strokeWidth={2.5} className="text-gray-500" />
-                        LOGOUT
-                      </button>
+                  {mobileResearchOpen && (
+                    <div className="mb-1 flex flex-col pl-4 md:pl-5">
+                      {researchSubItems.map((subItem) => {
+                        const isSubActive =
+                          !subItem.disabled &&
+                          (pathname === subItem.href || pathname.startsWith(`${subItem.href}/`));
+
+                        if (subItem.disabled) {
+                          return (
+                            <span
+                              key={subItem.label}
+                              aria-disabled="true"
+                              className="inline-block w-fit cursor-not-allowed border-b-2 border-transparent py-2.5 pl-1 text-[12px] font-semibold tracking-[0.1em] text-gray-400 md:py-3 md:text-[14px]"
+                            >
+                              {subItem.label}
+                            </span>
+                          );
+                        }
+
+                        return (
+                          <Link
+                            key={subItem.href}
+                            href={subItem.href}
+                            aria-current={isSubActive ? "page" : undefined}
+                            onClick={() => setMobileMenuOpen(false)}
+                            className={mobileSubNavLinkClass(isSubActive)}
+                          >
+                            {subItem.label}
+                          </Link>
+                        );
+                      })}
                     </div>
-                  ) : portalUser ? (
+                  )}
+                </div>
+
+                {mobileNavItemsAfterResearch.map((item) => renderMobileNavItem(item))}
+              </nav>
+            </div>
+
+            {showAuthNav && (
+              <div className="shrink-0 border-t border-gray-200/80 px-5 py-4 md:px-6">
+                {portalUser ? (
+                  <div className="space-y-3">
+                    <div className="rounded-md border border-gray-200/80 bg-white px-4 py-3">
+                      <p className="truncate text-sm font-bold text-gray-900 md:text-base">{portalUser.name}</p>
+                      <p className="truncate text-xs text-gray-500 md:text-sm">{portalUser.email}</p>
+                    </div>
                     <Link
                       href="/portal/claims"
                       onClick={() => setMobileMenuOpen(false)}
-                      className="flex items-center justify-between w-full p-2 pl-2 pr-4 rounded-xl bg-gradient-to-r from-gray-50 to-white border border-gray-100 shadow-[0_2px_10px_-2px_rgba(0,0,0,0.05)] transition-all active:scale-[0.98] mt-2 group/mlink"
+                      className={mobileAuthButtonClass("inspections", isOnMyInspectionsPage)}
+                      {...mobileAuthButtonHandlers("inspections")}
                     >
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#0047AB] to-[#001D3D] text-white flex items-center justify-center shrink-0 shadow-sm transition-transform duration-300 group-hover/mlink:scale-105">
-                          <User size={18} strokeWidth={2.5} />
-                        </div>
-                        <span className="text-[13px] font-extrabold text-gray-900 tracking-tight truncate max-w-[160px]">
-                          {portalUser.name || "PROFILE"}
-                        </span>
-                      </div>
-                      <div className="w-7 h-7 rounded-full bg-[#E6F0FF] flex items-center justify-center">
-                        <ArrowRight size={14} strokeWidth={2.5} className="text-[#0056B3]" />
-                      </div>
+                      <ClipboardList size={15} strokeWidth={2.5} className="md:h-[18px] md:w-[18px]" />
+                      My Inspections
                     </Link>
-                  ) : (
-                    <Link
-                      href="/login"
-                      onClick={() => setMobileMenuOpen(false)}
-                      className="flex items-center justify-center gap-1.5 rounded-md bg-[#001D3D] px-3 py-2.5 text-[10px] font-black tracking-[0.18em] text-white shadow-md transition-colors hover:bg-[#0047AB]"
+                    <button
+                      type="button"
+                      onClick={handleLogout}
+                      className={mobileAuthButtonClass("logout")}
+                      {...mobileAuthButtonHandlers("logout")}
                     >
-                      LOGIN
-                      <ArrowRight size={12} strokeWidth={2.5} className="shrink-0" />
-                    </Link>
-                  )}
-                </div>
-              )}
-            </div>
+                      <LogOut size={15} strokeWidth={2.5} className="md:h-[18px] md:w-[18px]" />
+                      Logout
+                    </button>
+                  </div>
+                ) : (
+                  <Link
+                    href="/login"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="flex w-full items-center justify-center rounded-md bg-[#0047AB] px-4 py-3 text-[12px] font-bold tracking-[0.16em] text-white uppercase md:py-3.5 md:text-[14px]"
+                  >
+                    LOGIN
+                  </Link>
+                )}
+              </div>
+            )}
           </div>
         </div>
       )}

@@ -69,7 +69,7 @@ export default function ClaimsFilterTabs({
   counts,
 }: ClaimsFilterTabsProps) {
   return (
-    <div className="flex gap-1.5 flex-wrap">
+    <div className="flex flex-wrap gap-1.5 md:gap-2">
       {TABS.map((tab) => {
         const isActive = value === tab.key;
         const count = counts[tab.key];
@@ -79,16 +79,16 @@ export default function ClaimsFilterTabs({
             id={`claims-filter-${tab.key}`}
             onClick={() => onChange(tab.key)}
             className={`
-              inline-flex items-center gap-1.5 rounded-xl px-3.5 py-2 text-xs font-bold
-              transition-all duration-200 border
+              inline-flex items-center gap-1.5 rounded-xl border px-3.5 py-2 text-xs font-bold
+              transition-all duration-200 md:gap-2 md:px-5 md:py-3 md:text-base
               ${
                 isActive
-                  ? "bg-primary text-white border-primary shadow-md shadow-primary/20"
-                  : "bg-white text-gray-600 border-gray-200 hover:bg-gray-50 hover:border-gray-300"
+                  ? "border-primary bg-primary text-white shadow-md shadow-primary/20"
+                  : "border-gray-200 bg-white text-gray-600 hover:border-gray-300 hover:bg-gray-50"
               }
             `}
           >
-            <span className="material-symbols-outlined text-[15px]">
+            <span className="material-symbols-outlined text-[15px] md:text-[20px]">
               {tab.icon}
             </span>
             {tab.label}
@@ -96,7 +96,7 @@ export default function ClaimsFilterTabs({
               <span
                 className={`
                   ml-0.5 inline-flex h-4 min-w-[1rem] items-center justify-center
-                  rounded-full px-1 text-[10px] font-black
+                  rounded-full px-1 text-[10px] font-black md:h-6 md:min-w-[1.5rem] md:px-2 md:text-sm
                   ${isActive ? "bg-white/25 text-white" : "bg-gray-100 text-gray-500"}
                 `}
               >

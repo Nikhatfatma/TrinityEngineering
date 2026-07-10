@@ -186,6 +186,22 @@ body {
     );
 }
 
+/* Mobile — slightly lighter shade on image heroes (all pages except Home/Careers, which use video) so the photo reads clearly */
+@media (max-width: 640px) {
+  .hero-media-grid--strong-shade:not(.hero-media-grid--video) .hero-media-strong-shade {
+    background: linear-gradient(
+      180deg,
+      rgb(0 0 0 / 0.56) 0%,
+      rgb(0 0 0 / 0.64) 45%,
+      rgb(0 0 0 / 0.76) 100%
+    );
+  }
+
+  .hero-media-grid--strong-shade:not(.hero-media-grid--video) img {
+    filter: brightness(0.86) contrast(1.04);
+  }
+}
+
 /* Shared tab section headings — larger mobile; desktop uses site default clamp */
 .site-section-heading {
   font-size: clamp(1.5rem, 4.5vw, 3rem);

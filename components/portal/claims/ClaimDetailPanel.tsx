@@ -1,12 +1,16 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import StatusTracker from "./StatusTracker";
+import { useEffect } from "react";
 import ClaimTimeline from "./ClaimTimeline";
+import {
+  getPortalClaimStatusBadgeClass,
+  getPortalClaimStatusDisplay,
+  getClaimPersistenceKey,
+} from "./claimStatusDisplay";
 
 // ================================================================
 // ClaimDetailPanel — Slide-in right panel for a single claim
-// Shows: status tracker, full details, timeline, report download
+// Shows: full details, claim timeline, report download
 // ================================================================
 
 interface ClaimRow {
@@ -37,34 +41,8 @@ function formatDate(value: string): string {
   });
 }
 
-const STATUS_BADGE: Record<string, string> = {
-  "new request":                              "bg-gray-100 text-gray-600",
-  tentative:                                  "bg-amber-100 text-amber-700",
-  scheduled:                                  "bg-indigo-100 text-indigo-700",
-  reschedule:                                 "bg-orange-100 text-orange-700",
-  inspected:                                  "bg-blue-100 text-blue-700",
-  "ready for review":                         "bg-purple-100 text-purple-700",
-  "lead engineer seal review":                "bg-violet-100 text-violet-700",
-  "corrections needed":                       "bg-red-100 text-red-700",
-  "revisions uploaded":                       "bg-sky-100 text-sky-700",
-  invoicing:                                  "bg-cyan-100 text-cyan-700",
-  "travelers - report sent wait to invoice":  "bg-teal-100 text-teal-700",
-  completed:                                  "bg-emerald-100 text-emerald-700",
-  "payment overdue":                          "bg-red-100 text-red-700",
-  paid:                                       "bg-green-100 text-green-700",
-  "additional services":                      "bg-fuchsia-100 text-fuchsia-700",
-  "additional services review":               "bg-pink-100 text-pink-700",
-  "revisit required":                         "bg-orange-100 text-orange-700",
-  "attorney services":                        "bg-rose-100 text-rose-700",
-  "on hold":                                  "bg-amber-100 text-amber-700",
-  cancelled:                                  "bg-red-100 text-red-700",
-  "not accepted":                             "bg-red-100 text-red-700",
-};
-
 function getStatusBadgeClass(status: string): string {
-  return (
-    STATUS_BADGE[(status || "").toLowerCase()] || "bg-primary/10 text-primary"
-  );
+  return getPortalClaimStatusBadgeClass(status);
 }
 
 interface DetailRowProps {
@@ -89,7 +67,9 @@ export default function ClaimDetailPanel({
   claim,
   onClose,
 }: ClaimDetailPanelProps) {
-  const [activeTab, setActiveTab] = useState<"tracker" | "timeline">("tracker");
+  const displayStatus = claim
+    ? getPortalClaimStatusDisplay(claim.status, getClaimPersistenceKey(claim))
+    : "New Request";
 
   // Lock body scroll while open
   useEffect(() => {
@@ -151,9 +131,9 @@ export default function ClaimDetailPanel({
               </div>
               <div className="flex items-center gap-2 flex-shrink-0">
                 <span
-                  className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-bold ${getStatusBadgeClass(claim.status)}`}
+                  className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-bold ${getStatusBadgeClass(displayStatus)}`}
                 >
-                  {claim.status || "Submitted"}
+                  {displayStatus}
                 </span>
                 <button
                   onClick={onClose}
@@ -166,40 +146,6 @@ export default function ClaimDetailPanel({
               </div>
             </div>
 
-            {/* Tabs */}
-            <div className="flex gap-2 px-5 py-3 border-b border-gray-100 bg-gray-50/50 flex-shrink-0">
-              <button
-                onClick={() => setActiveTab("tracker")}
-                className={`
-                  inline-flex items-center gap-1.5 rounded-xl px-3.5 py-2 text-xs font-bold
-                  transition-all duration-200 border
-                  ${
-                    activeTab === "tracker"
-                      ? "bg-primary text-white border-primary shadow-md shadow-primary/20"
-                      : "bg-white text-gray-600 border-gray-200 hover:bg-gray-50 hover:border-gray-300"
-                  }
-                `}
-              >
-                <span className="material-symbols-outlined text-[15px]">route</span>
-                Status Tracker
-              </button>
-              <button
-                onClick={() => setActiveTab("timeline")}
-                className={`
-                  inline-flex items-center gap-1.5 rounded-xl px-3.5 py-2 text-xs font-bold
-                  transition-all duration-200 border
-                  ${
-                    activeTab === "timeline"
-                      ? "bg-primary text-white border-primary shadow-md shadow-primary/20"
-                      : "bg-white text-gray-600 border-gray-200 hover:bg-gray-50 hover:border-gray-300"
-                  }
-                `}
-              >
-                <span className="material-symbols-outlined text-[15px]">history</span>
-                Claim Timeline
-              </button>
-            </div>
-
             {/* Scrollable body */}
             <div className="flex-1 overflow-y-auto px-5 py-5 space-y-6">
 
@@ -210,7 +156,7 @@ export default function ClaimDetailPanel({
                 </p>
                 <div className="grid grid-cols-2 gap-x-6 gap-y-4 rounded-2xl border border-gray-100 bg-gray-50 p-4">
                   <DetailRow label="Claim #" value={claim.claimNumber} />
-                  <DetailRow label="Status" value={claim.status} />
+                  <DetailRow label="Status" value={displayStatus} />
                   <DetailRow label="Inspection Type" value={claim.inspectionType} />
                   <DetailRow label="Insurance Company" value={claim.insuranceCompany} />
                   <DetailRow label="Policyholder" value={claim.policyholderName} />
@@ -258,31 +204,21 @@ export default function ClaimDetailPanel({
                 )}
               </section>
 
-              {/* Tab Content */}
-              {activeTab === "tracker" ? (
-                <section aria-label="Status tracker">
-                  <p className="text-xs font-bold uppercase tracking-wider text-gray-400 mb-3">
-                    Status Flowchart
-                  </p>
-                  <div className="rounded-2xl border border-gray-100 bg-gray-50 p-4">
-                    <StatusTracker status={claim.status} variant="flow" />
-                  </div>
-                </section>
-              ) : (
-                <section aria-label="Claim timeline">
-                  <p className="text-xs font-bold uppercase tracking-wider text-gray-400 mb-3">
-                    Activity Timeline
-                  </p>
-                  <div className="rounded-2xl border border-gray-100 bg-gray-50 p-4">
-                    <ClaimTimeline
-                      status={claim.status}
-                      submittedAt={claim.submittedAt}
-                      claimNumber={claim.claimNumber}
-                      reportUrl={claim.reportUrl}
-                    />
-                  </div>
-                </section>
-              )}
+              {/* Claim Timeline */}
+              <section aria-label="Claim timeline">
+                <p className="text-xs font-bold uppercase tracking-wider text-gray-400 mb-3">
+                  Claim Timeline
+                </p>
+                <div className="mx-auto max-w-[94%] rounded-2xl border border-gray-100 bg-gray-50 p-2 sm:max-w-[96%] sm:p-4">
+                  <ClaimTimeline
+                    status={claim.status}
+                    submittedAt={claim.submittedAt}
+                    claimNumber={claim.claimNumber}
+                    claimId={claim.id}
+                    reportUrl={claim.reportUrl}
+                  />
+                </div>
+              </section>
             </div>
           </>
         )}

@@ -1,8 +1,10 @@
 "use client";
 
-// ================================================================
-// StatusTracker — Renders standard stage bar or 20-node flowchart
-// ================================================================
+import {
+  getPortalClaimStatusDisplay,
+  getPortalStageBarActiveIndex,
+  PORTAL_STAGE_BAR,
+} from "./claimStatusDisplay";
 
 interface Stage {
   key: string;
@@ -145,20 +147,23 @@ const SIMULATED_MODIFIERS = [
   "Attorney Team", "Manager", "Coordinator", "System Auto"
 ];
 
-function getActiveStageIndex(status: string): number {
-  const s = (status || "").trim().toLowerCase();
-  for (let i = 0; i < STAGES.length; i++) {
-    if (STAGES[i].statuses.includes(s)) return i;
-  }
-  return 0;
+function getActiveStageIndex(status: string, claimKey?: string): number {
+  return getPortalStageBarActiveIndex(status, claimKey);
 }
 
 interface StatusTrackerProps {
   status: string;
+  claimKey?: string;
   variant?: "bar" | "flow";
+  showBar?: boolean;
 }
 
-export default function StatusTracker({ status, variant = "bar" }: StatusTrackerProps) {
+export default function StatusTracker({
+  status,
+  claimKey,
+  variant = "bar",
+  showBar = true,
+}: StatusTrackerProps) {
   const s = (status || "").trim();
   const sLower = s.toLowerCase();
   const cancelled = CANCELLED_STATUSES.includes(sLower);
@@ -400,13 +405,13 @@ export default function StatusTracker({ status, variant = "bar" }: StatusTracker
     );
   }
 
-  const activeIdx = getActiveStageIndex(s);
-  const activeStage = STAGES[activeIdx] ?? STAGES[0];
-  const linePct = activeIdx === 0 ? 0 : (activeIdx / (STAGES.length - 1)) * 100;
+  const activeIdx = getActiveStageIndex(s, claimKey);
+  const displayStatus = getPortalClaimStatusDisplay(s, claimKey);
+  const linePct = activeIdx === 0 ? 0 : (activeIdx / (PORTAL_STAGE_BAR.length - 1)) * 100;
 
   return (
     <div className="space-y-3">
-      {subCopy && (
+      {subCopy && showBar && (
         <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50/30 px-3 py-2">
           <span className="material-symbols-outlined text-amber-500 text-[16px] flex-shrink-0 mt-0.5">
             info
@@ -417,7 +422,7 @@ export default function StatusTracker({ status, variant = "bar" }: StatusTracker
         </div>
       )}
 
-      {/* Tracker bar */}
+      {showBar && (
       <div className="relative overflow-x-auto pb-1">
         <div className="min-w-[380px] sm:min-w-0">
           {/* Background connector line */}
@@ -431,7 +436,7 @@ export default function StatusTracker({ status, variant = "bar" }: StatusTracker
           )}
 
           <div className="relative flex items-start justify-between">
-            {STAGES.map((stage, idx) => {
+            {PORTAL_STAGE_BAR.map((stage, idx) => {
               const isDone = idx < activeIdx;
               const isActive = idx === activeIdx;
 
@@ -472,12 +477,13 @@ export default function StatusTracker({ status, variant = "bar" }: StatusTracker
           </div>
         </div>
       </div>
+      )}
 
       {/* Active stage description */}
-      <div className="rounded-lg border border-primary/10 bg-primary/5 px-3 py-2">
-        <p className="text-[10px] font-bold text-primary mb-0.5">{s}</p>
-        <p className="text-[10px] text-gray-600 leading-relaxed">
-          {subCopy || activeStage.description}
+      <div className="rounded-lg border border-primary/10 bg-primary/5 px-3 py-2 md:px-4 md:py-3">
+        <p className="mb-0.5 text-[10px] font-bold text-primary md:text-sm">{displayStatus}</p>
+        <p className="text-[10px] leading-relaxed text-gray-600 md:text-sm">
+          {subCopy || `Your claim is currently at the ${displayStatus} stage.`}
         </p>
       </div>
     </div>
