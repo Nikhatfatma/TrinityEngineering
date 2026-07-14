@@ -108,8 +108,8 @@ function mapFormDataToCreator(data) {
     const inspectionType = inspectionMapping[data.inspectionType] || data.inspectionType || "";
     const buildingType = buildingMapping[data.buildingType] || data.buildingType || "";
 
-    const primaryAdjuster = data.contactEmails.find(c => c.contactType === "Adjuster (Carrier)") || {};
-    const primaryIA = data.contactEmails.find(c => c.contactType === "IA") || {};
+    const primaryAdjuster = (data.contactEmails || []).find(c => c.contactType === "Adjuster (Carrier)") || {};
+    const primaryIA = (data.contactEmails || []).find(c => c.contactType === "IA") || {};
     const policyholderFullName = `${String(data.policyholderFirstName || "").trim()} ${String(data.policyholderLastName || "").trim()}`.replace(/\s+/g, " ").trim();
 
     const serviceAddOns = Array.isArray(data.serviceAddOns) ? data.serviceAddOns : [];
@@ -117,21 +117,29 @@ function mapFormDataToCreator(data) {
     if (serviceAddOns.includes("swi")) serviceAddOnLabels.push("Severe Weather Intelligence");
     if (serviceAddOns.includes("tri")) serviceAddOnLabels.push("TRI Repairability Evaluation");
 
-    // Combine all emails into a single subform as before
-    const unifiedSubform = data.contactEmails.map(c => ({
-        Email: c.email || "",
-        Type_field: c.contactType === "IA" ? "Independent Adjuster" : "Ins Adjuster (Carrier)",
-        Send_Copy_Of: formatSendCopy(c.sendCopy || [])
-    }));
+    // Only send contacts with a real email; skip leftover empty IA rows when not an IA claim
+    const unifiedSubform = (data.contactEmails || [])
+        .filter((c) => String(c.email || "").trim())
+        .filter((c) => data.isIAClaim || c.contactType !== "IA")
+        .map(c => ({
+            Email: c.email || "",
+            Type_field: c.contactType === "IA" ? "Independent Adjuster" : "Ins Adjuster (Carrier)",
+            Send_Copy_Of: formatSendCopy(c.sendCopy || [])
+        }));
 
-    return {
-        data: {
+    // Lookup fields must be Zoho record IDs (digits only) — never raw typed text like "w"
+    const insuranceCompanyId = /^\d+$/.test(String(data.insuranceCompany || "").trim())
+        ? String(data.insuranceCompany).trim()
+        : "";
+    const iaCompanyId = (data.isIAClaim && /^\d+$/.test(String(data.iaCompany || "").trim()))
+        ? String(data.iaCompany).trim()
+        : "";
+
+    const payloadData = {
             Inspection_Type: inspectionType,
             Building_Type: buildingType,
             Claim_Number: data.claimNumber || "",
-            Insurance_Company: data.insuranceCompany || "",
             Client_Email: primaryAdjuster.email || "",
-            IA_Email: primaryIA.email || "",
             Adjuster_Name: {
                 first_name: data.adjusterFirstName || "",
                 last_name: data.adjusterLastName || ""
@@ -142,12 +150,11 @@ function mapFormDataToCreator(data) {
             Adjuster_s_Comments_and_Special_Notes_or_Instructions: data.adjusterComments || "",
             This_Claim_Is_Being_Submitted_by_an_IA: data.isIAClaim ? "true" : "false",
             IA_Name: {
-                first_name: data.iaFirstName || "",
-                last_name: data.iaLastName || ""
+                first_name: data.isIAClaim ? (data.iaFirstName || "") : "",
+                last_name: data.isIAClaim ? (data.iaLastName || "") : ""
             },
-            IA_Phone: data.iaPhone || "",
-            IA_Company_Name: data.iaCompany || "",
-            IA_Company: data.iaCompanyName || "",
+            IA_Phone: data.isIAClaim ? (data.iaPhone || "") : "",
+            IA_Company: data.isIAClaim ? (data.iaCompanyName || "") : "",
             Notification_Preferences: unifiedSubform,
             PH_Name_Individual: {
                 first_name: data.policyholderFirstName || "",
@@ -194,11 +201,18 @@ function mapFormDataToCreator(data) {
             Service_Add_Ons: serviceAddOnLabels,
             // Inspection_Request: inspectionType, // Disabled: This is a Lookup field and needs an ID, not a string
             Inspection_Name: `${policyholderFullName} - ${inspectionType}`
-        }
     };
+
+    // Lookup fields: only attach valid Zoho IDs (never raw typed text like "w")
+    if (insuranceCompanyId) payloadData.Insurance_Company = insuranceCompanyId;
+    if (iaCompanyId) payloadData.IA_Company_Name = iaCompanyId;
+    if (data.isIAClaim && primaryIA.email) payloadData.IA_Email = primaryIA.email;
+
+    return { data: payloadData };
 }
 
 const IA_COMPANY_TYPE = 'IA Company';
+const INSURANCE_COMPANY_TYPE = 'Insurance Company';
 
 function getRowCompanyType(row) {
     return String(row?.InsuranceCompanies?.company_type || '').trim();
@@ -209,7 +223,7 @@ function getZohoCompanyType(company) {
 }
 
 function isInsuranceCompanyRow(row) {
-    return getRowCompanyType(row) !== IA_COMPANY_TYPE;
+    return getRowCompanyType(row) === INSURANCE_COMPANY_TYPE;
 }
 
 function isIaCompanyRow(row) {
@@ -227,18 +241,18 @@ async function fetchInsuranceCompanyRows(zcql, whereClause = '') {
     }
 }
 
-async function fetchIaCompaniesFromZoho() {
+async function fetchCompaniesFromZohoByType(companyType) {
     let token = await getNewAccessToken();
     const owner = (process.env.ZOHO_CREATOR_ACCOUNT_OWNER || 'trinity5').trim();
     const appName = process.env.ZOHO_COMPANIES_APP_NAME || process.env.ZOHO_CREATOR_APP_NAME || 'engineering-inspections';
 
-    let allIaCompanies = [];
+    let allCompanies = [];
     let from = 0;
     const limit = 200;
     let hasMore = true;
 
     while (hasMore) {
-        const criteria = encodeURIComponent('((Company_Type=="IA Company")&&(Status=="Active"))');
+        const criteria = encodeURIComponent(`((Company_Type=="${companyType}")&&(Status=="Active"))`);
         const reportUrl = `https://creator.zoho.com/api/v2/${owner}/${appName}/report/All_Companies_List?criteria=${criteria}&from=${from}&limit=${limit}`;
         let response = await fetch(reportUrl, {
             method: 'GET',
@@ -261,7 +275,7 @@ async function fetchIaCompaniesFromZoho() {
         }
 
         if (data.data && data.data.length > 0) {
-            allIaCompanies = allIaCompanies.concat(data.data);
+            allCompanies = allCompanies.concat(data.data);
             from += limit;
             if (data.data.length < limit) hasMore = false;
         } else {
@@ -269,7 +283,15 @@ async function fetchIaCompaniesFromZoho() {
         }
     }
 
-    return allIaCompanies;
+    return allCompanies;
+}
+
+async function fetchIaCompaniesFromZoho() {
+    return fetchCompaniesFromZohoByType(IA_COMPANY_TYPE);
+}
+
+async function fetchInsuranceCompaniesFromZoho() {
+    return fetchCompaniesFromZohoByType(INSURANCE_COMPANY_TYPE);
 }
 
 async function resolveIaCompanyIdFromZoho(companyName) {
@@ -634,36 +656,8 @@ module.exports = async (context, basicIO) => {
                 }
             }
 
-            // 2. Flexible Duplicate Prevention (24h Window)
-            try {
-                const zcql = catalystApp.zcql();
-                const safeClaim = data.claimNumber.replace(/'/g, "''");
-                const query = `SELECT ROWID, CREATEDTIME FROM ProcessedClaims WHERE ClaimNumber = '${safeClaim}'`;
-                const existing = await zcql.executeZCQLQuery(query);
-
-                if (existing && existing.length > 0) {
-                    const createdTime = new Date(existing[0].ProcessedClaims.CREATEDTIME).getTime();
-                    const hours = parseFloat(process.env.DUPLICATE_WINDOW_HOURS) || 24;
-                    const timeWindow = hours * 60 * 60 * 1000;
-
-                    if (Date.now() - createdTime < timeWindow) {
-                        const dupErrMsg = `Duplicate Submission: Claim #${data.claimNumber} was already processed within the last ${hours} hours.`;
-                        await notifyFailureOnCliq({
-                            rowId: String(existing[0].ProcessedClaims.ROWID || ''),
-                            payload: JSON.stringify(data),
-                            claimNumber: data.claimNumber || 'Unknown',
-                            adjusterEmail: (data.contactEmails || []).find(c => c.contactType === 'Adjuster (Carrier)')?.email || 'Unknown',
-                            errorDetails: dupErrMsg,
-                            createdTime: new Date().toISOString()
-                        });
-                        basicIO.write(JSON.stringify({ success: false, error: dupErrMsg }));
-                        context.close();
-                        return;
-                    }
-                }
-            } catch (err) {
-                console.error("Duplicate check skipped (table may not exist yet or ZCQL error):", err.message);
-            }
+            // 2. Duplicate check disabled — same claim number can be submitted again
+            // (ProcessedClaims is still logged on success for audit, but does not block submit)
 
             // FIX: The frontend sends zoho_creator_id directly. Look it up in DB to confirm it's valid.
             if (data.insuranceCompany && data.insuranceCompany.trim()) {
@@ -710,8 +704,8 @@ module.exports = async (context, basicIO) => {
 
                 // STEP 4: Replace with resolved ID, or handle failure inline
                 if (!resolvedId) {
-                    const resolveErrMsg = `Insurance Company could not be resolved for value "${incomingValue}". Please verify the company name or contact support.`;
-                    console.error('[Insurance Resolve]', resolveErrMsg);
+                    const resolveErrMsg = "Please select an insurance company from the list.";
+                    console.error('[Insurance Resolve]', resolveErrMsg, `value="${incomingValue}"`);
 
                     // Save to FailedSubmissions so admin can retry
                     let savedRow = null;
@@ -743,6 +737,15 @@ module.exports = async (context, basicIO) => {
                 }
                 console.log("[Creator API] Resolved Insurance Company ID:", resolvedId);
                 data.insuranceCompany = resolvedId;
+            }
+
+            // Non-IA claims must not send leftover IA lookup values (e.g. typed "w")
+            if (!data.isIAClaim) {
+                data.iaCompany = "";
+                data.iaCompanyName = "";
+                data.iaFirstName = "";
+                data.iaLastName = "";
+                data.iaPhone = "";
             }
 
             if (data.isIAClaim && data.iaCompany && data.iaCompany.trim()) {
@@ -778,8 +781,8 @@ module.exports = async (context, basicIO) => {
                 }
 
                 if (!resolvedIaId) {
-                    const iaErrMsg = `IA Company could not be resolved for value "${incomingIaValue}". Please select a company from the list.`;
-                    console.error('[IA Resolve]', iaErrMsg);
+                    const iaErrMsg = "Please select an IA company from the list.";
+                    console.error('[IA Resolve]', iaErrMsg, `value="${incomingIaValue}"`);
                     basicIO.write(JSON.stringify({ success: false, error: iaErrMsg }));
                     context.close();
                     return;
@@ -1112,97 +1115,131 @@ module.exports = async (context, basicIO) => {
 
             /* ================================================================ */
             /*  ACTION: searchInsuranceCompanies                                */
-            /*  Searches both InsuranceCompanies.name and InsuranceAliases      */
-            /*  Returns: { results: [{ id, name, zoho_creator_id }],           */
-            /*            matchedBy: "name" | "alias" }                         */
+            /*  Merge local cache + Zoho (Company_Type = Insurance Company).    */
+            /*  Also includes InsuranceAliases matches for insurance companies. */
             /* ================================================================ */
         } else if (action === 'searchInsuranceCompanies') {
             const search = (getArg('search') || '').trim();
-
-            const zcql = catalystApp.zcql();
-            // ZCQL LIKE is case-sensitive and ZCQL does NOT support LOWER()/UPPER().
-            // Fix: fetch all active rows and filter in JS for case-insensitive matching.
             const searchLower = search.toLowerCase();
+            const zcql = catalystApp.zcql();
 
             try {
-                let results = [];
-                let nameFound = false;
-                let aliasFound = false;
+                const byZohoId = new Map();
+                const rowIdToZohoId = new Map();
+                const aliasMatchedZohoIds = new Set();
+                let localCount = 0;
+                let zohoCount = 0;
 
-                // 1. Fetch all active companies and filter in JS (case-insensitive)
-                console.log(`[ZCQL Name Search] Fetching active companies for search: "${search}"`);
-                const allCompanies = await fetchInsuranceCompanyRows(zcql, "status = 'Active'");
-                console.log(`[ZCQL Name Search] Total active companies: ${allCompanies ? allCompanies.length : 0}`);
-
-                // Case-insensitive filter in application code (exclude IA companies)
-                const nameMatches = (allCompanies || []).filter(row =>
-                    isInsuranceCompanyRow(row) &&
-                    (row.InsuranceCompanies.name || '').toLowerCase().includes(searchLower)
-                );
-                console.log(`[ZCQL Name Search] Matches for "${search}": ${nameMatches.length}`);
-
-                if (nameMatches.length > 0) {
-                    nameFound = true;
-                    results = nameMatches.map(row => ({
-                        id: row.InsuranceCompanies.ROWID,
-                        name: row.InsuranceCompanies.name,
-                        zoho_creator_id: row.InsuranceCompanies.zoho_creator_id
-                    }));
-                }
-
-                // 2. Fetch all aliases and filter in JS (case-insensitive)
-                const aliasQuery = `SELECT ROWID, alias, company_id FROM InsuranceAliases`;
-                console.log(`[ZCQL Alias Search] Executing query: ${aliasQuery}`);
-                let aliasMatches = [];
                 try {
-                    const allAliases = await zcql.executeZCQLQuery(aliasQuery);
-                    console.log(`[ZCQL Alias Search] Total aliases: ${allAliases ? allAliases.length : 0}`);
-                    aliasMatches = (allAliases || []).filter(row =>
-                        (row.InsuranceAliases.alias || '').toLowerCase().includes(searchLower)
-                    );
-                    console.log(`[ZCQL Alias Search] Matches for "${search}": ${aliasMatches.length}`);
-                } catch (aliasErr) {
-                    // InsuranceAliases table may not exist yet — search still works via name
-                    console.log("Alias search skipped (table may not exist):", aliasErr.message);
+                    const allActive = await fetchInsuranceCompanyRows(zcql, "status = 'Active'");
+                    (allActive || [])
+                        .filter(isInsuranceCompanyRow)
+                        .forEach(row => {
+                            const zohoId = String(row.InsuranceCompanies.zoho_creator_id || '').trim();
+                            const name = String(row.InsuranceCompanies.name || '').trim();
+                            const rowId = row.InsuranceCompanies.ROWID;
+                            if (!zohoId || !name) return;
+                            byZohoId.set(zohoId, {
+                                id: rowId,
+                                name,
+                                zoho_creator_id: zohoId
+                            });
+                            if (rowId != null) rowIdToZohoId.set(String(rowId), zohoId);
+                            localCount++;
+                        });
+                } catch (localErr) {
+                    console.warn('[searchInsuranceCompanies] Local lookup failed:', localErr.message);
                 }
 
-                if (aliasMatches.length > 0) {
-                    // Get the company details for each alias match
-                    const companyIds = [...new Set(aliasMatches.map(r => r.InsuranceAliases.company_id).filter(id => id !== null))];
+                try {
+                    const allInsuranceCompanies = await fetchInsuranceCompaniesFromZoho();
+                    allInsuranceCompanies.forEach((raw) => {
+                        const zohoId = String(raw.ID || '').trim();
+                        const name = String(raw.Insurance_Company_Name || '').trim();
+                        const status = String(raw.Status || '').trim();
+                        if (!zohoId || !name || status !== 'Active') return;
 
-                    for (const companyId of companyIds) {
-                        try {
-                            // Check if company already added by name match to avoid duplicates
-                            if (results.some(r => String(r.id) === String(companyId))) {
-                                aliasFound = true;
+                        const existing = byZohoId.get(zohoId);
+                        byZohoId.set(zohoId, {
+                            id: existing?.id ?? zohoId,
+                            name,
+                            zoho_creator_id: zohoId
+                        });
+                        zohoCount++;
+
+                        // Match aliases directly from Zoho (don't depend on Catalyst InsuranceAliases sync)
+                        if (searchLower) {
+                            const aliases = Array.isArray(raw.Company_Aliases) ? raw.Company_Aliases : [];
+                            const aliasHit = aliases.some((entry) => {
+                                const aliasName = String(entry?.display_value || entry?.Alias || entry?.name || '').trim().toLowerCase();
+                                return aliasName && aliasName.includes(searchLower);
+                            });
+                            if (aliasHit) aliasMatchedZohoIds.add(zohoId);
+                        }
+                    });
+                } catch (zohoErr) {
+                    console.warn('[searchInsuranceCompanies] Zoho fetch failed, using local cache if available:', zohoErr.message);
+                    if (byZohoId.size === 0) throw zohoErr;
+                }
+
+                if (searchLower) {
+                    try {
+                        const allAliases = await zcql.executeZCQLQuery('SELECT ROWID, alias, company_id FROM InsuranceAliases');
+                        const aliasMatches = (allAliases || []).filter(row =>
+                            (row.InsuranceAliases.alias || '').toLowerCase().includes(searchLower)
+                        );
+
+                        for (const aliasRow of aliasMatches) {
+                            const companyId = aliasRow.InsuranceAliases.company_id;
+                            if (companyId == null) continue;
+
+                            const existingZohoId = rowIdToZohoId.get(String(companyId));
+                            if (existingZohoId && byZohoId.has(existingZohoId)) {
+                                aliasMatchedZohoIds.add(existingZohoId);
                                 continue;
                             }
 
-                            // ROWID is numeric BigInt — do not wrap in single quotes
-                            const companyResult = await fetchInsuranceCompanyRows(zcql, `ROWID = ${companyId} AND status = 'Active'`);
-                            console.log(`[ZCQL Company Lookup] Result: ${companyResult ? companyResult.length : 0}`);
-                            if (companyResult && companyResult.length > 0 && isInsuranceCompanyRow(companyResult[0])) {
-                                aliasFound = true;
-                                results.push({
-                                    id: companyResult[0].InsuranceCompanies.ROWID,
-                                    name: companyResult[0].InsuranceCompanies.name,
-                                    zoho_creator_id: companyResult[0].InsuranceCompanies.zoho_creator_id
-                                });
+                            try {
+                                const companyResult = await fetchInsuranceCompanyRows(zcql, `ROWID = ${companyId} AND status = 'Active'`);
+                                if (companyResult && companyResult.length > 0 && isInsuranceCompanyRow(companyResult[0])) {
+                                    const zohoId = String(companyResult[0].InsuranceCompanies.zoho_creator_id || '').trim();
+                                    const name = String(companyResult[0].InsuranceCompanies.name || '').trim();
+                                    if (!zohoId || !name) continue;
+                                    if (!byZohoId.has(zohoId)) {
+                                        byZohoId.set(zohoId, {
+                                            id: companyResult[0].InsuranceCompanies.ROWID,
+                                            name,
+                                            zoho_creator_id: zohoId
+                                        });
+                                    }
+                                    rowIdToZohoId.set(String(companyId), zohoId);
+                                    aliasMatchedZohoIds.add(zohoId);
+                                }
+                            } catch (lookupErr) {
+                                console.error("Company lookup for alias failed:", lookupErr.message);
                             }
-                        } catch (lookupErr) {
-                            console.error("Company lookup for alias failed:", lookupErr.message);
                         }
+                    } catch (aliasErr) {
+                        console.log("Alias search skipped (table may not exist):", aliasErr.message);
                     }
                 }
 
-                // Determine matchedBy
+                const results = Array.from(byZohoId.entries())
+                    .filter(([zohoId, row]) => {
+                        if (!searchLower) return true;
+                        if ((row.name || '').toLowerCase().includes(searchLower)) return true;
+                        return aliasMatchedZohoIds.has(zohoId);
+                    })
+                    .map(([, row]) => row)
+                    .sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+
+                const nameFound = !searchLower || results.some(r => (r.name || '').toLowerCase().includes(searchLower));
+                const aliasFound = aliasMatchedZohoIds.size > 0;
                 let matchedBy = 'name';
-                if (nameFound && aliasFound) matchedBy = 'both';
-                else if (aliasFound) matchedBy = 'alias';
+                if (searchLower && aliasFound && nameFound) matchedBy = 'both';
+                else if (searchLower && aliasFound && !nameFound) matchedBy = 'alias';
 
-                // Sort results alphabetically by name
-                results.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
-
+                console.log(`[searchInsuranceCompanies] Returning ${results.length} insurance companies for search "${search}" (local: ${localCount}, zoho: ${zohoCount}, merged: ${byZohoId.size})`);
                 basicIO.write(JSON.stringify({ success: true, results, matchedBy }));
                 context.close();
 
@@ -1222,55 +1259,132 @@ module.exports = async (context, basicIO) => {
 
             /* ================================================================ */
             /*  ACTION: searchIaCompanies                                       */
-            /*  Local InsuranceCompanies cache (company_type = IA Company),     */
-            /*  with Zoho fallback until sync populates local data              */
+            /*  Merge local cache + Zoho; alias search for IA companies only.   */
             /* ================================================================ */
         } else if (action === 'searchIaCompanies') {
             const search = (getArg('search') || '').trim().toLowerCase();
 
             try {
                 const zcql = catalystApp.zcql();
-                let results = [];
-                let usedLocalDb = false;
+                const byId = new Map();
+                const rowIdToZohoId = new Map();
+                const aliasMatchedZohoIds = new Set();
+                let localCount = 0;
+                let zohoCount = 0;
 
                 try {
                     const allActive = await fetchInsuranceCompanyRows(zcql, "status = 'Active'");
-                    const hasLocalIaData = (allActive || []).some(isIaCompanyRow);
-
-                    if (hasLocalIaData) {
-                        usedLocalDb = true;
-                        results = (allActive || [])
-                            .filter(isIaCompanyRow)
-                            .filter(row => !search || (row.InsuranceCompanies.name || '').toLowerCase().includes(search))
-                            .map(row => ({
-                                id: row.InsuranceCompanies.zoho_creator_id,
-                                name: row.InsuranceCompanies.name,
-                                zoho_creator_id: row.InsuranceCompanies.zoho_creator_id,
-                                status: row.InsuranceCompanies.status
-                            }))
-                            .sort((a, b) => a.name.localeCompare(b.name));
-                    }
+                    (allActive || [])
+                        .filter(isIaCompanyRow)
+                        .forEach(row => {
+                            const zohoId = String(row.InsuranceCompanies.zoho_creator_id || '').trim();
+                            const name = String(row.InsuranceCompanies.name || '').trim();
+                            const rowId = row.InsuranceCompanies.ROWID;
+                            if (!zohoId || !name) return;
+                            byId.set(zohoId, {
+                                id: zohoId,
+                                name,
+                                zoho_creator_id: zohoId,
+                                status: row.InsuranceCompanies.status || 'Active'
+                            });
+                            if (rowId != null) rowIdToZohoId.set(String(rowId), zohoId);
+                            localCount++;
+                        });
                 } catch (localErr) {
-                    console.warn('[searchIaCompanies] Local lookup failed, falling back to Zoho:', localErr.message);
+                    console.warn('[searchIaCompanies] Local lookup failed:', localErr.message);
                 }
 
-                if (!usedLocalDb) {
+                try {
                     const allIaCompanies = await fetchIaCompaniesFromZoho();
-                    results = allIaCompanies
-                        .map((row) => ({
-                            id: String(row.ID),
-                            name: String(row.Insurance_Company_Name || '').trim(),
-                            zoho_creator_id: String(row.ID),
-                            status: String(row.Status || '').trim(),
-                        }))
-                        .filter((row) => row.name)
-                        .filter((row) => row.status === 'Active')
-                        .filter((row) => !search || row.name.toLowerCase().includes(search))
-                        .sort((a, b) => a.name.localeCompare(b.name));
+                    allIaCompanies.forEach((raw) => {
+                        const zohoId = String(raw.ID || '').trim();
+                        const name = String(raw.Insurance_Company_Name || '').trim();
+                        const status = String(raw.Status || '').trim();
+                        if (!zohoId || !name || status !== 'Active') return;
+
+                        byId.set(zohoId, {
+                            id: zohoId,
+                            name,
+                            zoho_creator_id: zohoId,
+                            status
+                        });
+                        zohoCount++;
+
+                        // Match aliases directly from Zoho (don't depend on Catalyst InsuranceAliases sync)
+                        if (search) {
+                            const aliases = Array.isArray(raw.Company_Aliases) ? raw.Company_Aliases : [];
+                            const aliasHit = aliases.some((entry) => {
+                                const aliasName = String(entry?.display_value || entry?.Alias || entry?.name || '').trim().toLowerCase();
+                                return aliasName && aliasName.includes(search);
+                            });
+                            if (aliasHit) aliasMatchedZohoIds.add(zohoId);
+                        }
+                    });
+                } catch (zohoErr) {
+                    console.warn('[searchIaCompanies] Zoho fetch failed, using local cache if available:', zohoErr.message);
+                    if (byId.size === 0) throw zohoErr;
                 }
 
-                console.log(`[searchIaCompanies] Returning ${results.length} IA companies for search "${search}" (source: ${usedLocalDb ? 'local' : 'zoho'})`);
-                basicIO.write(JSON.stringify({ success: true, results, matchedBy: 'name' }));
+                if (search) {
+                    try {
+                        const allAliases = await zcql.executeZCQLQuery('SELECT ROWID, alias, company_id FROM InsuranceAliases');
+                        const aliasMatches = (allAliases || []).filter(row =>
+                            (row.InsuranceAliases.alias || '').toLowerCase().includes(search)
+                        );
+
+                        for (const aliasRow of aliasMatches) {
+                            const companyId = aliasRow.InsuranceAliases.company_id;
+                            if (companyId == null) continue;
+
+                            const existingZohoId = rowIdToZohoId.get(String(companyId));
+                            if (existingZohoId && byId.has(existingZohoId)) {
+                                aliasMatchedZohoIds.add(existingZohoId);
+                                continue;
+                            }
+
+                            try {
+                                const companyResult = await fetchInsuranceCompanyRows(zcql, `ROWID = ${companyId} AND status = 'Active'`);
+                                if (companyResult && companyResult.length > 0 && isIaCompanyRow(companyResult[0])) {
+                                    const zohoId = String(companyResult[0].InsuranceCompanies.zoho_creator_id || '').trim();
+                                    const name = String(companyResult[0].InsuranceCompanies.name || '').trim();
+                                    if (!zohoId || !name) continue;
+                                    if (!byId.has(zohoId)) {
+                                        byId.set(zohoId, {
+                                            id: zohoId,
+                                            name,
+                                            zoho_creator_id: zohoId,
+                                            status: companyResult[0].InsuranceCompanies.status || 'Active'
+                                        });
+                                    }
+                                    rowIdToZohoId.set(String(companyId), zohoId);
+                                    aliasMatchedZohoIds.add(zohoId);
+                                }
+                            } catch (lookupErr) {
+                                console.error('[searchIaCompanies] Alias company lookup failed:', lookupErr.message);
+                            }
+                        }
+                    } catch (aliasErr) {
+                        console.log('[searchIaCompanies] Alias search skipped:', aliasErr.message);
+                    }
+                }
+
+                const results = Array.from(byId.entries())
+                    .filter(([zohoId, row]) => {
+                        if (!search) return true;
+                        if ((row.name || '').toLowerCase().includes(search)) return true;
+                        return aliasMatchedZohoIds.has(zohoId);
+                    })
+                    .map(([, row]) => row)
+                    .sort((a, b) => a.name.localeCompare(b.name));
+
+                const nameFound = !search || results.some(r => (r.name || '').toLowerCase().includes(search));
+                const aliasFound = aliasMatchedZohoIds.size > 0;
+                let matchedBy = 'name';
+                if (search && aliasFound && nameFound) matchedBy = 'both';
+                else if (search && aliasFound && !nameFound) matchedBy = 'alias';
+
+                console.log(`[searchIaCompanies] Returning ${results.length} IA companies for search "${search}" (local: ${localCount}, zoho: ${zohoCount}, merged: ${byId.size}, matchedBy: ${matchedBy})`);
+                basicIO.write(JSON.stringify({ success: true, results, matchedBy }));
                 context.close();
             } catch (err) {
                 console.error("searchIaCompanies Error:", err);
@@ -1353,7 +1467,7 @@ module.exports = async (context, basicIO) => {
 
                 if (creatorData.data && creatorData.data.length > 0) {
                     // Prioritize Active company (exclude IA companies)
-                    const insuranceCompanies = creatorData.data.filter(c => getZohoCompanyType(c) !== IA_COMPANY_TYPE);
+                    const insuranceCompanies = creatorData.data.filter(c => getZohoCompanyType(c) === INSURANCE_COMPANY_TYPE);
 
                     if (insuranceCompanies.length > 0) {
                     const activeCompany = insuranceCompanies.find(c => c.Status === 'Active') || insuranceCompanies[0];

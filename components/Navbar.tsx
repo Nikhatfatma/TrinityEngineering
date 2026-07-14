@@ -13,7 +13,7 @@ interface PortalUser {
 export default function Navbar() {
   const [scrolled, setScrolled] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [mobileResearchOpen, setMobileResearchOpen] = useState(false);
+  // const [mobileResearchOpen, setMobileResearchOpen] = useState(false);
   const [mobileAuthPressed, setMobileAuthPressed] = useState<"inspections" | "logout" | null>(null);
   const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
   const [portalUser, setPortalUser] = useState<PortalUser | null>(null);
@@ -52,11 +52,11 @@ export default function Navbar() {
     setProfileDropdownOpen(false);
   }, [pathname]);
 
-  useEffect(() => {
-    if (pathname.startsWith("/industry/")) {
-      setMobileResearchOpen(true);
-    }
-  }, [pathname]);
+  // useEffect(() => {
+  //   if (pathname.startsWith("/industry/")) {
+  //     setMobileResearchOpen(true);
+  //   }
+  // }, [pathname]);
 
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -132,7 +132,7 @@ export default function Navbar() {
     return isNavActive(item);
   };
 
-  const isMobileResearchActive = pathname.startsWith("/industry/");
+  // const isMobileResearchActive = pathname.startsWith("/industry/");
 
   const mobileNavLinkClass = (isActive: boolean) =>
     `inline-block w-fit border-b-2 py-2.5 text-[14px] font-semibold tracking-[0.12em] transition-[color,border-color] duration-150 md:py-3 md:text-[16px] ${
@@ -232,14 +232,14 @@ export default function Navbar() {
 
   const navItems = ["HOME", "CLAIMS", "SWI", "FORTIFIED", "CAREERS", "EDUCATION"];
 
-  const researchSubItems = [
-    { label: "DRONE INSPECTIONS", href: "/industry/drone-technology", disabled: true },
-    { label: "INFRARED (IR) IMAGING", href: "/industry/infrared-thermography", disabled: true },
-    { label: "FORENSIC ENGINEERING", href: "/industry/research-and-testing", disabled: true },
-  ];
+  // const researchSubItems = [
+  //   { label: "DRONE INSPECTIONS", href: "/industry/drone-technology", disabled: true },
+  //   { label: "INFRARED (IR) IMAGING", href: "/industry/infrared-thermography", disabled: true },
+  //   { label: "FORENSIC ENGINEERING", href: "/industry/research-and-testing", disabled: true },
+  // ];
 
   const mobileNavItemsBeforeResearch = ["HOME", "CLAIMS", "SWI", "FORTIFIED"];
-  const mobileNavItemsAfterResearch = ["CAREERS", "EDUCATION", "CONTACT"];
+  const mobileNavItemsAfterResearch = ["CAREERS", "EDUCATION"]; // "CONTACT" — temporarily hidden from mobile menu
 
   /** External careers portal — replace internal `/careers` route for now */
   const CAREERS_EXTERNAL_URL = "https://careers.trinitypllc.com/jobs/Careers";
@@ -511,6 +511,7 @@ export default function Navbar() {
               <nav className="flex flex-col">
                 {mobileNavItemsBeforeResearch.map((item) => renderMobileNavItem(item))}
 
+                {/* RESEARCH & TESTING — temporarily hidden from mobile menu
                 <div>
                   <button
                     type="button"
@@ -568,6 +569,7 @@ export default function Navbar() {
                     </div>
                   )}
                 </div>
+                */}
 
                 {mobileNavItemsAfterResearch.map((item) => renderMobileNavItem(item))}
               </nav>

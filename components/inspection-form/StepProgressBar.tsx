@@ -68,7 +68,7 @@ export default function StepProgressBar({
                 )}
               </button>
               <span
-                className={`text-[9px] font-bold mt-1 transition-colors uppercase tracking-wide text-center leading-tight ${
+                className={`hidden md:block text-[9px] font-bold mt-1 transition-colors uppercase tracking-wide text-center leading-tight ${
                   isActive
                     ? "text-blue-600 dark:text-blue-400"
                     : isCompleted

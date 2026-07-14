@@ -108,7 +108,7 @@ const SEND_COPY_OPTIONS = ["all", "report", "invoice", "notifications"] as const
 
 const WIZARD_STEPS = [
   { title: "Inspection & Property", icon: ClipboardList },
-  { title: "Service", icon: PackagePlus },
+  { title: "Service Add-ons", icon: PackagePlus },
   { title: "Insurance & Adjuster", icon: Shield },
   { title: "Property Contact Info", icon: User },
   { title: "Roofer & Public Adjuster", icon: Home },
@@ -578,6 +578,8 @@ export default function SubmitInspectionPage() {
   const [insuranceSearchLoading, setInsuranceSearchLoading] = useState(false);
   const [aliasMatch, setAliasMatch] = useState<{ matchedBy: string; results: { id: string; name: string; zoho_creator_id: string }[] } | null>(null);
   const [aliasDismissed, setAliasDismissed] = useState(false);
+  const [iaAliasMatch, setIaAliasMatch] = useState<{ matchedBy: string; results: { id: string; name: string; zoho_creator_id: string }[] } | null>(null);
+  const [iaAliasDismissed, setIaAliasDismissed] = useState(false);
   const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [masterInsuranceList, setMasterInsuranceList] = useState<{ id: string; name: string; zoho_creator_id: string }[]>([]);
   const insuranceCacheRef = useRef<Record<string, { results: any[], matchedBy?: string }>>({});
@@ -684,23 +686,16 @@ export default function SubmitInspectionPage() {
       .catch(err => console.error('Failed to fetch IA companies:', err));
   }, []);
 
-  /** Debounced API call to search IA companies (Zoho All_Companies, Company_Type = IA Company) */
+  /** Debounced API call to search IA companies (supports alias match like insurance) */
   const searchIaCompanies = useCallback((query: string) => {
     const trimmed = query.trim();
 
     if (iaSearchTimeoutRef.current) clearTimeout(iaSearchTimeoutRef.current);
 
+    // Empty query: show full master list instantly (no alias needed)
     if (!trimmed && masterIaCompanyList.length > 0) {
       setIaCompanySearchResults(masterIaCompanyList);
-      setIaCompanySearchLoading(false);
-      return;
-    }
-
-    if (trimmed && masterIaCompanyList.length > 0) {
-      const lower = trimmed.toLowerCase();
-      setIaCompanySearchResults(
-        masterIaCompanyList.filter((c) => c.name.toLowerCase().includes(lower))
-      );
+      setIaAliasMatch(null);
       setIaCompanySearchLoading(false);
       return;
     }
@@ -715,16 +710,25 @@ export default function SubmitInspectionPage() {
         });
         const data = await res.json();
         if (data.success) {
-          setIaCompanySearchResults(data.results || []);
+          const results = data.results || [];
+          setIaCompanySearchResults(results);
           if (!trimmed && data.results) {
             setMasterIaCompanyList(data.results);
           }
+          if (data.matchedBy === 'alias' && results.length > 0) {
+            setIaAliasMatch({ matchedBy: data.matchedBy, results });
+            setIaAliasDismissed(false);
+          } else {
+            setIaAliasMatch(null);
+          }
         } else {
           setIaCompanySearchResults([]);
+          setIaAliasMatch(null);
         }
       } catch (err) {
         console.error('IA company search error:', err);
         setIaCompanySearchResults([]);
+        setIaAliasMatch(null);
       } finally {
         setIaCompanySearchLoading(false);
       }
@@ -1643,6 +1647,18 @@ export default function SubmitInspectionPage() {
         }))
       };
 
+      // Strip leftover IA data when claim is not an IA claim (avoids Creator lookup 3001)
+      if (!submissionData.isIAClaim) {
+        submissionData.iaCompany = "";
+        submissionData.iaFirstName = "";
+        submissionData.iaLastName = "";
+        submissionData.iaPhone = "";
+        submissionData.contactEmails = submissionData.contactEmails.filter(c => c.contactType !== "IA");
+      }
+
+      // Drop empty email rows from notification subform payload
+      submissionData.contactEmails = submissionData.contactEmails.filter(c => String(c.email || "").trim());
+
       // Ensure Zoho Creator IDs are passed for lookup fields instead of raw strings
       const matchedComp = masterInsuranceList.find(c => c.name.toLowerCase() === (submissionData.insuranceCompany || "").toLowerCase());
       if (matchedComp && matchedComp.zoho_creator_id) {
@@ -1654,6 +1670,24 @@ export default function SubmitInspectionPage() {
       if (matchedIaComp && matchedIaComp.zoho_creator_id) {
         (submissionData as any).iaCompanyName = submissionData.iaCompany;
         submissionData.iaCompany = matchedIaComp.zoho_creator_id;
+      }
+
+      // Option A: reject typed junk before Creator — must be list selection (or Zoho ID)
+      const insuranceVal = String(submissionData.insuranceCompany || "").trim();
+      if (insuranceVal && !/^\d+$/.test(insuranceVal) && !matchedComp) {
+        setShowErrors(true);
+        setFieldErrors((prev) => ({ ...prev, insuranceCompany: "Please select an insurance company from the list." }));
+        setSubmitError("Please select an insurance company from the list.");
+        return;
+      }
+      if (submissionData.isIAClaim) {
+        const iaVal = String(submissionData.iaCompany || "").trim();
+        if (iaVal && !/^\d+$/.test(iaVal) && !matchedIaComp) {
+          setShowErrors(true);
+          setFieldErrors((prev) => ({ ...prev, iaCompany: "Please select an IA company from the list." }));
+          setSubmitError("Please select an IA company from the list.");
+          return;
+        }
       }
 
       let insuranceDocumentPayload: { fileName: string; mimeType: string; base64: string } | undefined;
@@ -1919,7 +1953,13 @@ export default function SubmitInspectionPage() {
       case "primaryClientType":
         return ""; // Optional field
       case "insuranceCompany":
-        return ""; // Optional field â€” no validation needed
+        if (!v) return "";
+        if (/^\d+$/.test(v)) return "";
+        if (masterInsuranceList.length > 0) {
+          const match = masterInsuranceList.some((c) => c.name.toLowerCase() === v.toLowerCase());
+          if (!match) return "Please select an insurance company from the list.";
+        }
+        return "";
       case "adjusterEmail": {
         const email = data.contactEmails.find(c => c.contactType === "Adjuster (Carrier)")?.email || "";
         if (!email.trim()) return "Adjuster Email is required.";
@@ -1959,10 +1999,14 @@ export default function SubmitInspectionPage() {
       case "iaLastName":
         return v ? "" : "IA Last Name is required.";
       case "iaCompany":
+        if (!data.isIAClaim) return "";
         if (!v) return "";
-        if (data.isIAClaim && masterIaCompanyList.length > 0) {
+        if (/^\d+$/.test(v)) return "";
+        if (masterIaCompanyList.length > 0) {
           const match = masterIaCompanyList.some((c) => c.name.toLowerCase() === v.toLowerCase());
           if (!match) return "Please select an IA company from the list.";
+        } else {
+          return "Please select an IA company from the list.";
         }
         return "";
       case "policyholderFirstName":
@@ -2355,6 +2399,7 @@ export default function SubmitInspectionPage() {
                 {/* ================================================ */}
                 {currentStep === 1 && (
                   <FormSection>
+                    <SectionHeader title="Service Add-ons" icon={PackagePlus} optional />
                     <ServiceAddOns
                       selectedIds={formData.serviceAddOns}
                       onChange={(selectedIds) =>
@@ -2379,11 +2424,24 @@ export default function SubmitInspectionPage() {
                             setFormData((prev) => ({
                               ...prev,
                               isIAClaim: checked,
-                              contactEmails: (checked && !prev.contactEmails.some(c => c.contactType === "IA"))
-                                ? [...prev.contactEmails, { email: "", contactType: "IA", sendCopy: ["all", "report", "invoice", "notifications"] }]
-                                : prev.contactEmails,
+                              // Clear leftover IA fields when toggle is turned OFF (prevents Creator lookup errors)
+                              ...(checked
+                                ? {}
+                                : {
+                                    iaCompany: "",
+                                    iaFirstName: "",
+                                    iaLastName: "",
+                                    iaPhone: "",
+                                  }),
+                              contactEmails: checked
+                                ? (!prev.contactEmails.some(c => c.contactType === "IA")
+                                  ? [...prev.contactEmails, { email: "", contactType: "IA", sendCopy: ["all", "report", "invoice", "notifications"] }]
+                                  : prev.contactEmails)
+                                : prev.contactEmails.filter(c => c.contactType !== "IA"),
                             }));
                             if (!checked) {
+                              setIaCompanyQuery("");
+                              setIaAliasMatch(null);
                               setIaEmailErrors([]);
                               setIaSectionError("");
                             }
@@ -2533,6 +2591,40 @@ export default function SubmitInspectionPage() {
                                   )}
                                   {iaCompanyOpen && (
                                     <div className="absolute z-20 mt-1 w-full max-h-64 overflow-auto rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-section-dark shadow-lg">
+                                      {iaAliasMatch && !iaAliasDismissed && (
+                                        <div className="p-2 border-b border-orange-100 bg-orange-50 dark:bg-orange-900/20 dark:border-orange-900/40">
+                                          <div className="flex items-start gap-2">
+                                            <AlertTriangle className="w-4 h-4 text-orange-600 shrink-0 mt-0.5" />
+                                            <div className="flex-1">
+                                              <p className="text-[11px] text-orange-800 dark:text-orange-200 font-bold leading-tight">
+                                                Did you mean: <span className="underline italic">{iaAliasMatch.results[0].name}</span>?
+                                              </p>
+                                              <div className="flex gap-2 mt-1.5">
+                                                <button
+                                                  type="button"
+                                                  onMouseDown={(e) => e.preventDefault()}
+                                                  onClick={() => {
+                                                    commitIaCompanyValue(iaAliasMatch.results[0].name);
+                                                    setIaAliasMatch(null);
+                                                    setIaCompanyOpen(false);
+                                                  }}
+                                                  className="px-2 py-0.5 bg-orange-600 text-white text-[10px] font-bold rounded hover:bg-orange-700 transition-colors"
+                                                >
+                                                  Use Suggestion
+                                                </button>
+                                                <button
+                                                  type="button"
+                                                  onMouseDown={(e) => e.preventDefault()}
+                                                  onClick={() => setIaAliasDismissed(true)}
+                                                  className="px-2 py-0.5 border border-orange-300 text-orange-700 text-[10px] font-bold rounded hover:bg-orange-100 dark:hover:bg-orange-900/30 transition-colors"
+                                                >
+                                                  Dismiss
+                                                </button>
+                                              </div>
+                                            </div>
+                                          </div>
+                                        </div>
+                                      )}
                                       <button
                                         type="button"
                                         onMouseDown={(e) => e.preventDefault()}
@@ -2559,6 +2651,7 @@ export default function SubmitInspectionPage() {
                                             onMouseDown={(e) => e.preventDefault()}
                                             onClick={() => {
                                               commitIaCompanyValue(c.name);
+                                              setIaAliasMatch(null);
                                               setIaCompanyOpen(false);
                                             }}
                                             className={`w-full text-left px-3 py-2 text-[12px] hover:bg-gray-50 dark:hover:bg-background-dark transition-colors ${formData.iaCompany === c.name ? "font-bold text-primary dark:text-accent" : "text-gray-700 dark:text-gray-200"}`}
