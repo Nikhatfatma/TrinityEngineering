@@ -3,8 +3,7 @@
 import Link from "next/link";
 import { Phone, Mail, Clock, ChevronRight } from "lucide-react";
 
-const FOOTER_TAGLINE =
-  "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.";
+const FOOTER_TAGLINE = "";
 
 const SERVICES_COL_LEFT = [
   "Structural Investigations",

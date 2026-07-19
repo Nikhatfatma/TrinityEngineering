@@ -82,7 +82,9 @@ function mapFormDataToCreator(data) {
 
     // Exact matches for the Radio options in Zoho Creator (engineering-inspections)
     const inspectionMapping = {
-        "storm-damage": "Residential Storm Damage",
+        "storm-damage": "Storm Damage",
+        "Storm Damage": "Storm Damage",
+        "Residential Storm Damage": "Storm Damage",
         "commercial-municipal-industrial": "Commercial/Municipal/Ind",
         "structural-loss": "Structural Damage",
         "large-complex-loss": "Large / Complex Loss",
@@ -101,8 +103,12 @@ function mapFormDataToCreator(data) {
 
     const buildingMapping = {
         "residential": "Residential",
-        "commercial-municipal-industrial": "Commercial/Municipal/Ind",
-        "multiple-structures": "Multiple Structures"
+        "Residential": "Residential",
+        "commercial-municipal-industrial": "C/M/I",
+        "Commercial / Municipal / Industrial": "C/M/I",
+        "Commercial/Municipal/Ind": "C/M/I",
+        "multiple-structures": "Multiple Structures",
+        "Multiple Structures": "Multiple Structures",
     };
 
     const inspectionType = inspectionMapping[data.inspectionType] || data.inspectionType || "";
@@ -163,7 +169,7 @@ function mapFormDataToCreator(data) {
             Policyholder_Name: policyholderFullName,
             PH_Name_Commercial: data.buildingType === 'commercial-municipal-industrial' ? policyholderFullName : "",
             PH_Phone_1: [data.policyholderPhone1, data.policyholderPhone1Extra].filter(Boolean).join(", "),
-            Property_Contact_Email: data.propertyContactEmail || "",
+            PH_Email: data.propertyContactEmail || "",
             Spouse_or_Second_Policyholder: {
                 first_name: data.spouseFirstName || "",
                 last_name: data.spouseLastName || ""
@@ -395,16 +401,16 @@ async function uploadFileToWorkDrive(accessToken, fileName, fileBuffer, mimeType
 }
 
 // Build a human-readable, filesystem-safe folder name for a policy.
-// Format: "<Claim Number> - <Date of Loss>".
-// Date of Loss is a mandatory field and acts as the date stamp, so two submissions with
-// the same claim number still get distinct folders.
+// Format: "<Policyholder First Name Last Name> - <Date of Loss>"
 function buildPolicyFolderName(data) {
-    const claim = (data.claimNumber || '').toString().trim();
+    const policyholderFullName = `${String(data.policyholderFirstName || '').trim()} ${String(data.policyholderLastName || '').trim()}`
+        .replace(/\s+/g, ' ')
+        .trim();
 
     // Date stamp from the (mandatory) Date of Loss; fall back to today's date if absent.
     const dateStamp = (data.dateOfLoss || '').toString().trim() || new Date().toISOString().slice(0, 10);
 
-    const name = claim ? `${claim} - ${dateStamp}` : dateStamp;
+    const name = policyholderFullName ? `${policyholderFullName} - ${dateStamp}` : dateStamp;
 
     // Strip characters WorkDrive disallows in names and collapse whitespace.
     return name
@@ -565,6 +571,22 @@ async function notifyFailureOnCliq({ rowId, payload, claimNumber, adjusterEmail,
     } catch (err) {
         console.error('[Cliq Notify] Failed:', err.message);
     }
+}
+
+// Map Zoho Creator company-create failures to a short portal-facing message.
+// Full technical detail stays in logs / Cliq via the raw error string.
+function formatCreateCompanyUserError(companyName, resData) {
+    const name = String(companyName || '').trim() || 'this company';
+    const raw = resData && resData.error !== undefined ? resData.error : resData;
+    const rawStr = typeof raw === 'string' ? raw : JSON.stringify(raw || '');
+
+    if (/do you mean/i.test(rawStr) || /field_alert/i.test(rawStr)) {
+        return `This company already exists or is very similar. Please close this form and select "${name}" from the list, or enter a different name.`;
+    }
+    if (/duplicate/i.test(rawStr)) {
+        return `"${name}" is already registered. Please close this form and select it from the list.`;
+    }
+    return 'Unable to add this company right now. Please try again or select an existing company from the list.';
 }
 
 module.exports = async (context, basicIO) => {
@@ -1648,7 +1670,28 @@ module.exports = async (context, basicIO) => {
                 console.log(`[createCompany] Creator Response: ${JSON.stringify(resData)}`);
 
                 if (resData.code !== 3000) {
-                    throw new Error(resData.error || `Zoho Error: ${JSON.stringify(resData)}`);
+                    // Zoho often returns error as object/array — stringify for logs/Cliq
+                    const zohoErr =
+                        typeof resData.error === 'string'
+                            ? resData.error
+                            : JSON.stringify(resData.error || resData);
+                    const techMsg = `Zoho Error (code ${resData.code}): ${zohoErr}`;
+                    const userMsg = formatCreateCompanyUserError(companyName, resData);
+                    console.error(`[createCompany] CREATION_FAILED | ${techMsg}`);
+                    await notifyFailureOnCliq({
+                        rowId: '',
+                        payload: JSON.stringify({
+                            companyName: createCompanyName,
+                            error: techMsg,
+                        }),
+                        claimNumber: 'N/A (Company Creation)',
+                        adjusterEmail: 'N/A',
+                        errorDetails: `Failed to create company "${createCompanyName}": ${techMsg}`,
+                        createdTime: new Date().toISOString()
+                    });
+                    basicIO.write(JSON.stringify({ success: false, error: userMsg }));
+                    context.close();
+                    return;
                 }
 
                 const creatorId = String(resData.data.ID);
@@ -1676,13 +1719,19 @@ module.exports = async (context, basicIO) => {
                 console.error("createCompany Error:", err);
                 await notifyFailureOnCliq({
                     rowId: '',
-                    payload: JSON.stringify({ companyName: createCompanyName }),
+                    payload: JSON.stringify({
+                        companyName: createCompanyName,
+                        error: err.message,
+                    }),
                     claimNumber: 'N/A (Company Creation)',
                     adjusterEmail: 'N/A',
                     errorDetails: `Failed to create company "${createCompanyName}": ${err.message}`,
                     createdTime: new Date().toISOString()
                 });
-                basicIO.write(JSON.stringify({ success: false, error: err.message }));
+                basicIO.write(JSON.stringify({
+                    success: false,
+                    error: 'Unable to add this company right now. Please try again or select an existing company from the list.'
+                }));
                 context.close();
             }
 

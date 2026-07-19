@@ -2,9 +2,11 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { Send } from "lucide-react";
 
 export default function FloatingSubmitButton() {
+  const pathname = usePathname();
   const [visible, setVisible] = useState(false);
 
   useEffect(() => {
@@ -15,6 +17,7 @@ export default function FloatingSubmitButton() {
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
+  if (pathname?.startsWith("/submit-inspection")) return null;
   if (!visible) return null;
 
   return (

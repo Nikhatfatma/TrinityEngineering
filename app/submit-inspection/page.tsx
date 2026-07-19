@@ -46,7 +46,8 @@ import {
   UserCheck,
   Upload,
   Bookmark,
-  PackagePlus
+  PackagePlus,
+  Users,
 } from "lucide-react";
 import { isValidEmail, isValidPhoneNumber, isValidZipCode, validateIaRecipients, type IaRecipient, validateAdjusterEmails, type AdjusterEmail, isValidMMDDYYYY, type ContactEmail, validateContactEmails } from "@/lib/utils/validation";
 import { DatePicker } from "@/components/inspection-form/DatePicker";
@@ -56,7 +57,7 @@ import { DatePicker } from "@/components/inspection-form/DatePicker";
 /* ------------------------------------------------------------------ */
 
 const INSPECTION_TYPES = [
-  { id: "storm-damage", title: "Residential Storm Damage", image: "/inspection-type-storm-damage.png" },
+  { id: "storm-damage", title: "Storm Damage", image: "/inspection-type-storm-damage.png" },
   { id: "structural-loss", title: "Structural Loss", image: "/inspection-type-structural-loss.png" },
   { id: "large-complex-loss", title: "Large / Complex Loss", image: "/inspection-type-large-complex-loss.png" },
   { id: "water-loss", title: "Water Loss", image: "/inspection-type-water-loss.png" },
@@ -91,9 +92,6 @@ const BUILDING_TYPES = [
 
 function getAvailableBuildingTypes(inspectionType: string) {
   if (!inspectionType || inspectionType === "Component Failure") return [];
-  if (inspectionType === "Residential Storm Damage") {
-    return BUILDING_TYPES.filter((b) => b.id === "single-family" || b.id === "multiples-residence");
-  }
   return BUILDING_TYPES;
 }
 
@@ -151,7 +149,7 @@ interface FormData {
   iaPhone: string;
   iaCompany: string;
   contactEmails: ContactEmail[];
-  primaryClientType: "Adjuster (Carrier)" | "Independent Adjuster" | "";
+  primaryClientType: "Adjuster (Carrier)" | "Independent Adjuster" | "The IA is the TPA" | "";
   serviceAddOns: string[];
   // Step 2 - Policy & Address
   policyholderFirstName: string;
@@ -177,6 +175,60 @@ interface FormData {
   publicAdjusterCompany: string;
   publicAdjusterPhone: string;
   publicAdjusterEmail: string;
+}
+
+/** When primary client is "The IA is the TPA", mirror IA details into carrier/adjuster fields. */
+function syncCarrierFieldsFromIa(prev: FormData): FormData {
+  const iaEmails = prev.contactEmails.filter((c) => c.contactType === "IA");
+  const otherEmails = prev.contactEmails.filter(
+    (c) => c.contactType !== "Adjuster (Carrier)" && c.contactType !== "IA"
+  );
+  const carrierEmails: ContactEmail[] =
+    iaEmails.length > 0
+      ? iaEmails.map((c) => ({
+          email: c.email,
+          contactType: "Adjuster (Carrier)" as const,
+          sendCopy: [...(c.sendCopy?.length ? c.sendCopy : ["all", "report", "invoice", "notifications"])],
+        }))
+      : [
+          {
+            email: "",
+            contactType: "Adjuster (Carrier)" as const,
+            sendCopy: ["all", "report", "invoice", "notifications"],
+          },
+        ];
+
+  return {
+    ...prev,
+    adjusterFirstName: prev.iaFirstName,
+    adjusterLastName: prev.iaLastName,
+    adjusterPhone: prev.iaPhone,
+    contactEmails: [...carrierEmails, ...iaEmails, ...otherEmails],
+  };
+}
+
+function isCarrierSyncedFromIa(prev: FormData): boolean {
+  if (
+    prev.adjusterFirstName !== prev.iaFirstName ||
+    prev.adjusterLastName !== prev.iaLastName ||
+    prev.adjusterPhone !== prev.iaPhone
+  ) {
+    return false;
+  }
+  const iaEmails = prev.contactEmails.filter((c) => c.contactType === "IA");
+  const carrierEmails = prev.contactEmails.filter((c) => c.contactType === "Adjuster (Carrier)");
+  if (iaEmails.length === 0) {
+    return carrierEmails.length === 1 && !carrierEmails[0].email;
+  }
+  if (iaEmails.length !== carrierEmails.length) return false;
+  return iaEmails.every((c, i) => {
+    const a = carrierEmails[i];
+    if (!a) return false;
+    if (c.email !== a.email) return false;
+    const cs = [...(c.sendCopy || [])].sort().join(",");
+    const as = [...(a.sendCopy || [])].sort().join(",");
+    return cs === as;
+  });
 }
 
 const INITIAL_FORM_DATA: FormData = {
@@ -333,6 +385,10 @@ export default function SubmitInspectionPage() {
               ? [...cleanPrefsContactEmails, ...iaEmails]
               : prev.contactEmails;
 
+            const scopedCompany = (!company
+              ? (prefs.insuranceCompany || data.scopingCompany || "")
+              : "").trim();
+
             return {
               ...prev,
               adjusterFirstName: prefs.adjusterFirstName || prev.adjusterFirstName,
@@ -340,6 +396,10 @@ export default function SubmitInspectionPage() {
               adjusterPhone: prefs.adjusterPhone || prev.adjusterPhone,
               adjusterPhoneExt: prefs.adjusterPhoneExt || prev.adjusterPhoneExt,
               adjusterCompany: prefs.adjusterCompany || prev.adjusterCompany,
+              ...(scopedCompany && !prev.insuranceCompany.trim()
+                ? { insuranceCompany: scopedCompany }
+                : {}),
+              ...(Array.isArray(prefs.serviceAddOns) ? { serviceAddOns: prefs.serviceAddOns } : {}),
               contactEmails: mergedEmails,
             };
           });
@@ -376,6 +436,7 @@ export default function SubmitInspectionPage() {
   // Load IA preferences scoped by User + IA Company
   // Only prepopulate IA details when the primary client for this project is the Independent Adjuster.
   // If the primary client is the Carrier Adjuster, IA details must NOT be prepopulated.
+  // On login (no IA company yet) load most recent prefs so company + details can prepopulate.
   useEffect(() => {
     if (!portalUser || portalUser.role !== "IA") return;
 
@@ -385,12 +446,11 @@ export default function SubmitInspectionPage() {
     }
 
     const company = formData.iaCompany ? formData.iaCompany.trim() : "";
-    if (!company) {
-      setLoadedPreferences(null);
-      return;
-    }
+    const prefsUrl = company
+      ? `/api/portal/preferences?iaCompany=${encodeURIComponent(company)}`
+      : `/api/portal/preferences`;
 
-    fetch(`/api/portal/preferences?iaCompany=${encodeURIComponent(company)}`)
+    fetch(prefsUrl)
       .then((res) => res.json())
       .then((data) => {
         if (data.success && data.preferences) {
@@ -406,16 +466,25 @@ export default function SubmitInspectionPage() {
               ? [...carrierEmails, ...cleanPrefsContactEmails]
               : prev.contactEmails;
 
+            const scopedCompany = (!company
+              ? (prefs.iaCompany || data.scopingCompany || "")
+              : "").trim();
+
             return {
               ...prev,
               iaFirstName: prefs.iaFirstName || prev.iaFirstName,
               iaLastName: prefs.iaLastName || prev.iaLastName,
               iaPhone: prefs.iaPhone || prev.iaPhone,
+              ...(scopedCompany && !prev.iaCompany.trim()
+                ? { iaCompany: scopedCompany }
+                : {}),
+              ...(Array.isArray(prefs.serviceAddOns) ? { serviceAddOns: prefs.serviceAddOns } : {}),
               contactEmails: mergedEmails,
             };
           });
         } else {
           setLoadedPreferences(null);
+          if (!company) return;
           setFormData((prev): FormData => {
             const carrierEmails = prev.contactEmails.filter(c => c.contactType !== "IA");
             // No saved preferences for this IA company yet — fall back to the logged-in IA user's own profile
@@ -441,6 +510,23 @@ export default function SubmitInspectionPage() {
       })
       .catch((err) => console.error("Failed to load IA preferences:", err));
   }, [portalUser, formData.iaCompany, formData.primaryClientType]);
+
+  // When "The IA is the TPA" is selected, keep carrier/adjuster fields mirrored from IA fields.
+  // Existing Independent Adjuster / Adjuster (Carrier) flows are unchanged.
+  useEffect(() => {
+    if (formData.primaryClientType !== "The IA is the TPA") return;
+    setFormData((prev) => {
+      if (prev.primaryClientType !== "The IA is the TPA") return prev;
+      if (isCarrierSyncedFromIa(prev)) return prev;
+      return syncCarrierFieldsFromIa(prev);
+    });
+  }, [
+    formData.primaryClientType,
+    formData.iaFirstName,
+    formData.iaLastName,
+    formData.iaPhone,
+    formData.contactEmails,
+  ]);
 
   const [showErrors, setShowErrors] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
@@ -492,6 +578,10 @@ export default function SubmitInspectionPage() {
   const hasPreferencesChanged = (current: FormData, saved: any, role: string) => {
     if (!saved) return true; // If no saved preferences, they are considered changed/new
 
+    const currentAddOns = [...(current.serviceAddOns || [])].sort().join(",");
+    const savedAddOns = [...(saved.serviceAddOns || [])].sort().join(",");
+    if (currentAddOns !== savedAddOns) return true;
+
     if (role === "IA") {
       const currentEmails = current.contactEmails.filter(c => c.contactType === "IA");
       const savedEmails = saved.contactEmails || [];
@@ -499,6 +589,7 @@ export default function SubmitInspectionPage() {
       if ((current.iaFirstName || "") !== (saved.iaFirstName || "")) return true;
       if ((current.iaLastName || "") !== (saved.iaLastName || "")) return true;
       if ((current.iaPhone || "") !== (saved.iaPhone || "")) return true;
+      if ((current.iaCompany || "").trim() !== (saved.iaCompany || "").trim()) return true;
 
       if (currentEmails.length !== savedEmails.length) return true;
       for (let i = 0; i < currentEmails.length; i++) {
@@ -522,6 +613,7 @@ export default function SubmitInspectionPage() {
       if ((current.adjusterPhone || "") !== (saved.adjusterPhone || "")) return true;
       if ((current.adjusterPhoneExt || "") !== (saved.adjusterPhoneExt || "")) return true;
       if ((current.adjusterCompany || "") !== (saved.adjusterCompany || "")) return true;
+      if ((current.insuranceCompany || "").trim() !== (saved.insuranceCompany || "").trim()) return true;
 
       if (currentEmails.length !== savedEmails.length) return true;
       for (let i = 0; i < currentEmails.length; i++) {
@@ -549,7 +641,8 @@ export default function SubmitInspectionPage() {
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
-  const MAX_INSURANCE_DOCUMENT_SIZE = 10 * 1024 * 1024;
+  const MAX_INSURANCE_DOCUMENT_SIZE = 15 * 1024 * 1024;
+  const MAX_INSURANCE_DOCUMENTS = 7;
 
   const getStep3ValidationConfig = (type: 'roofer' | 'adjuster' | null) => {
     if (type === 'roofer') {
@@ -949,36 +1042,63 @@ export default function SubmitInspectionPage() {
 
         const oversized = files.find(f => f.size > MAX_INSURANCE_DOCUMENT_SIZE);
         if (oversized) {
-          setFieldErrors((prev) => ({ ...prev, insuranceDocument: `File "${oversized.name}" must be 10MB or smaller.` }));
+          setFieldErrors((prev) => ({ ...prev, insuranceDocument: `File "${oversized.name}" must be 15MB or smaller.` }));
           return;
         }
 
-        const newRows = files.map(file => ({
-          id: Math.random().toString(36).substring(2, 9),
-          file,
-          categories: [],
-          customCategory: ""
-        }));
-
         setInsuranceDocuments(prev => {
-          if (prev.length === 1 && prev[0].file === null && prev[0].categories.length === 0) {
-            return newRows;
+          const replacingEmpty = prev.length === 1 && prev[0].file === null && prev[0].categories.length === 0;
+          const currentCount = replacingEmpty ? 0 : prev.length;
+          const slotsLeft = MAX_INSURANCE_DOCUMENTS - currentCount;
+          if (slotsLeft <= 0) {
+            setFieldErrors((prevErrors) => ({
+              ...prevErrors,
+              insuranceDocument: `Maximum of ${MAX_INSURANCE_DOCUMENTS} documents allowed.`,
+            }));
+            return prev;
           }
+          const accepted = files.slice(0, slotsLeft);
+          if (files.length > slotsLeft) {
+            setFieldErrors((prevErrors) => ({
+              ...prevErrors,
+              insuranceDocument: `Maximum of ${MAX_INSURANCE_DOCUMENTS} documents allowed. Only ${slotsLeft} more added.`,
+            }));
+          }
+          const newRows = accepted.map(file => ({
+            id: Math.random().toString(36).substring(2, 9),
+            file,
+            categories: [],
+            customCategory: ""
+          }));
+          if (replacingEmpty) return newRows;
           return [...prev, ...newRows];
         });
       }}
     >
       <div className="mb-2">
-        <SectionHeader title="Insurance Documents" small />
+        <SectionHeader title="Insurance Documents" icon={FileText} />
       </div>
 
-      {fieldErrors.insuranceDocument && (
-        <p className="text-[9px] text-gray-900 font-black mb-2">{fieldErrors.insuranceDocument}</p>
+      {/* Only show top banner for oversized-file type errors.
+          Empty-row / category errors render on the related field. */}
+      {fieldErrors.insuranceDocument &&
+        !fieldErrors.insuranceDocument.toLowerCase().includes("category") &&
+        !fieldErrors.insuranceDocument.toLowerCase().includes("empty rows") && (
+        <p className="text-[10px] text-gray-900 font-black bg-gray-200/80 backdrop-blur-sm px-1.5 py-0.5 rounded mt-0.5 mb-2 inline-block border border-gray-300/50">{fieldErrors.insuranceDocument}</p>
       )}
 
       <div className="space-y-3">
-          {insuranceDocuments.map((doc, idx) => (
-            <div key={doc.id} className="p-2.5 bg-white dark:bg-background-dark rounded-lg border border-primary/15 dark:border-accent/15 shadow-sm space-y-2.5 relative">
+          {insuranceDocuments.map((doc, idx) => {
+            const fileMissingError = fieldErrors[`docFile_${doc.id}`];
+            return (
+            <div
+              key={doc.id}
+              className={`p-2.5 bg-white dark:bg-background-dark rounded-lg border shadow-sm space-y-2.5 relative transition-all ${
+                fileMissingError
+                  ? "border-gray-400 dark:border-gray-600 bg-gray-100/60 dark:bg-gray-800/20"
+                  : "border-primary/15 dark:border-accent/15"
+              }`}
+            >
               <div className="flex items-start justify-between gap-4">
                 <div className="flex-1 min-w-0">
                   <span className="text-[9px] font-black text-gray-500 uppercase tracking-wider block mb-1">
@@ -1022,8 +1142,14 @@ export default function SubmitInspectionPage() {
                     </div>
                   ) : (
                     <div
+                      id={`docFile_${doc.id}`}
+                      data-field-name={`docFile_${doc.id}`}
                       onClick={() => document.getElementById(`file-input-${doc.id}`)?.click()}
-                      className="flex flex-col items-center justify-center border border-dashed border-gray-200 dark:border-gray-700 rounded-lg p-2.5 bg-gray-50/50 dark:bg-background-dark/30 hover:bg-gray-50 dark:hover:bg-background-dark/50 transition-colors cursor-pointer select-none"
+                      className={`flex flex-col items-center justify-center border border-dashed rounded-lg p-2.5 transition-colors cursor-pointer select-none ${
+                        fileMissingError
+                          ? "border-gray-400 dark:border-gray-600 bg-gray-100/80 dark:bg-gray-800/40"
+                          : "border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-background-dark/30 hover:bg-gray-50 dark:hover:bg-background-dark/50"
+                      }`}
                     >
                       <Upload className="w-4 h-4 text-gray-400 dark:text-gray-500 mb-1" />
                       <span className="bg-white dark:bg-background-dark text-[9px] font-black text-primary dark:text-accent border border-primary/20 dark:border-accent/20 px-2.5 py-1 rounded-md shadow-sm flex items-center gap-1.5 mb-1">
@@ -1033,9 +1159,14 @@ export default function SubmitInspectionPage() {
                         Drag &amp; drop files here, or browse.
                       </p>
                       <p className="text-[7.5px] text-gray-400/80 dark:text-gray-500/80 text-center mt-0.5">
-                        PDF, DOC, DOCX, PNG, JPG, JPEG up to 10MB
+                        PDF, DOC, DOCX, PNG, JPG, JPEG up to 15MB (max {MAX_INSURANCE_DOCUMENTS} files)
                       </p>
                     </div>
+                  )}
+                  {fileMissingError && (
+                    <p className="text-[10px] text-gray-900 font-black bg-gray-200/80 backdrop-blur-sm px-1.5 py-0.5 rounded mt-1 inline-block border border-gray-300/50">
+                      {fileMissingError}
+                    </p>
                   )}
                   <input
                     type="file"
@@ -1049,7 +1180,7 @@ export default function SubmitInspectionPage() {
 
                       const oversized = files.find(f => f.size > MAX_INSURANCE_DOCUMENT_SIZE);
                       if (oversized) {
-                        setFieldErrors((prev) => ({ ...prev, insuranceDocument: `File "${oversized.name}" must be 10MB or smaller.` }));
+                        setFieldErrors((prev) => ({ ...prev, insuranceDocument: `File "${oversized.name}" must be 15MB or smaller.` }));
                         e.target.value = "";
                         return;
                       }
@@ -1066,16 +1197,33 @@ export default function SubmitInspectionPage() {
                         });
 
                         if (files.length > 1) {
-                          const newRows = files.slice(1).map(f => ({
+                          const slotsLeft = Math.max(0, MAX_INSURANCE_DOCUMENTS - updated.length);
+                          const extra = files.slice(1, 1 + slotsLeft).map(f => ({
                             id: Math.random().toString(36).substring(2, 9),
                             file: f,
                             categories: [],
                             customCategory: ""
                           }));
-                          return [...updated, ...newRows];
+                          if (files.length - 1 > slotsLeft) {
+                            setFieldErrors((prevErrors) => ({
+                              ...prevErrors,
+                              insuranceDocument: `Maximum of ${MAX_INSURANCE_DOCUMENTS} documents allowed.`,
+                            }));
+                          }
+                          return [...updated, ...extra];
                         }
 
                         return updated;
+                      });
+
+                      setFieldErrors((prev) => {
+                        const next = { ...prev };
+                        delete next[`docFile_${doc.id}`];
+                        const stillHasEmpty = Object.keys(next).some((k) => k.startsWith("docFile_"));
+                        if (!stillHasEmpty && next.insuranceDocument?.toLowerCase().includes("empty rows")) {
+                          delete next.insuranceDocument;
+                        }
+                        return next;
                       });
 
                       e.target.value = "";
@@ -1103,6 +1251,17 @@ export default function SubmitInspectionPage() {
                         }
                         return next;
                       });
+                      setFieldErrors((prev) => {
+                        const next = { ...prev };
+                        delete next[`docFile_${doc.id}`];
+                        delete next[`docCategory_${doc.id}`];
+                        delete next[`docCustomCategory_${doc.id}`];
+                        const stillHasEmpty = Object.keys(next).some((k) => k.startsWith("docFile_"));
+                        if (!stillHasEmpty && next.insuranceDocument?.toLowerCase().includes("empty rows")) {
+                          delete next.insuranceDocument;
+                        }
+                        return next;
+                      });
                     }}
                     className="text-gray-400 hover:text-red-500 transition-colors p-1 self-start mt-4 shrink-0"
                     aria-label="Remove document row"
@@ -1112,7 +1271,15 @@ export default function SubmitInspectionPage() {
                 )}
               </div>
 
-              <div className="flex flex-col gap-1.5">
+              <div
+                id={`docCategory_${doc.id}`}
+                data-field-name={`docCategory_${doc.id}`}
+                className={`flex flex-col gap-1.5 rounded-md p-1.5 -mx-1.5 transition-all ${
+                  fieldErrors[`docCategory_${doc.id}`]
+                    ? "bg-gray-100/60 dark:bg-gray-800/20 border border-gray-400 dark:border-gray-600"
+                    : ""
+                }`}
+              >
                 <label className="text-[9px] font-black text-gray-500 uppercase tracking-wider">
                   Document Types / Categories {doc.file && <span className="text-red-500">*</span>}
                 </label>
@@ -1136,11 +1303,26 @@ export default function SubmitInspectionPage() {
                             }
                             return item;
                           }));
+                          setFieldErrors((prev) => {
+                            const next = { ...prev };
+                            delete next[`docCategory_${doc.id}`];
+                            if (cat !== "Other") delete next[`docCustomCategory_${doc.id}`];
+                            // Drop the banner message if no other doc category errors remain
+                            const stillHasDocCategoryErr = Object.keys(next).some(
+                              (k) => k.startsWith("docCategory_") || k.startsWith("docCustomCategory_")
+                            );
+                            if (!stillHasDocCategoryErr && next.insuranceDocument?.includes("category")) {
+                              delete next.insuranceDocument;
+                            }
+                            return next;
+                          });
                         }}
                         className={`text-[9px] px-2 py-1 rounded-md border font-bold transition-all ${
                           isChecked
                             ? "bg-primary border-primary text-white dark:bg-accent dark:border-accent"
-                            : "bg-gray-50 dark:bg-background-dark/30 border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800"
+                            : fieldErrors[`docCategory_${doc.id}`]
+                              ? "bg-gray-100 dark:bg-gray-800/40 border-gray-400 dark:border-gray-600 text-gray-700 dark:text-gray-200"
+                              : "bg-gray-50 dark:bg-background-dark/30 border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800"
                         }`}
                       >
                         {cat}
@@ -1148,47 +1330,91 @@ export default function SubmitInspectionPage() {
                     );
                   })}
                 </div>
+                {fieldErrors[`docCategory_${doc.id}`] && (
+                  <p className="text-[10px] text-gray-900 font-black bg-gray-200/80 backdrop-blur-sm px-1.5 py-0.5 rounded mt-0.5 inline-block border border-gray-300/50">
+                    {fieldErrors[`docCategory_${doc.id}`]}
+                  </p>
+                )}
               </div>
 
               {doc.categories.includes("Other") && (
                 <div className="flex flex-col gap-1 animate-fadeIn">
                   <label className="text-[9px] font-black text-gray-500 uppercase tracking-wider">Please specify custom type <span className="text-red-500">*</span></label>
                   <input
+                    id={`docCustomCategory_${doc.id}`}
                     type="text"
                     value={doc.customCategory}
                     placeholder="e.g. Drone Photos, Roof Estimate"
                     onChange={(e) => {
                       const val = e.target.value;
                       setInsuranceDocuments(prev => prev.map(item => item.id === doc.id ? { ...item, customCategory: val } : item));
+                      setFieldErrors((prev) => {
+                        const next = { ...prev };
+                        if (val.trim()) {
+                          delete next[`docCustomCategory_${doc.id}`];
+                          const stillHasDocCategoryErr = Object.keys(next).some(
+                            (k) => k.startsWith("docCategory_") || k.startsWith("docCustomCategory_")
+                          );
+                          if (!stillHasDocCategoryErr && next.insuranceDocument?.includes("category")) {
+                            delete next.insuranceDocument;
+                          }
+                        }
+                        return next;
+                      });
                     }}
-                    className="w-full text-[11px] px-2 py-1.5 border border-gray-200 dark:border-gray-700 bg-white dark:bg-background-dark rounded-md focus:border-blue-500 outline-none"
+                    className={`w-full text-[11px] px-2 py-1.5 border bg-white dark:bg-background-dark rounded-md outline-none focus:ring-2 focus:border-transparent transition-all ${
+                      fieldErrors[`docCustomCategory_${doc.id}`]
+                        ? "border-gray-400 focus:ring-gray-300 dark:border-gray-600 dark:focus:ring-gray-600"
+                        : "border-gray-200 dark:border-gray-700 focus:ring-primary dark:focus:ring-accent"
+                    }`}
                   />
+                  {fieldErrors[`docCustomCategory_${doc.id}`] && (
+                    <p className="text-[10px] text-gray-900 font-black bg-gray-200/80 backdrop-blur-sm px-1.5 py-0.5 rounded mt-0.5 inline-block border border-gray-300/50">
+                      {fieldErrors[`docCustomCategory_${doc.id}`]}
+                    </p>
+                  )}
                 </div>
               )}
             </div>
-          ))}
+            );
+          })}
         </div>
 
         <div className="flex justify-end mt-4">
           <button
             type="button"
             onClick={() => {
-              setInsuranceDocuments(prev => [
-                ...prev,
-                {
-                  id: Math.random().toString(36).substring(2, 9),
-                  file: null,
-                  categories: [],
-                  customCategory: ""
+              setInsuranceDocuments(prev => {
+                if (prev.length >= MAX_INSURANCE_DOCUMENTS) {
+                  setFieldErrors((prevErrors) => ({
+                    ...prevErrors,
+                    insuranceDocument: `Maximum of ${MAX_INSURANCE_DOCUMENTS} documents allowed.`,
+                  }));
+                  return prev;
                 }
-              ]);
+                return [
+                  ...prev,
+                  {
+                    id: Math.random().toString(36).substring(2, 9),
+                    file: null,
+                    categories: [],
+                    customCategory: ""
+                  }
+                ];
+              });
             }}
-            className="bg-primary hover:bg-primary-dark dark:bg-accent dark:hover:bg-accent-light text-[10px] font-bold text-white px-3 py-1.5 rounded-md transition-all flex items-center gap-1.5 shadow-sm"
+            disabled={insuranceDocuments.length >= MAX_INSURANCE_DOCUMENTS}
+            className="bg-primary hover:bg-primary-dark dark:bg-accent dark:hover:bg-accent-light text-[10px] font-bold text-white px-3 py-1.5 rounded-md transition-all flex items-center gap-1.5 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <Plus className="w-3.5 h-3.5" />
             Add Document Row
           </button>
         </div>
+        {insuranceDocuments.length >= MAX_INSURANCE_DOCUMENTS && (
+          <p className="text-[11px] text-gray-500 dark:text-gray-400 text-right mt-1">
+            Maximum of {MAX_INSURANCE_DOCUMENTS} documents reached.
+          </p>
+        )}
     </div>
   );
 
@@ -1284,10 +1510,14 @@ export default function SubmitInspectionPage() {
 
     // Focus first field with an error
     for (const fieldName of orderedKeys) {
-      const element = document.getElementById(fieldName);
+      const element =
+        document.getElementById(fieldName) ||
+        document.querySelector(`[data-field-name="${fieldName}"]`);
       if (element) {
         element.scrollIntoView({ behavior: "smooth", block: "center" });
-        element.focus();
+        if (typeof (element as HTMLElement).focus === "function") {
+          (element as HTMLElement).focus();
+        }
         return;
       }
     }
@@ -1326,9 +1556,16 @@ export default function SubmitInspectionPage() {
   const handleNext = () => {
     // Step 0: Inspection & Property
     if (currentStep === 0) {
+      const needsBuildingType = getAvailableBuildingTypes(formData.inspectionType).length > 0;
       if (!formData.inspectionType) {
         setShowErrors(true);
         const errorElement = document.querySelector("[data-field-name='inspectionType']");
+        if (errorElement) errorElement.scrollIntoView({ behavior: "smooth", block: "center" });
+        return;
+      }
+      if (needsBuildingType && !formData.buildingType) {
+        setShowErrors(true);
+        const errorElement = document.querySelector("[data-field-name='buildingType']");
         if (errorElement) errorElement.scrollIntoView({ behavior: "smooth", block: "center" });
         return;
       }
@@ -1351,17 +1588,24 @@ export default function SubmitInspectionPage() {
       if (insuranceDocuments.length > 1 && insuranceDocuments.some(d => !d.file)) {
         hasDocErrors = true;
         docErrorMsg = "Please upload a file for all rows, or remove empty rows.";
+        for (const doc of insuranceDocuments) {
+          if (!doc.file) {
+            (errors as any)[`docFile_${doc.id}`] = docErrorMsg;
+          }
+        }
       } else {
         for (const doc of validDocs) {
           if (doc.categories.length === 0) {
             hasDocErrors = true;
-            docErrorMsg = `Please select at least one category for the file: "${doc.file!.name}"`;
-            break;
+            const msg = `Please select a category for the file: "${doc.file!.name}"`;
+            (errors as any)[`docCategory_${doc.id}`] = msg;
+            if (!docErrorMsg) docErrorMsg = msg;
           }
           if (doc.categories.includes("Other") && !doc.customCategory.trim()) {
             hasDocErrors = true;
-            docErrorMsg = `Please specify custom category for the file: "${doc.file!.name}"`;
-            break;
+            const msg = `Please specify custom category for the file: "${doc.file!.name}"`;
+            (errors as any)[`docCustomCategory_${doc.id}`] = msg;
+            if (!docErrorMsg) docErrorMsg = msg;
           }
         }
       }
@@ -1544,8 +1788,18 @@ export default function SubmitInspectionPage() {
       if (!formData.inspectionType) {
         setShowErrors(true);
         setSubmitError("Please select an Inspection Type before submitting.");
+        setCurrentStep(0);
         const errorElement = document.querySelector("[data-field-name='inspectionType']");
         if (errorElement) errorElement.scrollIntoView({ behavior: "smooth", block: "center" });
+        return;
+      }
+      if (getAvailableBuildingTypes(formData.inspectionType).length > 0 && !formData.buildingType) {
+        setShowErrors(true);
+        setSubmitError("Please select a Building Type before submitting.");
+        setCurrentStep(0);
+        setTimeout(() => {
+          document.querySelector("[data-field-name='buildingType']")?.scrollIntoView({ behavior: "smooth", block: "center" });
+        }, 100);
         return;
       }
 
@@ -1613,27 +1867,47 @@ export default function SubmitInspectionPage() {
       let hasDocErrors = false;
       let docErrorMsg = "";
       const validDocsSubmit = insuranceDocuments.filter(d => d.file !== null);
+      const docFieldErrors: Record<string, string> = {};
       if (insuranceDocuments.length > 1 && insuranceDocuments.some(d => !d.file)) {
         hasDocErrors = true;
         docErrorMsg = "Please upload a file for all rows, or remove empty rows.";
+        docFieldErrors.insuranceDocument = docErrorMsg;
+        for (const doc of insuranceDocuments) {
+          if (!doc.file) {
+            docFieldErrors[`docFile_${doc.id}`] = docErrorMsg;
+          }
+        }
       } else {
         for (const doc of validDocsSubmit) {
           if (doc.categories.length === 0) {
             hasDocErrors = true;
-            docErrorMsg = `Please select at least one category for the file: "${doc.file!.name}"`;
-            break;
+            const msg = `Please select a category for the file: "${doc.file!.name}"`;
+            docFieldErrors[`docCategory_${doc.id}`] = msg;
+            if (!docErrorMsg) docErrorMsg = msg;
           }
           if (doc.categories.includes("Other") && !doc.customCategory.trim()) {
             hasDocErrors = true;
-            docErrorMsg = `Please specify custom category for the file: "${doc.file!.name}"`;
-            break;
+            const msg = `Please specify custom category for the file: "${doc.file!.name}"`;
+            docFieldErrors[`docCustomCategory_${doc.id}`] = msg;
+            if (!docErrorMsg) docErrorMsg = msg;
           }
         }
+        if (hasDocErrors) docFieldErrors.insuranceDocument = docErrorMsg;
       }
 
       if (hasDocErrors) {
         setShowErrors(true);
+        setFieldErrors((prev) => ({ ...prev, ...docFieldErrors }));
         setSubmitError(docErrorMsg);
+        setCurrentStep(2);
+        setTimeout(() => {
+          const firstKey =
+            Object.keys(docFieldErrors).find((k) => k.startsWith("docFile_")) ||
+            Object.keys(docFieldErrors).find((k) => k.startsWith("docCategory_") || k.startsWith("docCustomCategory_")) ||
+            "insuranceDocument";
+          const el = document.getElementById(firstKey) || document.querySelector('[data-field-name="insuranceDocument"]');
+          el?.scrollIntoView({ behavior: "smooth", block: "center" });
+        }, 100);
         return;
       }
 
@@ -1751,6 +2025,8 @@ export default function SubmitInspectionPage() {
             iaFirstName: formData.iaFirstName,
             iaLastName: formData.iaLastName,
             iaPhone: formData.iaPhone,
+            iaCompany: formData.iaCompany,
+            serviceAddOns: formData.serviceAddOns || [],
             contactEmails: formData.contactEmails.filter(c => c.contactType === "IA"),
           };
         } else if (portalUser.role === "Adjuster") {
@@ -1760,6 +2036,8 @@ export default function SubmitInspectionPage() {
             adjusterPhone: formData.adjusterPhone,
             adjusterPhoneExt: formData.adjusterPhoneExt,
             adjusterCompany: formData.adjusterCompany,
+            insuranceCompany: formData.insuranceCompany,
+            serviceAddOns: formData.serviceAddOns || [],
             contactEmails: formData.contactEmails.filter(c => c.contactType === "Adjuster (Carrier)"),
           };
         }
@@ -2363,10 +2641,14 @@ export default function SubmitInspectionPage() {
                           {/* Right: Building Type â€” only shown if required */}
                           {showBuildingType && (
                             <div className="space-y-2.5 md:col-span-1 animate-fadeIn">
-                              <SectionHeader title="Building Type" icon={Building2} />
+                              <SectionHeader title="Building Type" icon={Building2} required />
                               <div
                                 data-field-name="buildingType"
-                                className="grid grid-cols-2 md:grid-cols-1 gap-2 p-2 rounded-xl bg-gray-50/30 dark:bg-white/5"
+                                className={`grid grid-cols-2 md:grid-cols-1 gap-2 p-2 rounded-xl transition-all ${
+                                  showErrors && !formData.buildingType
+                                    ? "bg-gray-100/50 dark:bg-gray-800/10 ring-1 ring-gray-300"
+                                    : "bg-gray-50/30 dark:bg-white/5"
+                                }`}
                               >
                                 {availableBuildingTypes.map((b) => (
                                   <SelectCard
@@ -2386,6 +2668,12 @@ export default function SubmitInspectionPage() {
                                   />
                                 ))}
                               </div>
+                              {showErrors && !formData.buildingType && (
+                                <p className="text-gray-900 text-sm font-black mt-2 flex items-center gap-2 animate-bounce">
+                                  <BadgeAlert className="w-4 h-4 text-gray-600" />
+                                  Please select a building type to continue.
+                                </p>
+                              )}
                             </div>
                           )}
                         </div>
@@ -2456,15 +2744,16 @@ export default function SubmitInspectionPage() {
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                             {/* LEFT COLUMN â€” IA Information */}
                             <div className="bg-primary/5 dark:bg-accent/5 rounded-lg p-2 border border-primary/20 dark:border-accent/20 space-y-3">
-                              <SectionHeader title="IA Information" />
+                              <SectionHeader title="IA Information" icon={ShieldCheck} />
 
                               {/* Who is the primary client â€” INSIDE IA INFO */}
                               <div className="bg-white/50 dark:bg-background-dark/50 rounded-lg p-1.5 border border-primary/10 dark:border-accent/10 space-y-1.5">
                                 <SectionHeader title="Who is the primary client for this project?" icon={UserCheck} small />
-                                <div className={`grid grid-cols-1 sm:grid-cols-2 gap-1.5 transition-all`}>
+                                <div className={`grid grid-cols-1 sm:grid-cols-3 gap-1.5 transition-all`}>
                                   {[
                                     { id: "Independent Adjuster", title: "Independent Adjuster", icon: Shield },
                                     { id: "Adjuster (Carrier)", title: "Adjuster (Carrier)", icon: Building2 },
+                                    { id: "The IA is the TPA", title: "The IA is the TPA", icon: Users },
                                   ].map((opt) => {
                                     const selected = formData.primaryClientType === opt.id;
                                     return (
@@ -2494,6 +2783,28 @@ export default function SubmitInspectionPage() {
                                                 primaryClientType: selectedType as FormData["primaryClientType"],
                                                 contactEmails,
                                               };
+                                            }
+
+                                            if (selectedType === "The IA is the TPA") {
+                                              // IA is also the desk/carrier adjuster: ensure IA contact row exists,
+                                              // then mirror all IA info into carrier/adjuster fields.
+                                              const nameParts = (portalUser?.name || "").trim().split(/\s+/).filter(Boolean);
+                                              const iaFirst = nameParts.length > 0 ? nameParts[0] : "";
+                                              const iaLast = nameParts.length > 1 ? nameParts.slice(1).join(" ") : "";
+                                              const hasIa = contactEmails.some(c => c.contactType === "IA");
+                                              if (!hasIa) {
+                                                contactEmails = [
+                                                  ...contactEmails,
+                                                  { email: portalUser?.email || "", contactType: "IA", sendCopy: ["all", "report", "invoice", "notifications"] },
+                                                ];
+                                              }
+                                              return syncCarrierFieldsFromIa({
+                                                ...prev,
+                                                primaryClientType: selectedType as FormData["primaryClientType"],
+                                                iaFirstName: prev.iaFirstName || iaFirst,
+                                                iaLastName: prev.iaLastName || iaLast,
+                                                contactEmails,
+                                              });
                                             }
 
                                             // Independent Adjuster: keep Carrier details/emails intact. Only ensure an
@@ -2712,7 +3023,7 @@ export default function SubmitInspectionPage() {
 
                               {/* Row 4: Primary IA Email (full width) */}
                               <div className="space-y-2 pt-2 border-t border-primary/10 dark:border-accent/10">
-                                <SectionHeader title="Primary IA Email" />
+                                <SectionHeader title="Primary IA Email" icon={Mail} />
                                 <div className="space-y-2">
                                   {formData.contactEmails.filter(c => c.contactType === "IA").map((recipient, localIndex) => {
                                     const absoluteIndex = formData.contactEmails.findIndex((c, i) =>
@@ -2798,7 +3109,7 @@ export default function SubmitInspectionPage() {
                                       Add another email
                                     </button>
                                   </div>
-                                  {iaSectionError && (<p className="text-xs text-gray-900 font-black bg-gray-200/80 backdrop-blur-sm px-2 py-1 rounded-md border border-gray-300/50 mt-1 inline-block">{iaSectionError}</p>)}
+                                  {iaSectionError && (<p className="text-[10px] text-gray-900 font-black bg-gray-200/80 backdrop-blur-sm px-1.5 py-0.5 rounded mt-0.5 inline-block border border-gray-300/50">{iaSectionError}</p>)}
                                   {formData.contactEmails.filter(c => c.contactType === "IA").length >= MAX_IA_EMAILS && (<p className="text-[11px] text-gray-500 dark:text-gray-400">Maximum of {MAX_IA_EMAILS} IA email recipients reached.</p>)}
                                 </div>
                               </div>
@@ -2810,7 +3121,7 @@ export default function SubmitInspectionPage() {
                             <div className="space-y-3">
                               {/* Insurance Carrier */}
                               <div className="bg-gray-50 dark:bg-background-dark rounded-lg p-2 border border-gray-200 dark:border-gray-700 space-y-2">
-                                <SectionHeader title="Insurance Carrier" />
+                                <SectionHeader title="Insurance Carrier" icon={Shield} />
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                                   {/* Insurance Company Search */}
                                   <div className="space-y-0.5 relative">
@@ -2848,7 +3159,7 @@ export default function SubmitInspectionPage() {
                                         }}
                                         placeholder="Search or type a company..."
                                         className={`w-full bg-gray-50 dark:bg-background-dark border rounded-lg px-2.5 py-1.5 text-xs text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:border-transparent transition-all ${fieldErrors.insuranceCompany
-                                          ? "border-gray-300 focus:ring-gray-300 dark:border-gray-600 dark:focus:ring-gray-600"
+                                          ? "border-gray-400 focus:ring-gray-300 dark:border-gray-600 dark:focus:ring-gray-600"
                                           : "border-gray-200 focus:ring-primary dark:border-gray-700 dark:focus:ring-accent"
                                           }`}
                                       />
@@ -2859,7 +3170,7 @@ export default function SubmitInspectionPage() {
                                       )}
                                     </div>
                                     {fieldErrors.insuranceCompany && (
-                                      <p className="text-[10px] text-gray-900 font-black -mt-0.5">{fieldErrors.insuranceCompany}</p>
+                                      <p className="text-[10px] text-gray-900 font-black bg-gray-200/80 backdrop-blur-sm px-1.5 py-0.5 rounded mt-0.5 inline-block border border-gray-300/50">{fieldErrors.insuranceCompany}</p>
                                     )}
                                     {insuranceCompanyOpen && (
                                       <div className="absolute z-20 mt-1 w-full max-h-64 overflow-auto rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-section-dark shadow-lg">
@@ -2926,7 +3237,6 @@ export default function SubmitInspectionPage() {
                                   <InputField label="Claim Number" name="claimNumber" value={formData.claimNumber} onChange={handleChange} onBlur={handleBlur} placeholder="CLM-123456" required icon={Tag} invalid={!!fieldErrors.claimNumber} error={fieldErrors.claimNumber} />
                                 </div>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3">
-                                  <InputField label="Policy Number" name="policyNumber" value={formData.policyNumber} onChange={handleChange} placeholder="POL-789012" icon={Hash} invalid={!!fieldErrors.policyNumber} error={fieldErrors.policyNumber} />
                                   <DatePicker
                                     label="Date of Loss"
                                     name="dateOfLoss"
@@ -2940,7 +3250,7 @@ export default function SubmitInspectionPage() {
                               </div>
                               {/* Adjuster Details */}
                               <div className="bg-gray-50 dark:bg-background-dark rounded-lg p-2 border border-gray-200 dark:border-gray-700 space-y-2">
-                                <SectionHeader title={formData.isIAClaim ? "Carrier Adjuster Details" : "Adjuster Details"} />
+                                <SectionHeader title={formData.isIAClaim ? "Carrier Adjuster Details" : "Adjuster Details"} icon={Gavel} />
                                 {/* Adjuster Company Name â€” hidden for now, restore when needed
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                                   <InputField label="Adjuster Company Name" name="adjusterCompany" value={formData.adjusterCompany} onChange={handleChange} placeholder="Company Name" icon={Building2} />
@@ -3181,7 +3491,7 @@ export default function SubmitInspectionPage() {
                                 <div className="space-y-1">
                                   <label htmlFor="adjusterComments" className="text-[11px] font-bold text-gray-700 dark:text-gray-300 flex items-center gap-1.5">
                                     <MessageSquare className="text-primary dark:text-accent w-3.5 h-3.5" />
-                                    Adjuster&apos;s Comments
+                                    Client Notes &amp; Comments
                                   </label>
                                   <textarea
                                     id="adjusterComments"
@@ -3189,7 +3499,7 @@ export default function SubmitInspectionPage() {
                                     value={formData.adjusterComments}
                                     onChange={handleChange}
                                     rows={1}
-                                    placeholder="Any additional comments from the adjuster..."
+                                    placeholder="Add any additional information"
                                     className="w-full bg-gray-50 dark:bg-background-dark border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-primary dark:focus:ring-accent focus:border-transparent resize-none overflow-hidden transition-all min-h-[80px]"
                                   />
                                 </div>
@@ -3203,7 +3513,7 @@ export default function SubmitInspectionPage() {
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                           {/* LEFT COLUMN â€” Insurance */}
                           <div className="bg-gray-50 dark:bg-background-dark rounded-lg p-2 border border-gray-200 dark:border-gray-700 space-y-2">
-                            <SectionHeader title="Insurance Carrier" />
+                            <SectionHeader title="Insurance Carrier" icon={Shield} />
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                               <div className="space-y-0.5 relative">
                                 <label htmlFor="insuranceCompany" className="text-[11px] font-semibold text-gray-700 dark:text-gray-300 flex items-center gap-1">
@@ -3239,7 +3549,7 @@ export default function SubmitInspectionPage() {
                                     }}
                                     placeholder="Search or type a company..."
                                     className={`w-full bg-gray-50 dark:bg-background-dark border rounded-lg px-2.5 py-1.5 text-xs text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:border-transparent transition-all ${fieldErrors.insuranceCompany
-                                      ? "border-gray-300 focus:ring-gray-300 dark:border-gray-600 dark:focus:ring-gray-600"
+                                      ? "border-gray-400 focus:ring-gray-300 dark:border-gray-600 dark:focus:ring-gray-600"
                                       : "border-gray-200 focus:ring-primary dark:border-gray-700 dark:focus:ring-accent"
                                       }`}
                                   />
@@ -3250,7 +3560,7 @@ export default function SubmitInspectionPage() {
                                   )}
                                 </div>
                                 {fieldErrors.insuranceCompany && (
-                                  <p className="text-[10px] text-gray-900 font-black -mt-0.5">{fieldErrors.insuranceCompany}</p>
+                                  <p className="text-[10px] text-gray-900 font-black bg-gray-200/80 backdrop-blur-sm px-1.5 py-0.5 rounded mt-0.5 inline-block border border-gray-300/50">{fieldErrors.insuranceCompany}</p>
                                 )}
                                 {insuranceCompanyOpen && (
                                   <div className="absolute z-20 mt-1 w-full max-h-64 overflow-auto rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-section-dark shadow-lg">
@@ -3317,7 +3627,6 @@ export default function SubmitInspectionPage() {
                               <InputField label="Claim Number" name="claimNumber" value={formData.claimNumber} onChange={handleChange} onBlur={handleBlur} placeholder="CLM-123456" required icon={Tag} invalid={!!fieldErrors.claimNumber} error={fieldErrors.claimNumber} />
                             </div>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3">
-                              <InputField label="Policy Number" name="policyNumber" value={formData.policyNumber} onChange={handleChange} placeholder="POL-789012" icon={Hash} invalid={!!fieldErrors.policyNumber} error={fieldErrors.policyNumber} />
                               <div className="space-y-0.5">
                                 <DatePicker
                                   label="Date of Loss"
@@ -3335,7 +3644,7 @@ export default function SubmitInspectionPage() {
 
                           {/* RIGHT COLUMN â€” Adjuster */}
                           <div className="bg-gray-50 dark:bg-background-dark rounded-lg p-2 border border-gray-200 dark:border-gray-700 space-y-2">
-                            <SectionHeader title={formData.isIAClaim ? "Carrier Adjuster Details" : "Adjuster Details"} />
+                            <SectionHeader title={formData.isIAClaim ? "Carrier Adjuster Details" : "Adjuster Details"} icon={Gavel} />
                             {/* Adjuster Company Name â€” hidden for now, restore when needed
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                               <InputField label="Adjuster Company Name" name="adjusterCompany" value={formData.adjusterCompany} onChange={handleChange} placeholder="Company Name" icon={Building2} />
@@ -3576,7 +3885,7 @@ export default function SubmitInspectionPage() {
                             <div className="space-y-1">
                               <label htmlFor="adjusterComments" className="text-[11px] font-bold text-gray-700 dark:text-gray-300 flex items-center gap-1.5">
                                 <MessageSquare className="text-primary dark:text-accent w-3.5 h-3.5" />
-                                Adjuster&apos;s Comments
+                                Client Notes &amp; Comments
                               </label>
                               <textarea
                                 id="adjusterComments"
@@ -3584,7 +3893,7 @@ export default function SubmitInspectionPage() {
                                 value={formData.adjusterComments}
                                 onChange={handleChange}
                                 rows={1}
-                                placeholder="Any additional comments from the adjuster..."
+                                placeholder="Add any additional information"
                                 className="w-full bg-gray-50 dark:bg-background-dark border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-primary dark:focus:ring-accent focus:border-transparent resize-none overflow-hidden transition-all min-h-[80px]"
                               />
                             </div>
@@ -3603,7 +3912,7 @@ export default function SubmitInspectionPage() {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3 animate-fadeIn">
                       {/* LEFT â€” Property Contact (Policyholder) */}
                       <div className="bg-gray-50 dark:bg-background-dark rounded-lg p-2 border border-gray-200 dark:border-gray-700 space-y-2">
-                        <SectionHeader title="Property Contact (Policyholder)" />
+                        <SectionHeader title="Property Contact (Policyholder)" icon={User} />
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                           <InputField label="First Name" name="policyholderFirstName" value={formData.policyholderFirstName} onChange={handleChange} onBlur={handleBlur} placeholder="First Name" required icon={UserRound} invalid={!!fieldErrors.policyholderFirstName} error={fieldErrors.policyholderFirstName} />
                           <InputField label="Last Name" name="policyholderLastName" value={formData.policyholderLastName} onChange={handleChange} onBlur={handleBlur} placeholder="Last Name" required icon={UserRound} invalid={!!fieldErrors.policyholderLastName} error={fieldErrors.policyholderLastName} />
@@ -3730,7 +4039,11 @@ export default function SubmitInspectionPage() {
                           {SERVICE_ADD_ONS.map((addon) => (
                             <ReviewRow
                               key={addon.id}
-                              label={addon.title}
+                              label={
+                                addon.id === "swi"
+                                  ? "Severe Weather\nIntelligence™"
+                                  : "TRI Repairability\nEvaluation"
+                              }
                               value={formData.serviceAddOns.includes(addon.id) ? "Selected" : "Not selected"}
                             />
                           ))}
@@ -3752,7 +4065,6 @@ export default function SubmitInspectionPage() {
 
                           <ReviewRow label="Insurance Company" value={formData.insuranceCompany} />
                           <ReviewRow label="Claim Number" value={formData.claimNumber} />
-                          {formData.policyNumber && <ReviewRow label="Policy Number" value={formData.policyNumber} />}
                           {formData.dateOfLoss && <ReviewRow label="Date of Loss" value={formData.dateOfLoss} />}
 
                           <div className="col-span-full border-t-[2px] border-gray-200 dark:border-gray-700 mt-2 mb-2"></div>
@@ -3776,8 +4088,33 @@ export default function SubmitInspectionPage() {
                               </>
                             );
                           })()}
-                          {formData.adjusterComments && <ReviewRow label="Comments" value={formData.adjusterComments} />}
+                          {formData.adjusterComments && <ReviewRow label="Client Notes & Comments" value={formData.adjusterComments} />}
                           {formData.primaryClientType && <ReviewRow label="Primary Client" value={formData.primaryClientType} />}
+
+                          <div className="col-span-full border-t-[2px] border-gray-200 dark:border-gray-700 mt-2 mb-2"></div>
+                          {(() => {
+                            const docs = insuranceDocuments.filter((d) => d.file !== null);
+                            if (docs.length === 0) {
+                              return (
+                                <div className="col-span-full text-[13px] italic text-gray-300 dark:text-gray-600">
+                                  No Insurance Documents Provided
+                                </div>
+                              );
+                            }
+                            return docs.map((doc, i) => {
+                              const cats = doc.categories
+                                .map((c) => (c === "Other" && doc.customCategory.trim() ? doc.customCategory.trim() : c))
+                                .filter(Boolean);
+                              const categoryLabel = cats.length > 0 ? cats.join(", ") : "No category";
+                              return (
+                                <ReviewRow
+                                  key={doc.id}
+                                  label={docs.length > 1 ? `Insurance Documents ${i + 1}` : "Insurance Documents"}
+                                  value={`${doc.file!.name} (${categoryLabel})`}
+                                />
+                              );
+                            });
+                          })()}
                         </ReviewBlock>
 
                         {/* 4. Property Contact Info & Address */}
@@ -4107,7 +4444,7 @@ export default function SubmitInspectionPage() {
 
 function ReviewBlock({ stepNumber, title, icon: Icon, onEdit, children, optional = false }: { stepNumber: string; title: string; icon: React.ElementType; onEdit: () => void; children: React.ReactNode; optional?: boolean }) {
   return (
-    <div className="group space-y-0 animate-fadeIn mb-6 last:mb-0 bg-white dark:bg-section-dark rounded-xl shadow-sm border-y-[2px] border-x-[6px] border-primary dark:border-accent transition-all hover:shadow-md overflow-hidden">
+    <div className="group space-y-0 animate-fadeIn mb-6 last:mb-0 bg-white dark:bg-section-dark rounded-xl shadow-sm border border-primary/25 dark:border-accent/25 transition-all hover:shadow-md overflow-hidden">
       <div className="bg-white dark:bg-background-dark py-3 px-5 flex items-center justify-between">
         <div className="flex items-center gap-2.5">
           <Icon className="w-4 h-4 text-primary dark:text-accent" />
@@ -4146,11 +4483,11 @@ function ReviewRow({ label, value, fullWidth = false }: { label: string; value: 
 
   return (
     <div className={`${fullWidth ? "col-span-full" : ""} flex flex-col gap-1`}>
-      <span className="text-[10px] font-bold uppercase tracking-widest text-gray-400 dark:text-gray-500 pl-1">
+      <span className="text-[10px] font-bold uppercase tracking-widest text-gray-400 dark:text-gray-500 pl-1 min-h-[2.6em] whitespace-pre-line leading-snug">
         {label}
       </span>
       <div className="bg-white dark:bg-gray-800 border border-primary/20 dark:border-accent/20 rounded-lg p-2.5 shadow-sm">
-        <span className="text-[13px] font-medium text-gray-800 dark:text-gray-200 break-words whitespace-pre-wrap leading-tight" style={{ wordBreak: "break-word" }}>
+        <span className="text-[13px] font-bold text-gray-800 dark:text-gray-200 break-words whitespace-pre-wrap leading-tight" style={{ wordBreak: "break-word" }}>
           {displayValue || <span className="text-gray-300 dark:text-gray-600 italic font-normal">Not provided</span>}
         </span>
       </div>

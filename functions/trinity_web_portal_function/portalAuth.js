@@ -761,7 +761,11 @@ async function handleGetUserPreferences(catalystApp, { sessionToken, insuranceCo
                 console.error('[getUserPreferences] Failed to parse preferences JSON:', err);
             }
         }
-        return { success: true, preferences };
+        return {
+            success: true,
+            preferences,
+            scopingCompany: row.scoping_company || null,
+        };
     } catch (err) {
         console.error('[getUserPreferences] Error fetching preferences:', err.message);
         if (err.message && (err.message.includes('not exist') || err.message.includes('not found') || err.message.includes('Table'))) {

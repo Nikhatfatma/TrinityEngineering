@@ -58,3 +58,6 @@ catalyst_build/
 
 # node
 node_modules/
+
+functions/trinity_web_portal_function/catalyst-config.json
+app-config.json

@@ -71,7 +71,7 @@ export default function FortifiedSection() {
                 </ul>
                 <div className="mt-8 text-left text-sm font-bold leading-snug md:mt-10 md:text-[17px]">
                   <span className="block">
-                    We are <span className="text-blue-400">The only engineering firm</span>
+                    We are <span className="text-blue-400">the only engineering firm</span>
                   </span>
                   <span className="mt-2 block max-md:whitespace-normal md:whitespace-nowrap">
                     providing eligibility solutions for the{" "}
@@ -88,7 +88,7 @@ export default function FortifiedSection() {
                   or a walkable flat roof, timber rafters, or round roof,
                 </span>
                 <span className="block">
-                  we are <span className="font-bold text-blue-400">The only engineering firm</span>
+                  we are <span className="font-bold text-blue-400">the only engineering firm</span>
                 </span>
                 <span className="block">
                   providing eligibility solutions for the <span className="font-bold">FORTIFIED ROOF™ Program</span>
